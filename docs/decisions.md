@@ -4,6 +4,22 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-015 — ArchUnit: `allowEmptyShould(true)` por regra, não global (26/07/2026)
+Desde o ArchUnit 1.3.0, regras `noClasses()/classes()...that()` falham por padrão quando
+nenhuma classe casa com o `that()` (ex.: pacote `application`/`presentation` ainda
+inexistente). Isso contradiz a intenção de D-006 (regras "armadas" para camadas futuras,
+passando vazias até existirem). Primeira tentativa desligou o default globalmente via
+`archRule.failOnEmptyShould=false` em `src/test/resources/archunit.properties` — descartada
+em revisão: uma config global mascara silenciosamente qualquer regra que deixe de casar
+classes no futuro (renomeação de pacote, refactor incompleto), inclusive as fundamentais
+como `domainDependsOnNothing`. Trocado por `.allowEmptyShould(true)` encadeado apenas nas
+duas regras hoje vazias (`applicationDoesNotSeePresentation`,
+`presentationDoesNotSeeInfrastructure`), com comentário no código marcando a permissão como
+temporária. Risco aceito: essas duas regras não acusam nada até os pacotes existirem — por
+isso a permissão fica restrita a elas, e as demais permanecem estritas. Ação futura: remover
+as duas chamadas `.allowEmptyShould(true)` quando `application` e `presentation` existirem,
+ao final do bloco da interface.
+
 ## D-014 — Relatório narrativo por IA opcional (BYOK) na v1 (26/07/2026)
 Última entrega da v1: botão pós-análise, API key do próprio usuário, envia só o relatório
 agregado (nunca XMLs), narra achados determinísticos sem julgar tributo. Ideia registrada:
