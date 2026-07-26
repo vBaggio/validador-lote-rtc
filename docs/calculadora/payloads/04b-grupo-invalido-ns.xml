@@ -1,0 +1,18 @@
+<infNFe xmlns="http://www.portalfiscal.inf.br/nfe">
+    <det nItem="1">
+        <imposto>
+            <IBSCBS>
+                <CST>000</CST>
+                <cClassTrib>000001</cClassTrib>
+                <gIBSCBS>
+                    <vBC>200</vBC>
+                    <ELEMENTO_INVALIDO>xyz</ELEMENTO_INVALIDO>
+                    <gIBSUF>
+                        <pIBSUF>0.05</pIBSUF>
+                        <vIBSUF>0.10</vIBSUF>
+                    </gIBSUF>
+                </gIBSCBS>
+            </IBSCBS>
+        </imposto>
+    </det>
+</infNFe>

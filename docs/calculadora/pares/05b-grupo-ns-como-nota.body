@@ -1,0 +1,1 @@
+{"type":"http://localhost/errors/erro-xml","title":"Erro de validação de XML","status":422,"detail":"Erro na validação do XML: Erro na linha 1, coluna 52: cvc-elt.1.a: Cannot find the declaration of element 'infNFe'.","instance":"/api/calculadora/xml/validate","timestamp":"2026-07-26T05:01:03.671438286Z"}

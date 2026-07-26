@@ -1,0 +1,15 @@
+# Insumos locais não versionados
+/tmp/
+.claude/settings.local.json
+
+# Build
+/build/
+/.gradle/
+
+# IDE
+/.idea/
+*.iml
+
+# SO
+.DS_Store
+Thumbs.db

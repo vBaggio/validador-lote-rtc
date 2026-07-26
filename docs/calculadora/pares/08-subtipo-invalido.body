@@ -1,0 +1,1 @@
+{"type":"http://localhost/errors/tipo-argumento-invalido","title":"Tipo de argumento inválido","status":400,"detail":"Parâmetro inválido [subtipo: XXXX] ","instance":"/api/calculadora/xml/validate","timestamp":"2026-07-26T05:00:07.454208639Z"}

@@ -1,0 +1,33 @@
+### REQUEST
+POST http://localhost:18300/api/calculadora/xml/validate?tipo=nfe&subtipo=grupo
+Content-Type: application/xml
+--- payload (04b-grupo-invalido-ns.xml) ---
+<infNFe xmlns="http://www.portalfiscal.inf.br/nfe">
+    <det nItem="1">
+        <imposto>
+            <IBSCBS>
+                <CST>000</CST>
+                <cClassTrib>000001</cClassTrib>
+                <gIBSCBS>
+                    <vBC>200</vBC>
+                    <ELEMENTO_INVALIDO>xyz</ELEMENTO_INVALIDO>
+                    <gIBSUF>
+                        <pIBSUF>0.05</pIBSUF>
+                        <vIBSUF>0.10</vIBSUF>
+                    </gIBSUF>
+                </gIBSCBS>
+            </IBSCBS>
+        </imposto>
+    </det>
+</infNFe>
+
+### RESPONSE
+HTTP_STATUS: 422
+--- response headers ---
+HTTP/1.1 422 
+Content-Type: application/problem+json
+Transfer-Encoding: chunked
+Date: Sun, 26 Jul 2026 05:01:03 GMT
+
+--- response body ---
+{"type":"http://localhost/errors/erro-xml","title":"Erro de validação de XML","status":422,"detail":"Erro na validação do XML: Erro na linha 9, coluna 40: cvc-complex-type.2.4.a: Invalid content was found starting with element '{\"http://www.portalfiscal.inf.br/nfe\":ELEMENTO_INVALIDO}'. One of '{\"http://www.portalfiscal.inf.br/nfe\":gIBSUF}' is expected.","instance":"/api/calculadora/xml/validate","timestamp":"2026-07-26T05:01:03.660257955Z"}

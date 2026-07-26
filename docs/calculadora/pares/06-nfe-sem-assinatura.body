@@ -1,0 +1,1 @@
+{"type":"http://localhost/errors/erro-xml","title":"Erro de validação de XML","status":422,"detail":"Erro na validação do XML: Erro na linha 4, coluna 29: cvc-complex-type.2.4.b: The content of element 'ide' is not complete. One of '{\"http://www.portalfiscal.inf.br/nfe\":cNF}' is expected.","instance":"/api/calculadora/xml/validate","timestamp":"2026-07-26T05:00:07.415048404Z"}

@@ -1,0 +1,50 @@
+LICENÇA / TERMOS DE USO DA CALCULADORA DE TRIBUTOS DA RFB (IBS/CBS/IS)
+=======================================================================
+Data da apuração: 2026-07-26
+Artefato analisado: calculadora.zip (253,5 MB) baixado de
+  https://obs-13820-calcpr-apr.obsv3.br-df-1.hcs.serpro.gov.br/calculadora.zip
+Versão do motor (API): versaoApp 1.2.4 / DB V0039 (dataVersaoDb 2026-07-08)
+
+RESULTADO: NENHUM ARQUIVO DE LICENÇA, EULA, "TERMO DE USO", "COPYRIGHT"
+OU "NOTICE" FOI ENCONTRADO NA DISTRIBUIÇÃO.
+
+Locais verificados (todos SEM arquivo de licença):
+  - Raiz do calculadora.zip:
+      scripts-python-exemplo.zip, codigo-fonte-backend.zip,
+      calculadora.tar.gz, linux/{1-instalar,2-executar,3-desinstalar}.sh,
+      windows/{...}.bat  -> nenhum LICENSE/LICENCA/TERMO.
+  - Dentro de calculadora.tar.gz (imagem Docker exportada):
+      /calculadora/{api-regime-geral.jar, api-split-payment-simplificado.jar,
+      start.sh, db/, calculadora/}  -> nenhum arquivo de licença.
+  - META-INF do api-regime-geral.jar:
+      MANIFEST.MF, maven/br.gov.serpro.rtc/CalculadorTributo/pom.xml,
+      spring-configuration-metadata.json  -> o pom.xml NÃO possui tag
+      <licenses>. Nenhum LICENSE embutido.
+  - README.md do espelho GitHub (nfe/rtc-calculadora-offline) e README.md
+    do codigo-fonte-backend  -> nenhuma menção a MIT/Apache/GPL/licença.
+  - scripts-python-exemplo.zip (README + scripts) -> sem licença.
+
+Observação: os únicos textos de licença presentes na tarball pertencem ao
+SISTEMA-BASE do container (busybox, OpenJDK, nginx, libc etc. em
+/usr/share, /usr/lib...), NÃO à Calculadora em si.
+
+CONTEXTO (do README do espelho, não é uma licença formal):
+  "A Receita Federal do Brasil lançou a versão beta de sua Calculadora de
+   Tributos oficial ... Esta ferramenta de código aberto visa padronizar
+   os cálculos ..."
+  A ferramenta é descrita como "código aberto" e "versão beta", publicada
+  pela RFB/SERPRO, mas a distribuição NÃO inclui um instrumento jurídico
+  de licença que autorize expressamente a redistribuição do JAR.
+
+IMPLICAÇÃO PARA REDISTRIBUIÇÃO (decisão de projeto):
+  - Não há licença explícita => NÃO se pode presumir permissão de
+    redistribuir o binário (api-regime-geral.jar) junto do produto.
+  - Recomendação de menor risco: o produto NÃO deve reempacotar/redistribuir
+    o JAR. Em vez disso, deve orientar/automatizar o download pelo endpoint
+    oficial (a mesma URL que o robô do espelho usa):
+      GET https://piloto-cbs.tributos.gov.br/servico/calculadora-consumo/
+          api/calculadora/download/url?platform=default   (retorna downloadUrl)
+  - O código-fonte é publicado pela RFB e espelhado em
+    github.com/nfe/rtc-calculadora-offline (sem arquivo LICENSE no repo);
+    convém confirmar os termos diretamente com a RFB/SERPRO antes de
+    qualquer redistribuição do binário.

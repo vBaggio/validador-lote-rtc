@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe versao="4.00" Id="NFe35200114200166000187550010000000015123456789">
+      <ide><cUF>35</cUF></ide>
+    </infNFe>
+  </NFe>
+  <protNFe versao="4.00"><infProt><chNFe>35200114200166000187550010000000015123456789</chNFe></infProt></protNFe>
+</nfeProc>

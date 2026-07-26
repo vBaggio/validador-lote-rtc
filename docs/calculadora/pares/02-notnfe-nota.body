@@ -1,0 +1,1 @@
+{"type":"http://localhost/errors/erro-xml","title":"Erro de validação de XML","status":422,"detail":"Erro na validação do XML: Erro na linha 2, coluna 6: cvc-elt.1.a: Cannot find the declaration of element 'foo'.","instance":"/api/calculadora/xml/validate","timestamp":"2026-07-26T05:00:07.331361943Z"}
