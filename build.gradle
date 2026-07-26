@@ -69,7 +69,12 @@ tasks.register('updateSchemas') {
         def props = file('src/main/resources/schemas/schemas-version.properties')
         def old = new Properties()
         if (props.exists()) { props.withInputStream { old.load(it) } }
-        props.text = """engineVersion=${old.getProperty('engineVersion', 'ATUALIZAR-MANUALMENTE')}
+        props.text = """# Proveniência dos schemas XSD oficiais embarcados.
+# Extraídos de api-regime-geral.jar (Calculadora de Tributos da RFB), em BOOT-INF/classes/xml/.
+# Para atualizar quando a RFB publicar base nova: ./gradlew updateSchemas
+# O endpoint ESTÁVEL de download vive nessa task (build.gradle); sourceUrl abaixo é a URL
+# pré-assinada que ele resolveu nesta extração — ela expira e não serve para re-download.
+engineVersion=${old.getProperty('engineVersion', 'ATUALIZAR-MANUALMENTE')}
 baseVersion=${old.getProperty('baseVersion', 'ATUALIZAR-MANUALMENTE')}
 extractedAt=${new Date().format('yyyy-MM-dd')}
 sourceUrl=${downloadUrl}
