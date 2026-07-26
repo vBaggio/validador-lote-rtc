@@ -1,0 +1,79 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'br.com.validadorlote'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.formdev:flatlaf:3.6'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testImplementation 'org.assertj:assertj-core:3.26.3'
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'br.com.validadorlote.App'
+}
+
+test {
+    useJUnitPlatform {
+        excludeTags 'slow'
+    }
+}
+
+tasks.register('slowTest', Test) {
+    description = 'Roda testes lentos (@Tag("slow")).'
+    group = 'verification'
+    useJUnitPlatform { includeTags 'slow' }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+// Baixa o pacote oficial da Calculadora e re-extrai os XSDs para resources.
+// Uso manual quando a RFB atualizar a base. Rede APENAS aqui — nunca no build.
+tasks.register('updateSchemas') {
+    description = 'Atualiza src/main/resources/schemas a partir do JAR oficial da Calculadora.'
+    group = 'build setup'
+    doLast {
+        def endpoint = 'https://piloto-cbs.tributos.gov.br/servico/calculadora-consumo/api/calculadora/download/url?platform=default'
+        def downloadUrl = new groovy.json.JsonSlurper().parse(new URL(endpoint)).downloadUrl
+        def zipFile = layout.buildDirectory.file('calculadora/calculadora.zip').get().asFile
+        zipFile.parentFile.mkdirs()
+        logger.lifecycle("Baixando ${downloadUrl} (~250 MB)...")
+        new URL(downloadUrl).withInputStream { i -> zipFile.withOutputStream { o -> o << i } }
+        def unzipDir = layout.buildDirectory.dir('calculadora/unzipped').get().asFile
+        copy { from zipTree(zipFile); into unzipDir; include '**/api-regime-geral.jar' }
+        def jar = fileTree(unzipDir).matching { include '**/api-regime-geral.jar' }.singleFile
+        def schemasDir = file('src/main/resources/schemas')
+        delete fileTree(schemasDir) { include 'nfe/**', 'nfce/**' }
+        copy {
+            from zipTree(jar)
+            into schemasDir
+            include 'BOOT-INF/classes/xml/nfe/**', 'BOOT-INF/classes/xml/nfce/**'
+            eachFile { it.path = it.path.replaceFirst('BOOT-INF/classes/xml/', '') }
+            includeEmptyDirs = false
+        }
+        def props = file('src/main/resources/schemas/schemas-version.properties')
+        def old = new Properties()
+        if (props.exists()) { props.withInputStream { old.load(it) } }
+        props.text = """engineVersion=${old.getProperty('engineVersion', 'ATUALIZAR-MANUALMENTE')}
+baseVersion=${old.getProperty('baseVersion', 'ATUALIZAR-MANUALMENTE')}
+extractedAt=${new Date().format('yyyy-MM-dd')}
+sourceUrl=${downloadUrl}
+"""
+        logger.lifecycle('Schemas atualizados. CONFIRA engineVersion/baseVersion em schemas-version.properties (endpoint dados-abertos/versao).')
+    }
+}
