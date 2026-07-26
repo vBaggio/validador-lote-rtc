@@ -1,6 +1,7 @@
 # Insumos locais não versionados
 /tmp/
 .claude/settings.local.json
+.superpowers/
 
 # Build
 /build/
