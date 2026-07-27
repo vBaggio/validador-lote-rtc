@@ -182,11 +182,22 @@ A Calculadora **não expõe** a Tabela 03: seu endpoint de situações tributár
 portal nacional publica só em PDF, a URL do arquivo carrega hash que muda a cada versão, e os
 serviços REST da SVRS exigem certificado ICP-Brasil.
 
-**Recomendação (D-025):** embarcar uma tabela auxiliar estática `cst-indicators.json` em
-`src/main/resources/tables/`, com o de-para dos CSTs e seus indicadores, atualizada por script
-utilitário em manutenção programada — não no build. São poucos registros e mudam raramente; o
-custo é baixo e a alternativa (derivar de campo de granularidade errada) produziria veredito
-incorreto.
+**Fonte localizada** — ver [INV-1b](../../pesquisa/inv-1b-fonte-oficial-cst-cclasstrib.md). O
+portal da SVRS publica o conjunto completo em JSON público, sem autenticação, em
+`https://dfe-portal.svrs.rs.gov.br/DFE/ClassificacaoTributaria` (embutido na página como
+`dadosOriginais`): 18 CSTs com os 8 indicadores, 164 cClassTrib aninhadas com 27 indicadores cada,
+e 4.628 anexos ligando 1.792 NCMs e 190 NBS às classificações.
+
+Os números confirmam de forma contundente que os campos **não** são intercambiáveis:
+`IndReducaoAliq` (o `ind_gRed` real) é verdadeiro em **3** dos 18 CSTs; `possuiPercentualReducao`
+da Calculadora é verdadeiro em **60** das 161 classificações. Usar o segundo teria gerado falso
+positivo em escala.
+
+**Recomendação (D-025):** ingerir a tabela da SVRS numa task Gradle análoga à `updateSchemas`,
+gravando versão destilada em resources — rede só nessa task, nunca no build. Riscos a tratar na
+implementação: o JSON está embutido em HTML e não é contrato de API, então a task precisa validar
+o esquema e falhar ruidosamente se o layout mudar; e vale verificar antes se
+`consumo.tributos.gov.br` expõe o mesmo dado como REST formal, o que seria mais estável.
 
 ---
 
