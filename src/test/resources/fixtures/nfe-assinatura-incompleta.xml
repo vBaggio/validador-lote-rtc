@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Assinatura PRESENTE porém quebrada: <Signature/> sem SignedInfo.
+     Não é "documento sem assinatura" — é erro de schema. -->
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe versao="4.00" Id="NFe35200114200166000187550010000000015123456789">
+    <ide><cUF>35</cUF></ide>
+  </infNFe>
+  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#"/>
+</NFe>
