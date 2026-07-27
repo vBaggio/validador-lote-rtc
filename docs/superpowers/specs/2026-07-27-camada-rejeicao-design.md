@@ -50,21 +50,26 @@ A NT tem 277 regras formais (129 de presença, 77 de cálculo, 44 de tabela, 27 
 Transcrever todas seria um corpo de código que envelhece a cada revisão da NT — foram **13
 revisões em 16 meses**.
 
-A alternativa: as tabelas oficiais da Calculadora **já carregam os metadados que governam a maior
-parte das regras de presença**. Verificado nas 161 classificações tributárias:
+A alternativa: as tabelas oficiais **já carregam os metadados que governam a maior parte das regras
+de presença**. A fonte autoritativa é a tabela CST × cClassTrib da SVRS (§5.5), que traz os
+indicadores nomeados pela própria NT:
 
-| Campo da tabela | Distribuição | Regra que governa |
-|---|---|---|
-| `possuiPercentualReducao` | 60 sim / 101 não | 1033, 1074, 1079 — grupo de redução ausente |
-| `percentualReducaoCbs/IbsUf/IbsMun` | ex.: `011001` → 60/60/60 | valor de redução divergente |
-| `exigeGrupoDesoneracao` | 27 sim | grupo de desoneração ausente |
-| `incompativelComSuspensao` | 24 sim | incompatibilidade com suspensão |
-| `indicaCreditoPresumido*` | 8 e 7 sim | grupo de crédito presumido |
-| `nomenclatura` (`NCM`/`NBS`/ambas) | 74 / 24 / 61 | nomenclatura informada indevidamente |
-| `tiposDfeClassificacao` | NFe 96 · NFCe 40 | **1025** — cClassTrib não permitida no modelo |
+| Campo | Nível | Distribuição | Regra que governa |
+|---|---|---|---|
+| `IndExigeTrib` (`ind_gIBSCBS`) | CST | 11 de 18 | **1021**, **1022** — grupo exigido ou proibido |
+| `IndReducaoAliq` (`ind_gRed`) | CST | **3** de 18 | **1033**, **1074**, **1079** — grupo de redução ausente |
+| `IndDiferimento` (`ind_gDif`) | CST | 2 de 18 | grupos de diferimento |
+| `IndNfe` / `IndNfce` | cClassTrib | — | **1025** — cClassTrib não permitida no modelo |
+| `PercRedIbs` / `PercRedCbs` | cClassTrib | — | valor de redução divergente do oficial |
+| `Anexos[].CodNcmNbs` | cClassTrib | 4.628 entradas | vínculo NCM/NBS × classificação |
 
-**Consequência de projeto:** onze mecanismos genéricos dirigidos por tabela substituem dezenas de
-regras codificadas. Quando a RFB publicar base nova, o comportamento acompanha sem tocar no código.
+> **Atenção — armadilha já cara uma vez.** A Calculadora expõe um campo de nome parecido,
+> `possuiPercentualReducao`, que **não** é o `ind_gRed`: ele é por classificação tributária
+> (verdadeiro em 60 de 161) enquanto o indicador real é por CST (verdadeiro em 3 de 18). Usar o
+> primeiro no lugar do segundo produz falso positivo em escala. Ver §5.5.
+
+**Consequência de projeto:** um punhado de mecanismos genéricos dirigidos por tabela substitui
+dezenas de regras codificadas, e uma base nova muda o comportamento sem tocar no código.
 
 ---
 
@@ -105,31 +110,70 @@ enum FindingKind {
 ambos nulos para achados de schema. A chave de causa-raiz passa a considerar o código de rejeição
 quando houver — dois documentos com a mesma rejeição agrupam juntos.
 
-`BatchReport` ganha a proveniência das camadas: versão do schema, versão da base de tabelas,
-versão da NT transcrita.
+`BatchReport` ganha o manifesto de proveniência (§5.2) e os contadores dos três desfechos (§4.3):
+avaliados conformes, com rejeição prevista, e **não avaliados** — este último nunca somado aos
+conformes.
 
 ### 4.2 Fluxo por documento
 
 ```
-1. Parse de metadados (existente) — inclui agora CRT e data de emissão
+1. Parse de metadados — AMPLIADO: o parser atual não extrai CRT nem os campos do
+   grupo IBS/CBS por item. Ambos são trabalho novo e pré-requisito desta camada.
 2. Validação XSD (existente) — coleta total
 3. Regras de documento:
    - CRT=3 e data ≥ 03/08/2026 → cada item precisa de IBSCBS   [1115 / UB12-10]
-   - grupo informado quando não deveria                         [1021]
-4. Regras dirigidas por tabela, por item:
-   - cClassTrib existe e vale na data
+   - grupo informado quando o CST não permite                   [1021]
+4. Regras dirigidas por tabela, por item (tudo consultado NA DATA do fato gerador):
+   - cClassTrib existe e vigente
    - cClassTrib permitida para o modelo do documento            [1025]
-   - cClassTrib vinculada ao CST informado
-   - nomenclatura (NCM × NBS) compatível
-   - grupo de redução presente sse possuiPercentualReducao      [1033/1074/1079]
-   - percentuais declarados batem com os oficiais
-   - desoneração e crédito presumido conforme os flags
+   - cClassTrib pertence ao CST informado
+   - grupo de redução presente sse IndReducaoAliq do CST        [1033/1074/1079]
+   - percentuais declarados batem com PercRedIbs / PercRedCbs
+   - NCM/NBS do item consta nos anexos da classificação
 5. (v1) Oráculo diferencial de valores via regime-geral
 ```
 
-**Ordem importa:** um documento sem grupo IBS/CBS não deve gerar dezenas de achados de subgrupo
-ausente. Quando a regra 1115 dispara para um item, as regras de subgrupo daquele item são
-suprimidas — senão o relatório afoga o usuário repetindo a mesma causa.
+### 4.3 Três desfechos por verificação, não dois
+
+Toda regra termina em um de **três** estados, e a distinção é decisiva para a confiança:
+
+| Desfecho | Quando | Como aparece |
+|---|---|---|
+| **Conforme** | verificado e correto | camada aprovada |
+| **Rejeição prevista** | verificado e viola a regra | achado com código e mensagem |
+| **Não avaliado** | falta dado para julgar | contado à parte, nunca somado aos aprovados |
+
+O terceiro estado existe porque **base velha não é erro do emitente**. Um `cClassTrib` publicado
+depois da nossa extração não está na tabela embarcada; tratá-lo como rejeição seria acusar o
+usuário de um defeito nosso. O mesmo vale para documento sem CRT legível, ou com CST fora da
+tabela. O relatório precisa dizer "não consegui avaliar 12 itens" em vez de aprová-los em silêncio
+ou reprová-los injustamente.
+
+### 4.4 Supressão em cascata
+
+Sem hierarquia explícita, um documento vazio gera dezenas de achados repetindo a mesma causa. A
+regra é: **quando uma verificação falha, as que dependem dela são suprimidas naquele item.**
+
+```
+1115 (grupo IBSCBS ausente)  suprime  todas as regras do item
+cClassTrib inválida/ausente  suprime  1025, redução, percentuais, NCM/NBS
+CST ausente ou fora da tabela suprime  1021, 1033, 1074, 1079
+```
+
+O achado suprimido não é perdido: ele não existe, porque a causa-raiz é a de cima. É o mesmo
+princípio do agrupamento — o contador precisa de uma causa acionável, não de sintomas.
+
+### 4.5 Aplicabilidade por regime e vigência
+
+A 1115 vale para **CRT=3 a partir de 03/08/2026**; para Simples Nacional e MEI (CRT 1, 2 e 4) só em
+**04/01/2027**. Consequência prática:
+
+- Documento de CRT diferente de 3, com data anterior a 04/01/2027 → a regra **não se aplica**.
+  Isso é distinto de "conforme": o relatório deve deixar claro que a exigência ainda não vigora
+  para aquele emitente, senão o contador conclui que está tudo certo e é surpreendido em janeiro.
+- Toda consulta a tabela usa a **data do fato gerador do documento**, não a data de hoje. Os
+  registros têm `DthIniVig`/`DthFimVig` próprios, e validar um documento de agosto contra a
+  vigência de dezembro daria veredito errado.
 
 ---
 
@@ -201,7 +245,7 @@ classificações: `possuiPercentualReducao` e os três percentuais, `exigeGrupoD
 rejeição 1025), `exigeGrupoTributacaoRegular`, `permiteDiferimento`,
 `possibilidadeCreditoPresumido`.
 
-**Consequência de projeto:** a task `updateTables` precisa materializar **as duas** visões — a em
+**Consequência de projeto:** a task `updateFiscalTables` precisa materializar **as duas** visões — a em
 massa para os metadados gerais, e a por-DFe iterando as classificações válidas para os modelos 55
 e 65 (96 e 40 respectivamente). O resultado embarcado é a junção das duas.
 
@@ -247,13 +291,17 @@ o esquema e falhar ruidosamente se o layout mudar; e vale verificar antes se
 A Calculadora **não expõe a versão da Nota Técnica** — só `versaoApp` (1.2.4) e `versaoDb`
 (V0039), que são versões de dados, não da norma.
 
-Consequência: a parte dirigida por tabela acompanha a base automaticamente; as poucas regras de
-documento ficam atadas à versão da NT que transcrevemos, sem sinal automático de obsolescência.
+Consequência, dita com precisão: a parte dirigida por tabela acompanha a base **sem exigir mudança
+de código** — mas nada disso é automático para o usuário final, que só recebe dado novo quando
+alguém roda a ingestão e publica versão nova do aplicativo. As duas regras de documento (1115 e
+1021) ficam atadas à NT vigente na época em que foram escritas, sem sinal automático de
+obsolescência.
 
 Tratamento:
 
-1. **Proveniência sempre visível** — versão da NT transcrita, versão da base de tabelas e data de
-   extração aparecem na tela e no CSV. O contador julga a procedência.
+1. **Proveniência sempre visível** — o manifesto de artefatos oficiais (§5.2) aparece na tela e no
+   CSV: origem e data de cada base embarcada. O contador julga a procedência. A versão da NT
+   importa pouco aqui, porque apenas duas regras vêm dela; o que envelhece de fato são as tabelas.
 2. **Aviso por idade, sem rede** — a NT teve 13 revisões em 16 meses (uma a cada ~5 semanas). Base
    com mais de 60 dias exibe aviso de possível desatualização. Não requer conexão.
 3. **Verificação online opcional** contra o portal da NF-e — opt-in explícito, pós-MVP, por
@@ -290,7 +338,13 @@ Além da estratégia leve e dirigida já vigente:
   inteira de subgrupos ausentes.
 - **Tabelas como fixture congelada**: os testes usam uma cópia fixa das tabelas, para não quebrarem
   quando a base for atualizada.
-- **Vigência**: o mesmo documento antes e depois de 03/08/2026 produz resultados diferentes.
+- **Vigência**: o mesmo documento antes e depois de 03/08/2026 produz resultados diferentes; e um
+  documento de CRT 1 antes de 04/01/2027 não gera a 1115.
+- **Terceiro desfecho**: item com `cClassTrib` ausente da tabela embarcada sai como *não avaliado*,
+  nunca como conforme nem como rejeição. É o teste que protege contra acusar o usuário de um
+  defeito nosso.
+- **Consulta por data do fato gerador**: registro com vigência encerrada não vale para documento
+  posterior, e vale para documento anterior.
 
 ---
 
