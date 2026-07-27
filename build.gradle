@@ -17,6 +17,7 @@ repositories {
 
 dependencies {
     implementation 'com.formdev:flatlaf:3.6'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testImplementation 'org.assertj:assertj-core:3.26.3'
