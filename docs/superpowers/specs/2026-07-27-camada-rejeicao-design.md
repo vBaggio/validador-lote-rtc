@@ -164,13 +164,29 @@ rejeição 1025), `exigeGrupoTributacaoRegular`, `permiteDiferimento`,
 massa para os metadados gerais, e a por-DFe iterando as classificações válidas para os modelos 55
 e 65 (96 e 40 respectivamente). O resultado embarcado é a junção das duas.
 
-### 5.2 Indicador ainda não localizado
+### 5.2 Os indicadores por CST vivem em outra tabela
 
-O `ind_gIBSCBS` em nível de CST, que a regra `UB13-30` (rejeição 1022) referencia, não aparece em
-nenhuma das visões acima. A tabela oficial completa de classificação tributária é **pública no
-portal da NF-e** e pode ser embarcada junto, como já é feito com os XSDs — deixa de ser lacuna e
-vira escolha de fonte. Decidir na implementação (D-025): embarcar a planilha do portal, ou tratar
-a 1022 como coberta pela 1115 (que é a regra-mãe e dispara antes, no mesmo documento).
+Investigação [INV-1](../../pesquisa/inv-1-tabela-cclasstrib-portal.md) localizou os indicadores que
+a NT referencia: eles estão na **Tabela 03 (CST)** do Informe Técnico IT 2025.002, não na tabela de
+classificação tributária. São `ind_gIBSCBS`, `ind_gRed`, `ind_gDif`, `ind_gTransfCred` e outros.
+Confirmado na NT, que cita literalmente *"o indicador `ind_gRed` da tabela de CST"* (15 ocorrências).
+
+**Correção de uma premissa anterior desta spec:** havia a suposição de que
+`possuiPercentualReducao` (da tabela de cClassTrib) cobriria funcionalmente o `ind_gRed`. **Não
+cobre.** São granularidades diferentes — `ind_gRed` é por CST (18 registros) e
+`possuiPercentualReducao` é por classificação tributária (161 registros), com várias classificações
+por CST. O indicador autoritativo para as rejeições 1033, 1074 e 1079 é o de CST.
+
+A Calculadora **não expõe** a Tabela 03: seu endpoint de situações tributárias devolve apenas `id`,
+`codigo` e `descricao`. E a obtenção automática esbarra em três obstáculos apurados pela INV-1: o
+portal nacional publica só em PDF, a URL do arquivo carrega hash que muda a cada versão, e os
+serviços REST da SVRS exigem certificado ICP-Brasil.
+
+**Recomendação (D-025):** embarcar uma tabela auxiliar estática `cst-indicators.json` em
+`src/main/resources/tables/`, com o de-para dos CSTs e seus indicadores, atualizada por script
+utilitário em manutenção programada — não no build. São poucos registros e mudam raramente; o
+custo é baixo e a alternativa (derivar de campo de granularidade errada) produziria veredito
+incorreto.
 
 ---
 
@@ -231,7 +247,7 @@ Além da estratégia leve e dirigida já vigente:
 | # | Decisão | Impacto |
 |---|---|---|
 | **D-012** | Fonte da Calculadora na v1: embutir × baixar no primeiro uso | Volta à pauta — a conferência de valores exige o motor rodando, e o pacote oficial não tem licença |
-| **D-025** | Fonte do `ind_gIBSCBS`: embarcar a planilha oficial do portal NF-e × tratar a 1022 como coberta pela 1115 | §5.2 |
+| **D-025** | Tabela auxiliar `cst-indicators.json` embarcada, atualizada fora do build — recomendação da INV-1 | §5.2 |
 | **D-026** | Quais rejeições entram no primeiro corte | Recomendação: 1115, 1021, 1025, 1033, 1074, 1079 |
 
 ---
