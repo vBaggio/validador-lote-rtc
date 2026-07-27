@@ -61,7 +61,8 @@ public final class XmlMetadataParser {
     }
 
     private ParsedMetadata read(Path source, XMLStreamReader r) throws XMLStreamException {
-        String root = null, accessKey = null, cnpj = null, nNF = null, mod = null, dhEmi = null;
+        String root = null, accessKey = null, cnpj = null, nNF = null, mod = null, dhEmi = null,
+                crt = null;
         int infNFeCount = 0;
         List<int[]> ranges = new ArrayList<>();
         List<int[]> openDets = new ArrayList<>(); // pilha; aceita null (det sem faixa)
@@ -124,6 +125,7 @@ public final class XmlMetadataParser {
                             case "nNF" -> { if (nNF == null) nNF = value; }
                             case "mod" -> { if (mod == null) mod = value; }
                             case "dhEmi" -> { if (dhEmi == null) dhEmi = value; }
+                            case "CRT" -> { if (crt == null) crt = value; }
                         }
                         capturing = null;
                     }
@@ -143,17 +145,18 @@ public final class XmlMetadataParser {
         if (infNFeCount > 1) {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
-                    new FiscalDocument(source, null, null, null, null, null, root),
+                    new FiscalDocument(source, null, null, null, null, null, root, null),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
-                new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root),
+                new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root, crt),
                 ItemLineIndex.of(ranges));
     }
 
     /** Nome do campo cujo texto deve ser capturado, ou null se o elemento não interessa. */
     private String targetField(Deque<String> stack) {
         if (isFirst(stack, "CNPJ", "emit")) return "CNPJ";
+        if (isFirst(stack, "CRT", "emit")) return "CRT";
         if (isFirst(stack, "nNF", "ide")) return "nNF";
         if (isFirst(stack, "mod", "ide")) return "mod";
         if (isFirst(stack, "dhEmi", "ide")) return "dhEmi";

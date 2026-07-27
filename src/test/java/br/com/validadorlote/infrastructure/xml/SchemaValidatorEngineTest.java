@@ -39,7 +39,7 @@ class SchemaValidatorEngineTest {
     /** Metadados vazios, para exercitar o motor sem depender do parser (arquivo ilegível). */
     private ParsedMetadata bareMetadata(Path xml) {
         return new ParsedMetadata(
-                new FiscalDocument(xml, null, null, null, null, null, "NFe"),
+                new FiscalDocument(xml, null, null, null, null, null, "NFe", null),
                 ItemLineIndex.of(List.of()));
     }
 
