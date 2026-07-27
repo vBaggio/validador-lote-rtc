@@ -144,11 +144,134 @@ class TaxGroupExtractorTest {
                 </infNFe></NFe>
                 """);
 
-        // O item com nItem fora do contrato não vira entrada (o XSD reporta o erro real),
-        // mas a leitura do restante do documento continua.
+        // O item com nItem fora do contrato continua existindo, com o número desconhecido
+        // explícito em vez de inventado a partir da posição. Sumir com ele seria o silêncio
+        // que o relatório proíbe: nem conforme, nem rejeitado, nem não avaliado.
+        var itens = extractor.extract(xml);
+
+        assertThat(itens).hasSize(2);
+        assertThat(itens.getFirst().itemNumber()).isNull();
+        assertThat(itens.getFirst().cst()).isEqualTo("000");
+        assertThat(itens.get(1).itemNumber()).isEqualTo(2);
+        assertThat(itens.get(1).cst()).isEqualTo("200");
+    }
+
+    @Test
+    void detSemNItemAindaProduzItem(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("sem-nitem.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det><imposto><IBSCBS><CST>200</CST><cClassTrib>200001</cClassTrib></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
         assertThat(extractor.extract(xml)).singleElement().satisfies(g -> {
-            assertThat(g.itemNumber()).isEqualTo(2);
+            assertThat(g.itemNumber()).isNull();
+            assertThat(g.hasIbsCbsGroup()).isTrue();
             assertThat(g.cst()).isEqualTo("200");
+            assertThat(g.cClassTrib()).isEqualTo("200001");
         });
+    }
+
+    @Test
+    void involucroEGrupoInternoSaoCamposDistintos(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("involucro-vs-grupo.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <gIBSCBS><vBC>200.00</vBC></gIBSCBS>
+                  </IBSCBS></imposto></det>
+                  <det nItem="2"><imposto><IBSCBS><CST>400</CST><cClassTrib>400001</cClassTrib>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // O item 2 é uma isenção corretamente emitida: o invólucro existe porque ele carrega o
+        // CST, e o gIBSCBS não vem. Colapsar os dois campos faz esse item virar acusação.
+        var itens = extractor.extract(xml);
+
+        assertThat(itens).hasSize(2);
+        assertThat(itens.getFirst().hasIbsCbsGroup()).isTrue();
+        assertThat(itens.getFirst().hasGIbsCbsGroup()).isTrue();
+        assertThat(itens.get(1).hasIbsCbsGroup()).isTrue();
+        assertThat(itens.get(1).hasGIbsCbsGroup()).isFalse();
+        assertThat(itens.get(1).cst()).isEqualTo("400");
+    }
+
+    @Test
+    void grupoInternoDaFixtureCanonicaEReconhecido() {
+        var g = extractor.extract(fixture("nfe-valida.xml")).getFirst();
+
+        assertThat(g.hasIbsCbsGroup()).isTrue();
+        assertThat(g.hasGIbsCbsGroup()).isTrue();
+    }
+
+    @Test
+    void semInvolucroNaoHaGrupoInterno() {
+        var g = extractor.extract(fixture("nfe-crt3-sem-ibscbs.xml")).getFirst();
+
+        assertThat(g.hasIbsCbsGroup()).isFalse();
+        assertThat(g.hasGIbsCbsGroup()).isFalse();
+    }
+
+    @Test
+    void gIbsCbsMonoNaoContaComoGrupoInterno(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("mono.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS><CST>620</CST><cClassTrib>620001</cClassTrib>
+                    <gIBSCBSMono><vIBSMono>1.00</vIBSMono></gIBSCBSMono>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // gIBSCBSMono é outra alternativa do choice, com indicador e rejeições próprios
+        // (1151/1116). Contá-la como gIBSCBS misturaria dois julgamentos diferentes.
+        assertThat(extractor.extract(xml)).singleElement()
+                .satisfies(g -> assertThat(g.hasGIbsCbsGroup()).isFalse());
+    }
+
+    @Test
+    void cProdAnpELidoPorItem(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("combustivel.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><cProd>1</cProd>
+                    <comb><cProdANP>210203001</cProdANP><descANP>GLP</descANP></comb>
+                  </prod><imposto><IBSCBS><CST>620</CST></IBSCBS></imposto></det>
+                  <det nItem="2"><prod><cProd>2</cProd></prod>
+                    <imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // O cProdANP do item 1 não pode vazar para o item 2: a Exceção 2 da UB12-10 é por item.
+        var itens = extractor.extract(xml);
+
+        assertThat(itens.getFirst().cProdANP()).isEqualTo("210203001");
+        assertThat(itens.get(1).cProdANP()).isNull();
+    }
+
+    @Test
+    void conteudoMistoNumCampoNaoDescartaODocumento(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("conteudo-misto.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS>
+                    <CST>0<x>0</x>0</CST><cClassTrib>000001</cClassTrib>
+                  </IBSCBS></imposto></det>
+                  <det nItem="2"><imposto><IBSCBS><CST>200</CST></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // Um campo ilegível não pode custar o arquivo inteiro: o XSD é quem reporta o erro
+        // estrutural, com mensagem oficial, linha e coluna. Aqui o campo vira null e os
+        // demais itens seguem íntegros.
+        var itens = extractor.extract(xml);
+
+        assertThat(itens).hasSize(2);
+        assertThat(itens.getFirst().hasIbsCbsGroup()).isTrue();
+        assertThat(itens.getFirst().cst()).isNull();
+        assertThat(itens.getFirst().cClassTrib()).isEqualTo("000001");
+        assertThat(itens.get(1).cst()).isEqualTo("200");
     }
 }

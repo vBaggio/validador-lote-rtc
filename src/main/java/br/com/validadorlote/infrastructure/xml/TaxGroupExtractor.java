@@ -21,8 +21,21 @@ import java.util.List;
  */
 public final class TaxGroupExtractor {
 
-    /** Um item e o que ele declarou de IBS/CBS. Campos nulos quando o grupo não existe. */
-    public record ItemTaxGroup(int itemNumber, boolean hasIbsCbsGroup, String cst, String cClassTrib,
+    /**
+     * Um item e o que ele declarou de IBS/CBS. Campos nulos quando o grupo não existe.
+     *
+     * <p>{@code itemNumber} é nulo quando o {@code nItem} do {@code <det>} está ausente ou não é
+     * número: o item continua existindo com o número desconhecido explícito, porque deduzi-lo da
+     * posição no arquivo seria inventar dado que o documento não declarou.
+     *
+     * <p><b>Dois elementos, dois campos.</b> {@code hasIbsCbsGroup} é o invólucro
+     * {@code <IBSCBS>}, que carrega o {@code CST} e por isso existe sempre que o item declara
+     * situação tributária. {@code hasGIbsCbsGroup} é o {@code <gIBSCBS>} de dentro dele, uma das
+     * alternativas opcionais do {@code choice} do tipo {@code TTribNFe}. Confundir os dois faz
+     * item de isenção corretamente emitido virar acusação — ver D-027.
+     */
+    public record ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
+            String cst, String cClassTrib, String cProdANP,
             boolean hasReducaoUf, boolean hasReducaoMun, boolean hasReducaoCbs,
             BigDecimal percReducaoUf, BigDecimal percReducaoMun, BigDecimal percReducaoCbs) {}
 
@@ -69,9 +82,9 @@ public final class TaxGroupExtractor {
     private List<ItemTaxGroup> read(Path source, XMLStreamReader r) throws XMLStreamException {
         List<ItemTaxGroup> itens = new ArrayList<>();
         Integer nItem = null;
-        boolean emIbsCbs = false, temGrupo = false;
+        boolean emIbsCbs = false, temGrupo = false, temGrupoInterno = false;
         boolean redUf = false, redMun = false, redCbs = false;
-        String cst = null, classTrib = null;
+        String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
         // Esfera atualmente aberta. Precisa ser zerada no fechamento da esfera e na abertura de
         // cada det: um gRed fora de esfera não pode herdar a última esfera vista, sob pena de
@@ -96,12 +109,16 @@ public final class TaxGroupExtractor {
                 switch (nome) {
                     case "det" -> {
                         nItem = parseItem(r.getAttributeValue(null, "nItem"));
-                        emIbsCbs = temGrupo = redUf = redMun = redCbs = false;
-                        cst = classTrib = null;
+                        emIbsCbs = temGrupo = temGrupoInterno = false;
+                        redUf = redMun = redCbs = false;
+                        cst = classTrib = prodANP = null;
                         pUf = pMun = pCbs = null;
                         esfera = null;
                     }
                     case "IBSCBS" -> { emIbsCbs = true; temGrupo = true; }
+                    // O grupo interno só conta dentro do invólucro do item corrente.
+                    case "gIBSCBS" -> { if (emIbsCbs) temGrupoInterno = true; }
+                    case "cProdANP" -> { if (prodANP == null) prodANP = texto(r); }
                     case "gRed" -> {
                         if (esfera == Esfera.UF) redUf = true;
                         else if (esfera == Esfera.MUN) redMun = true;
@@ -122,10 +139,10 @@ public final class TaxGroupExtractor {
                 if (Esfera.of(nome) != null) esfera = null;
                 if ("IBSCBS".equals(nome)) emIbsCbs = false;
                 if ("det".equals(nome)) {
-                    if (nItem != null) {
-                        itens.add(new ItemTaxGroup(nItem, temGrupo, cst, classTrib,
-                                redUf, redMun, redCbs, pUf, pMun, pCbs));
-                    }
+                    // O item entra mesmo com nItem ilegível: descartá-lo o faria sumir do
+                    // relatório inteiro — nem conforme, nem rejeitado, nem não avaliado.
+                    itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,
+                            prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs));
                     nItem = null;
                 }
             }
@@ -133,9 +150,37 @@ public final class TaxGroupExtractor {
         return itens;
     }
 
+    /**
+     * Conteúdo textual direto do elemento corrente, consumindo os eventos até o fechamento dele.
+     *
+     * <p>Conteúdo misto (filhos onde se esperava texto) devolve {@code null} — mesmo contrato do
+     * {@link XmlMetadataParser}: o campo fica ilegível, o arquivo continua sendo lido. Quem
+     * reporta o erro estrutural, com mensagem oficial, linha e coluna, é o XSD; perder todos os
+     * itens do documento por causa de um campo esquisito seria desproporcional.
+     *
+     * <p>Não usa {@code getElementText()} de propósito: ele lança no conteúdo misto e deixa o
+     * reader parado no filho, dessincronizando a máquina de estados de quem chamou.
+     */
     private String texto(XMLStreamReader r) throws XMLStreamException {
-        String t = r.getElementText();
-        return (t == null || t.isBlank()) ? null : t.trim();
+        StringBuilder text = new StringBuilder();
+        boolean mixedContent = false;
+        int depth = 0;
+        while (r.hasNext()) {
+            int ev = r.next();
+            if (ev == XMLStreamConstants.START_ELEMENT) {
+                mixedContent = true;
+                depth++;
+            } else if (ev == XMLStreamConstants.END_ELEMENT) {
+                if (depth == 0) break;
+                depth--;
+            } else if (depth == 0
+                    && (ev == XMLStreamConstants.CHARACTERS || ev == XMLStreamConstants.CDATA)) {
+                text.append(r.getText());
+            }
+        }
+        if (mixedContent) return null;
+        String t = text.toString();
+        return t.isBlank() ? null : t.trim();
     }
 
     private Integer parseItem(String v) {

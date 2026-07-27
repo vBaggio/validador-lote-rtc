@@ -4,6 +4,63 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-029 — Exceção 2 da UB12-10 (combustível monofásico) sai como não avaliada (27/07/2026)
+A UB12-10 tem uma segunda exceção: a exigência do grupo IBS/CBS não se aplica quando o item
+informa `cProdANP` **e** o produto consta da Tabela de Combustíveis Sujeitos à Tributação
+Monofásica. A tabela é publicada no Portal Nacional da NF-e (aba "Documentos", opção "Diversos")
+e **não está embarcada** — nossa base oficial hoje é só a de CST × cClassTrib da SVRS.
+Sem a tabela não dá para saber se o produto está nela. Item com `cProdANP` informado sai como
+`NaoAvaliado`, com o motivo dizendo qual tabela falta. Nunca `Rejeitado`: base incompleta é
+limitação nossa, não defeito do emitente, e é exatamente para isso que existe o terceiro
+desfecho. **Implementação futura:** ingerir a Tabela de Combustíveis pelo mesmo caminho de
+`updateFiscalTables` e trocar o `NaoAvaliado` por julgamento real.
+Consequência aceita: falso negativo declarado. Um item de combustível que de fato deveria trazer
+o grupo e não traz não é acusado — mas aparece no relatório como não avaliado, com a razão, em
+vez de sumir em silêncio.
+
+## D-028 — Exceção 1 da UB12-10 decidida offline pelo `AAMM` da chave referenciada (27/07/2026)
+A UB12-10 não se aplica a NF-e de devolução (`finNFe=4`) ou complementar (`finNFe=2`) que
+referencia NF-e emitida antes de 2026. Sem isso, em agosto de 2026 **toda devolução de mercadoria
+vendida em 2025** — operação rotineira — sairia como rejeição 1115: falso positivo em escala na
+regra que motiva o bloco inteiro.
+A exceção é determinável sem rede: a chave de acesso referenciada carrega o `AAMM` da emissão nas
+posições 2-5 (documentado no próprio XSD, `leiauteNFe_v4.00.xsd` linha 322), e `refNF` traz um
+campo `AAMM` explícito. `XmlMetadataParser` passa a extrair `finNFe`, `tpNFDebito` e a lista de
+`NFref` (até 999 ocorrências, todas relevantes — basta uma anterior a 2026).
+Três leituras registradas, todas na direção que não acusa: (1) a oração "que referencia NFe com
+data de emissão anterior a 2026" é gramaticalmente ambígua entre qualificar só a complementar ou
+as duas finalidades — adotamos as duas, porque a leitura oposta reintroduz o falso positivo;
+(2) ao rigor da letra só `refNFe` e `refNFeSig` são "NFe", já que `refNF` e `refNFP` são documentos
+em papel — ainda assim **qualquer referência datável** anterior a 2026 aciona a exceção, e os dois
+usam o campo `AAMM` próprio que o XSD declara (linhas 341 e 393); (3) `refCTe` e `refECF` ficam
+como **referência não datável** e produzem `NaoAvaliado`, não acusação — a chave de CT-e até tem
+`AAMM` no mesmo deslocamento, mas é documento de transporte e alargar mais o escopo não compensa
+a margem. Documento com `finNFe` 2 ou 4 e **nenhuma** `NFref` segue o curso normal da regra: a
+exceção exige uma referência, e o autorizador vai aplicar exatamente esse teste.
+Consequência: `FiscalDocument` ganhou `finNFe`, `tpNFDebito` e `references` (cópia imutável e nunca
+nula), e o domínio ganhou o record `ReferencedNote`. Chave fora do formato, mês impossível
+(`AAMM=2599`) ou referência em papel sem o campo `AAMM` não viram data inventada — viram referência
+não datável, que a regra reporta como não avaliada em vez de acusar.
+
+## D-027 — 1021 e 1022 observam o grupo interno `gIBSCBS`, não o invólucro `IBSCBS` (27/07/2026)
+`IBSCBS` e `gIBSCBS` são elementos diferentes e confundi-los custou uma rodada de revisão. No tipo
+`TTribNFe` do XSD oficial (`DFeTiposBasicos_v1.00.xsd:248`) o invólucro `IBSCBS` é
+`sequence[CST, cClassTrib, indDoacao?, choice minOccurs="0"{gIBSCBS | gIBSCBSMono | gTransfCred |
+gAjusteCompet}, …]`: ele **carrega o CST**, logo existe sempre que o item declara situação
+tributária. O `gIBSCBS` é uma das alternativas opcionais de dentro dele.
+A NT é literal sobre qual regra olha qual: a **UB12-10** cita `det/imposto/IBSCBS` (o invólucro) e
+a **UB13-20/UB13-30** citam `imposto/IBSCBS/gIBSCBS` (o grupo interno). Cada alternativa do
+`choice` tem indicador e par de regras próprios (`ind_gIBSCBSMono` → 1151/1116; `ind_gTransfCred`
+→ 1131/1132), o que confirma que "grupo informado" na 1021 é o `gIBSCBS` especificamente, nunca
+"alguma alternativa do choice".
+Decisão: a 1115 observa o invólucro; a 1021 e a 1022 observam o grupo interno. `ItemTaxGroup` tem
+dois campos distintos (`hasIbsCbsGroup` e `hasGIbsCbsGroup`) e o javadoc das três regras diz qual
+elemento cada uma observa.
+Motivo: a leitura anterior fazia todo item de isenção ou imunidade **corretamente emitido** virar
+acusação — 7 dos 18 CSTs (400, 410, 620, 800, 810, 811, 820), justamente os que proíbem o grupo
+detalhado. Consequência: item de CST proibitivo sem `gIBSCBS` sai `Conforme` (verificado e
+aprovado), e não `NaoAplicavel`.
+
 ## D-023 — Locale das mensagens de validação fixado em `Locale.ROOT` (26/07/2026)
 As mensagens do Xerces são **localizadas**: o JDK embarca `XMLSchemaMessages_de`, `_ja` e
 outras. Como a extração do campo (`field`) é feita por regex sobre esse texto, o motor herdava

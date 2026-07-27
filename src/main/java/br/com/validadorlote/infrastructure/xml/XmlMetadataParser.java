@@ -1,6 +1,7 @@
 package br.com.validadorlote.infrastructure.xml;
 
 import br.com.validadorlote.domain.FiscalDocument;
+import br.com.validadorlote.domain.ReferencedNote;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -11,6 +12,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -30,6 +32,22 @@ public final class XmlMetadataParser {
 
     private static final Set<String> KNOWN_ROOTS = Set.of("NFe", "nfeProc", "enviNFe");
     private static final int DATE_PREFIX_LENGTH = 10;
+
+    /**
+     * Formas de {@code NFref} que não trazem data passível de leitura offline. A chave de CT-e
+     * tem {@code AAMM} no mesmo deslocamento da de NF-e, mas é documento de transporte e fica
+     * de fora de propósito: alargar o escopo não compensa a margem.
+     */
+    private static final Set<String> UNDATABLE_REFERENCES = Set.of("refCTe", "refECF");
+    /** Referências em papel: a data vem de um campo {@code AAMM} próprio, não de chave. */
+    private static final Set<String> PAPER_REFERENCES = Set.of("refNF", "refNFP");
+    private static final int ACCESS_KEY_LENGTH = 44;
+    /** Posições do {@code AAMM} na chave de acesso, conforme a documentação do XSD (linha 322). */
+    private static final int KEY_AAMM_START = 2;
+    private static final int KEY_AAMM_END = 6;
+    private static final int AAMM_LENGTH = 4;
+    /** A chave de acesso traz o ano com dois dígitos; a NF-e existe desde 2006. */
+    private static final int CENTURY = 2000;
 
     public ParsedMetadata parse(Path xml) {
         // XMLInputFactory não é thread-safe: uma por chamada (custo irrisório vs I/O).
@@ -62,8 +80,13 @@ public final class XmlMetadataParser {
 
     private ParsedMetadata read(Path source, XMLStreamReader r) throws XMLStreamException {
         String root = null, accessKey = null, cnpj = null, nNF = null, mod = null, dhEmi = null,
-                crt = null;
+                crt = null, finNFe = null, tpNFDebito = null;
         int infNFeCount = 0;
+        List<ReferencedNote> references = new ArrayList<>();
+        // refNF/refNFP aberto cujo AAMM ainda não apareceu. Se ele fechar sem o campo, a
+        // referência entra sem data: some-la faria a exceção da UB12-10 deixar de ser
+        // consultada e a devolução virar acusação.
+        String pendingPaperRef = null;
         List<int[]> ranges = new ArrayList<>();
         List<int[]> openDets = new ArrayList<>(); // pilha; aceita null (det sem faixa)
         Deque<String> stack = new ArrayDeque<>();
@@ -98,6 +121,15 @@ public final class XmlMetadataParser {
                             accessKey = blankToNull(id.substring(3));
                         }
                     }
+                    if ("NFref".equals(stack.peek())) {
+                        if (UNDATABLE_REFERENCES.contains(name)) {
+                            // Referência que existe mas não podemos datar sem consulta externa:
+                            // registrada assim mesmo, para a regra saber que não sabe.
+                            references.add(new ReferencedNote(name, null));
+                        } else if (PAPER_REFERENCES.contains(name)) {
+                            pendingPaperRef = name;
+                        }
+                    }
                     if ("det".equals(name)) {
                         Integer item = parseItem(r.getAttributeValue(null, "nItem"));
                         openDets.add(item == null
@@ -126,8 +158,26 @@ public final class XmlMetadataParser {
                             case "mod" -> { if (mod == null) mod = value; }
                             case "dhEmi" -> { if (dhEmi == null) dhEmi = value; }
                             case "CRT" -> { if (crt == null) crt = value; }
+                            case "finNFe" -> { if (finNFe == null) finNFe = value; }
+                            case "tpNFDebito" -> { if (tpNFDebito == null) tpNFDebito = value; }
+                            // NFref aceita até 999 ocorrências: todas contam, nada de "primeira".
+                            case "refNFe", "refNFeSig" ->
+                                    references.add(new ReferencedNote(capturing, monthOfKey(value)));
+                            case "refNF/AAMM" -> {
+                                references.add(new ReferencedNote("refNF", monthOfAamm(value)));
+                                pendingPaperRef = null;
+                            }
+                            case "refNFP/AAMM" -> {
+                                references.add(new ReferencedNote("refNFP", monthOfAamm(value)));
+                                pendingPaperRef = null;
+                            }
                         }
                         capturing = null;
+                    }
+                    if (pendingPaperRef != null && pendingPaperRef.equals(r.getLocalName())) {
+                        // Fechou sem AAMM legível: a referência existe e não sabemos datá-la.
+                        references.add(new ReferencedNote(pendingPaperRef, null));
+                        pendingPaperRef = null;
                     }
                     if ("det".equals(r.getLocalName()) && !openDets.isEmpty()) {
                         int[] range = openDets.remove(openDets.size() - 1);
@@ -145,11 +195,13 @@ public final class XmlMetadataParser {
         if (infNFeCount > 1) {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
-                    new FiscalDocument(source, null, null, null, null, null, root, null),
+                    new FiscalDocument(source, null, null, null, null, null, root, null,
+                            null, null, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
-                new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root, crt),
+                new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root,
+                        crt, finNFe, tpNFDebito, references),
                 ItemLineIndex.of(ranges));
     }
 
@@ -160,7 +212,35 @@ public final class XmlMetadataParser {
         if (isFirst(stack, "nNF", "ide")) return "nNF";
         if (isFirst(stack, "mod", "ide")) return "mod";
         if (isFirst(stack, "dhEmi", "ide")) return "dhEmi";
+        if (isFirst(stack, "finNFe", "ide")) return "finNFe";
+        if (isFirst(stack, "tpNFDebito", "ide")) return "tpNFDebito";
+        if (isFirst(stack, "refNFe", "NFref")) return "refNFe";
+        if (isFirst(stack, "refNFeSig", "NFref")) return "refNFeSig";
+        // refNF e refNFP trazem AAMM próprio e explícito no XSD (linhas 341 e 393).
+        if (isFirst(stack, "AAMM", "refNF")) return "refNF/AAMM";
+        if (isFirst(stack, "AAMM", "refNFP")) return "refNFP/AAMM";
         return null;
+    }
+
+    /**
+     * Competência de emissão codificada na chave de acesso referenciada: o {@code AAMM} ocupa as
+     * posições 2-5, conforme a documentação do próprio XSD. Chave fora do formato devolve
+     * {@code null} — referência que não sabemos datar, e não uma data inventada.
+     */
+    private YearMonth monthOfKey(String key) {
+        if (key == null || key.length() != ACCESS_KEY_LENGTH || !isDigits(key)) return null;
+        return monthOfAamm(key.substring(KEY_AAMM_START, KEY_AAMM_END));
+    }
+
+    private YearMonth monthOfAamm(String aamm) {
+        if (aamm == null || aamm.length() != AAMM_LENGTH || !isDigits(aamm)) return null;
+        int month = Integer.parseInt(aamm.substring(2));
+        if (month < 1 || month > 12) return null;
+        return YearMonth.of(CENTURY + Integer.parseInt(aamm.substring(0, 2)), month);
+    }
+
+    private boolean isDigits(String value) {
+        return value.chars().allMatch(Character::isDigit);
     }
 
     private boolean isFirst(Deque<String> stack, String element, String parent) {
