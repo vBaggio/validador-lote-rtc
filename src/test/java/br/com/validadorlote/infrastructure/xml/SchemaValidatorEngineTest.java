@@ -327,6 +327,28 @@ class SchemaValidatorEngineTest {
     }
 
     @Test
+    void fullyValidNfeYieldsNoFindings() {
+        // Ausência de falso positivo é o requisito mais duro do produto: um validador que acusa
+        // documento bom destrói a confiança mais rápido do que um que deixa passar documento ruim.
+        assertThat(validateFixture("nfe-valida.xml")).isEmpty();
+    }
+
+    @Test
+    void fullyValidNfceYieldsNoFindings() {
+        assertThat(validateFixture("nfce-valida.xml")).isEmpty();
+    }
+
+    @Test
+    void validDocumentWithoutSignatureYieldsOnlySignatureMissing() {
+        // Caso do público-alvo: XML de pré-emissão, ainda não assinado. O único achado precisa ser
+        // o da assinatura — se vier mais alguma coisa, o contador é afogado em ruído.
+        var findings = validateFixture("nfe-valida-sem-assinatura.xml");
+
+        assertThat(findings).singleElement().satisfies(f ->
+                assertThat(f.kind()).isEqualTo(FindingKind.SIGNATURE_MISSING));
+    }
+
+    @Test
     void hostileValueCannotHijackTheFieldName() {
         // O Xerces interpola o valor rejeitado ANTES de nomear o campo, então um valor que imita a
         // própria mensagem sequestraria a extração e o relatório mandaria corrigir o campo errado —
