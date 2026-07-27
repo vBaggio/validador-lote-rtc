@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Assinatura estruturalmente completa segundo xmldsig-core-schema_v1.01.xsd (valores fictícios:
+     o XSD julga estrutura, não criptografia). Nenhum achado de assinatura deve sair daqui. -->
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe versao="4.00" Id="NFe35200114200166000187550010000000015123456789">
+    <ide><cUF>35</cUF></ide>
+  </infNFe>
+  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+    <SignedInfo>
+      <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+      <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+      <Reference URI="#NFe35200114200166000187550010000000015123456789">
+        <Transforms>
+          <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+          <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+        </Transforms>
+        <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+        <DigestValue>YWJj</DigestValue>
+      </Reference>
+    </SignedInfo>
+    <SignatureValue>YWJj</SignatureValue>
+    <KeyInfo><X509Data><X509Certificate>YWJj</X509Certificate></X509Data></KeyInfo>
+  </Signature>
+</NFe>

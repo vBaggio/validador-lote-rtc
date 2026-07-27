@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Entrada hostil: elemento batizado SignatureXpto dentro de infNFe faz a mensagem do Xerces
+     conter a substring "Signature". Classificar por substring deixaria o autor do XML escolher
+     a severidade do próprio erro. -->
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe versao="4.00" Id="NFe35200114200166000187550010000000015123456789">
+    <SignatureXpto/>
+    <ide><cUF>35</cUF></ide>
+  </infNFe>
+</NFe>

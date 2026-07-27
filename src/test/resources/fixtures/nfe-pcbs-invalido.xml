@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- pCBS fora do padrão TDec_0302_04RTC: o Xerces emite cvc-pattern-valid (sem nomear o campo)
+     e cvc-type.3.1.3 (nomeando pCBS) na mesma posição. Documento propositalmente mínimo. -->
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe versao="4.00" Id="NFe35200114200166000187550010000000015123456789">
+    <ide><cUF>35</cUF></ide>
+    <det nItem="1">
+      <imposto>
+        <IBSCBS>
+          <CST>000</CST>
+          <cClassTrib>000001</cClassTrib>
+          <gIBSCBS>
+            <vBC>100.00</vBC>
+            <gIBSUF><pIBSUF>0.10</pIBSUF><vIBSUF>0.10</vIBSUF></gIBSUF>
+            <gIBSMun><pIBSMun>0.10</pIBSMun><vIBSMun>0.10</vIBSMun></gIBSMun>
+            <vIBS>0.20</vIBS>
+            <gCBS><pCBS>9.9.9</pCBS><vCBS>0.90</vCBS></gCBS>
+          </gIBSCBS>
+        </IBSCBS>
+      </imposto>
+    </det>
+  </infNFe>
+</NFe>

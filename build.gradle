@@ -32,6 +32,12 @@ test {
     useJUnitPlatform {
         excludeTags 'slow'
     }
+    // A JVM de teste é forkada e não herda o locale do daemon. O repasse permite reproduzir a
+    // suíte na máquina de outro idioma, que é onde a extração de campo quebrava (D-023):
+    //   ./gradlew test -Duser.language=de -Duser.country=DE
+    ['user.language', 'user.country'].each { p ->
+        if (System.getProperty(p)) systemProperty p, System.getProperty(p)
+    }
 }
 
 tasks.register('slowTest', Test) {
