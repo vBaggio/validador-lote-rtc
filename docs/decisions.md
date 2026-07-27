@@ -4,6 +4,82 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-035 — `itemNumber` nulável e não único é débito da agregação, não do motor (27/07/2026)
+`TaxGroupExtractor` insere todo item com `nItem` ilegível com `itemNumber = null` (decisão certa:
+descartá-lo o faria sumir do relatório). Consequência que só aparece agora: num documento com
+**dois** itens sem `nItem`, um deles com achado, os achados não distinguem qual item é qual.
+O `RuleEngine` avalia cada item independentemente e não se confunde — o problema é de quem **agrupa
+por item** a partir da lista de `Finding`, que é a Task 9. Registrado como débito dela: ou a
+agregação assume o pior caso (todos os itens sem `nItem` viram um balde só, rotulado como tal), ou
+o `Finding` passa a carregar o índice posicional do item além do `nItem` declarado — o que exige
+decidir antes se o índice posicional é informação que o relatório pode exibir sem induzir a erro,
+já que o documento não o declarou.
+
+## D-034 — O gate de `gCompraGov` **não** entra no motor, e a razão é o risco futuro (27/07/2026)
+Documento com `gCompraGov` e `gRed` nas três esferas produz três achados "não avaliado" (1034, 1046
+e 1063) pela mesma causa: a aritmética da D-030 não está coberta. É a única duplicata de causa que
+sobrou depois da cascata.
+Considerei uma quarta precondição no `RuleEngine` para colapsá-la, e **não** a implementei. Registro
+a razão verdadeira, porque a primeira que me ocorreu não se sustenta: alegar que compra governamental
+é "conhecimento interno das regras" é fraco — `hasCompraGov()` é dado de **documento**, exatamente
+como `issueDate`, e uma precondição sobre ele seria estruturalmente idêntica às três existentes.
+O que decide é outra coisa: as três precondições atuais são de **disponibilidade de dado** (o código
+existe na base?), e a falta delas é permanente enquanto o dado faltar. Um gate de `gCompraGov` seria
+de **cobertura de implementação**, e some quando a D-030 entrar. Um gate assim, esquecido no motor
+depois que a aritmética for implementada, passaria a suprimir **rejeições reais** em silêncio —
+falso negativo invisível, o pior desfecho que este projeto admite. Três achados redundantes hoje
+custam menos que esse risco.
+Consequência aceita: até a D-030 entrar, nota governamental com redução nas três esferas gera três
+"não avaliado" em vez de um. Quando a D-030 for implementada, esta entrada é o lugar de reencontrar
+o assunto — e aí a duplicata desaparece sozinha, sem gate nenhum para remover.
+
+## D-033 — Cada camada de achado tem chave de agrupamento não textual (27/07/2026)
+A camada de schema agrupa por `xsdCode` e a de rejeição por `rejectionCode`. A camada "não avaliado"
+nasceu (Task 1) só com texto livre, e o texto é variável por construção — traz o código do CST, da
+classificação, o motivo da regra. Sem chave, "não avaliei 380 itens" jamais viraria "300 por CST
+fora da base, 80 por classificação" sem casar substring.
+Decisão: `Finding` ganha `NotEvaluatedCause notEvaluatedCause`, e os achados dessa camada passam a
+preencher também o `ruleId` (antes nulo neles) com a regra que desistiu. A chave é a **precondição
+que faltou** quando o motor suprimiu o grupo; é `RULE_SPECIFIC` quando a regra declinou por motivo
+próprio, e aí o `ruleId` é que separa as causas.
+Limite conhecido e aceito: dentro de `RULE_SPECIFIC` o par (causa, regra) não separa os vários
+motivos de uma **mesma** regra — a UB12-10 declina por CRT ilegível, por data ausente e pela Exceção
+2 de combustível, e os três caem no mesmo balde. Separá-los exige que `RuleOutcome.NaoAvaliado`
+carregue a causa declarada pela própria regra, o que toca as sete classes de regra. Fica para quando
+a Task 9 mostrar que o balde grosso não basta.
+**Recusado no mesmo movimento:** o campo `detail` separado do `officialMessage` nas **rejeições**,
+sugerido na revisão da Task 7 porque a 1024 acrescenta detalhe explicativo ao texto da NT. Nada
+agrupa rejeição por mensagem: o motor deduplica por precondição faltante e o relatório (§7 da spec)
+agrupa por código de rejeição, que na 1024 é constante. Mexer no `Finding` por consumidor hipotético
+seria antecipar requisito; se a Task 9 vier a agrupar por texto, o custo de acrescentar é uma
+fábrica.
+
+## D-032 — A cascata corta por fato observado, não pelo desfecho da regra-mãe (27/07/2026)
+O plano da Task 8 mandava interromper a avaliação do item quando a 1115 devolvesse `Rejeitado` **ou**
+`NaoAvaliado`. Está errado: a 1115 também devolve `NaoAvaliado` quando o **CRT do emitente** é
+ilegível ou não é um dos previstos na NT — e nesse caso o item pode ter invólucro, CST e
+classificação perfeitamente avaliáveis pelas outras dez regras. Cortar ali perderia rejeições reais
+por uma causa que nada tem a ver com elas.
+Decisão: o corte de nível 1 observa o **fato** `!item.hasIbsCbsGroup()`, que é o que a spec §4.4
+escreve ("grupo IBSCBS ausente"), e não o desfecho de ninguém.
+No mesmo movimento, acrescentei um corte que a spec **não** lista: `issueDate == null`. Não está na
+§4.4, mas o requisito de "no máximo um achado por causa-raiz por item" o exige — sem a data do fato
+gerador as onze regras devolvem `NaoAvaliado`, oito delas com a mesma frase, porque toda consulta à
+tabela é por vigência.
+Consequência: a supressão é declarativa (cada regra diz de que dado depende) e a invariante que a
+sustenta — regra suprimida nunca chega a veredito, nem `Rejeitado` nem `Conforme` — tem teste
+próprio que percorre os bindings, em vez de depender de leitura à mão.
+
+## D-031 — O motor devolve `RuleEvaluation`, não `List<Finding>` (27/07/2026)
+Contar achados não basta para o relatório dizer a verdade. O caso concreto é o da spec §4.5:
+documento de CRT=1 antes de 04/01/2027 produz **zero** achados porque a exigência ainda não vigora —
+e um relatório que só conta achados diria "tudo certo", que é exatamente a conclusão que faz o
+contador ser surpreendido em janeiro.
+Decisão: `RuleEngine.evaluate` devolve `RuleEvaluation(findings, itemCount, verifiedItemCount)`,
+onde `verifiedItemCount` conta os itens em que ao menos uma regra chegou a veredito (`Conforme` ou
+`Rejeitado`). As demais contagens a camada de relatório deriva dos próprios `Finding`, que carregam
+`itemNumber` e `kind` — com a ressalva da D-035.
+
 ## D-030 — Compra governamental é gatilho, mas sua aritmética fica para depois (27/07/2026)
 O grupo `gCompraGov` é de **documento**, não de item: o XSD o declara em `infNFe/ide/gCompraGov`
 (`leiauteNFe_v4.00.xsd:499`) e a NT o lista com pai B01 (`ide`). Por isso ele entrou em
