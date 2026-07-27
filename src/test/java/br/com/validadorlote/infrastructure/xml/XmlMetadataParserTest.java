@@ -242,6 +242,26 @@ class XmlMetadataParserTest {
         assertThat(doc.references()).isEmpty();
     }
 
+    // ---- gCompraGov: insumo das regras de redução de alíquota (UB26-20 e irmãs) ----
+
+    @Test
+    void governmentPurchaseGroupIsDetectedInIde(@TempDir Path dir) throws IOException {
+        // O XSD põe gCompraGov em infNFe/ide (leiauteNFe_v4.00.xsd:499), não no item.
+        var doc = parser.parse(write(dir, "compragov.xml", nfeComIde(
+                "<gCompraGov><tpEnteGov>2</tpEnteGov><pRedutor>20.00</pRedutor>"
+                + "<tpOperGov>1</tpOperGov></gCompraGov>"))).document();
+
+        assertThat(doc.hasCompraGov()).isTrue();
+    }
+
+    @Test
+    void withoutTheGroupTheDocumentIsNotAGovernmentPurchase(@TempDir Path dir) throws IOException {
+        // O par obrigatório: sem ele o indicador poderia estar sempre ligado, e as regras de
+        // percentual sairiam todas como não avaliadas sem ninguém notar.
+        assertThat(parser.parse(write(dir, "sem-compragov.xml", nfeComIde(""))).document()
+                .hasCompraGov()).isFalse();
+    }
+
     @Test
     void referencedNoteIsDatedByTheAammOfItsAccessKey(@TempDir Path dir) throws IOException {
         // AAMM ocupa as posições 2-5 da chave: 35 | 2512 | ... => dezembro de 2025.

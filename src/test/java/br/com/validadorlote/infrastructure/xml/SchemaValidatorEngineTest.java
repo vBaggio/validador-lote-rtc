@@ -40,7 +40,7 @@ class SchemaValidatorEngineTest {
     private ParsedMetadata bareMetadata(Path xml) {
         return new ParsedMetadata(
                 new FiscalDocument(xml, null, null, null, null, null, "NFe", null,
-                        null, null, List.of()),
+                        null, null, false, List.of()),
                 ItemLineIndex.of(List.of()));
     }
 

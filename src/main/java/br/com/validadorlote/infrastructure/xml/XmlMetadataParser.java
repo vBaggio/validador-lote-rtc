@@ -81,6 +81,9 @@ public final class XmlMetadataParser {
     private ParsedMetadata read(Path source, XMLStreamReader r) throws XMLStreamException {
         String root = null, accessKey = null, cnpj = null, nNF = null, mod = null, dhEmi = null,
                 crt = null, finNFe = null, tpNFDebito = null;
+        // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
+        // (infNFe/ide), não do item — daí não caber no TaxGroupExtractor.
+        boolean hasCompraGov = false;
         int infNFeCount = 0;
         List<ReferencedNote> references = new ArrayList<>();
         // refNF/refNFP aberto cujo AAMM ainda não apareceu. Se ele fechar sem o campo, a
@@ -129,6 +132,10 @@ public final class XmlMetadataParser {
                         } else if (PAPER_REFERENCES.contains(name)) {
                             pendingPaperRef = name;
                         }
+                    }
+                    // stack.peek() ainda é o pai: o push do elemento corrente vem depois.
+                    if ("gCompraGov".equals(name) && "ide".equals(stack.peek())) {
+                        hasCompraGov = true;
                     }
                     if ("det".equals(name)) {
                         Integer item = parseItem(r.getAttributeValue(null, "nItem"));
@@ -196,12 +203,12 @@ public final class XmlMetadataParser {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
                     new FiscalDocument(source, null, null, null, null, null, root, null,
-                            null, null, List.of()),
+                            null, null, false, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
                 new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root,
-                        crt, finNFe, tpNFDebito, references),
+                        crt, finNFe, tpNFDebito, hasCompraGov, references),
                 ItemLineIndex.of(ranges));
     }
 

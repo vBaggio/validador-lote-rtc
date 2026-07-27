@@ -4,6 +4,30 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-030 — Compra governamental é gatilho, mas sua aritmética fica para depois (27/07/2026)
+O grupo `gCompraGov` é de **documento**, não de item: o XSD o declara em `infNFe/ide/gCompraGov`
+(`leiauteNFe_v4.00.xsd:499`) e a NT o lista com pai B01 (`ide`). Por isso ele entrou em
+`FiscalDocument` (via `XmlMetadataParser`), e não em `ItemTaxGroup`.
+Ele muda duas famílias de regra em direções opostas:
+1. **Regras de grupo (1033/1074/1079).** O gatilho literal da UB26-20 e irmãs é "se CST possui
+   `ind_gRed = 1`, **ou** foi informado o grupo de compras governamentais": sob compra governamental
+   o `gRed` é exigido mesmo com `ind_gRed = 0`. Implementado, respeitando a exceção também literal
+   de que a regra não se aplica a CST com `ind_gIBSCBS = 0`.
+2. **Regras de percentual (1034/1046/1063).** A NT observa que "no caso de Compra Governamental, o
+   grupo `gRed` deve ser informado e `pRedAliq` deve ser igual a zero, mesmo que o CST possua
+   indicador que veda o preenchimento". Ou seja, o percentual esperado passa a ser **zero**, não o
+   da tabela. Sem detectar `gCompraGov`, toda nota governamental legítima com `pRedAliq = 0` seria
+   comparada contra os 60% da tabela e acusada — falso positivo em escala.
+Decisão: item de documento com `gCompraGov` sai como `NaoAvaliado` nas regras de percentual, com o
+motivo dizendo que a aritmética de compra governamental (que envolve `gCompraGov/pRedutor`) não
+está coberta. O mesmo vale para o ramo `ind_gRed = 0` da UB27-10, que só é julgável com o
+`pRedutor` em mãos.
+**Implementação futura:** cobrir a aritmética de compra governamental junto com a camada de
+valores da v1 (`pAliqEfet = pAliq × (1 - pRedAliq/100) × (1 - pRedutor/100)`), que é onde o
+`pRedutor` passa a ser usado de fato.
+Consequência aceita: falso negativo declarado nas notas governamentais, em vez de falso positivo
+nelas — a direção que o projeto sempre escolhe.
+
 ## D-029 — Exceção 2 da UB12-10 (combustível monofásico) sai como não avaliada (27/07/2026)
 A UB12-10 tem uma segunda exceção: a exigência do grupo IBS/CBS não se aplica quando o item
 informa `cProdANP` **e** o produto consta da Tabela de Combustíveis Sujeitos à Tributação

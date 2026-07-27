@@ -1217,9 +1217,11 @@ git commit -m "feat(b6): regras 1115 e 1021 com vigência escalonada por regime"
 
 ---
 
-## Task 7: Regras de tabela — 1025, 1033, 1074, 1079 e percentuais
+## Task 7: Regras de tabela — 1024, 1025, 1033/1074/1079 e 1034/1046/1063
 
 **Files:**
+- Create: `src/main/java/br/com/validadorlote/infrastructure/rules/Esfera.java`
+- Create: `src/main/java/br/com/validadorlote/infrastructure/rules/ClassTribCstRule.java`
 - Create: `src/main/java/br/com/validadorlote/infrastructure/rules/ClassTribModelRule.java`
 - Create: `src/main/java/br/com/validadorlote/infrastructure/rules/ReductionGroupRule.java`
 - Create: `src/main/java/br/com/validadorlote/infrastructure/rules/ReductionPercentageRule.java`
@@ -1229,13 +1231,27 @@ git commit -m "feat(b6): regras 1115 e 1021 com vigência escalonada por regime"
 - Consumes: `RejectionRule`, `RuleContext`, `RuleOutcome` (Task 5), `FiscalTables` (Task 3).
 - Produces:
 ```java
+enum Esfera { UF, MUNICIPIO, CBS }        // de topo: as duas famílias de redução o compartilham
+
+final class ClassTribCstRule implements RejectionRule {}                        // 1024 / UB14-20
 final class ClassTribModelRule implements RejectionRule {}                      // 1025 / UB14-25
 final class ReductionGroupRule implements RejectionRule {
-    enum Esfera { UF, MUNICIPIO, CBS }
-    ReductionGroupRule(Esfera esfera);                                          // 1033 / 1074 / 1079
+    ReductionGroupRule(Esfera esfera);                    // 1033/UB26-20, 1074/UB45-20, 1079/UB64-20
 }
-final class ReductionPercentageRule implements RejectionRule {}                 // divergência de percentual
+final class ReductionPercentageRule implements RejectionRule {
+    ReductionPercentageRule(Esfera esfera);               // 1034/UB27-10, 1046/UB46-10, 1063/UB65-10
+}
 ```
+
+> **Nota de 27/07/2026.** O rascunho abaixo é anterior à leitura integral da NT 2025.002 v1.50 e
+> está desatualizado em quatro pontos, corrigidos no código entregue: (1) os records `ItemTaxGroup`
+> e `FiscalDocument` mudaram de aridade na Task 6, então o código de teste do rascunho não compila;
+> (2) toda consulta a `FiscalTables` precisa de guard de data nula antes da chamada, sob pena de
+> `NullPointerException` na vigência; (3) o `ReductionPercentageRule` inventava um código de
+> rejeição — ver a correção logo antes do trecho dele; (4) as regras de grupo têm o gatilho extra
+> `gCompraGov` e a exceção literal `ind_gIBSCBS = 0`. Acrescentou-se ainda a regra 1024 (UB14-20).
+> `gCompraGov` é de **documento** (`infNFe/ide/gCompraGov`, `leiauteNFe_v4.00.xsd:499`), e por isso
+> vive em `FiscalDocument`, não em `ItemTaxGroup`.
 
 - [ ] **Step 1: Escrever o teste que falha**
 
@@ -1460,53 +1476,90 @@ public final class ReductionGroupRule implements RejectionRule {
 ```
 
 `ReductionPercentageRule.java`:
+
+> **Correção de 27/07/2026, vinda da leitura da NT 2025.002 v1.50 na íntegra.** O rascunho
+> original desta seção definia `rejectionCode()` como `"PERC-RED"` e `ruleId()` como `"—"`, isto
+> é, **um código de rejeição inventado** — o que o projeto trata como limite inegociável
+> ("julgamento fiscal só de artefato oficial"). Os códigos existem na NT, um por esfera, e são
+> rejeições de verdade: **1034** (UB27-10, NT:2639), **1046** (UB46-10, NT:2750) e **1063**
+> (UB65-10, NT:2953). Por isso a regra virou **três regras espelhadas** parametrizadas por esfera,
+> no mesmo molde do `ReductionGroupRule` — e não uma classe única que devolve o primeiro desvio
+> encontrado, o que quebraria a identidade do achado no motor da Task 8, que agrupa por código.
+>
+> Duas consequências que o rascunho não previa: o gatilho é o grupo `gRed` **informado** (não a
+> existência do percentual), e documento com `gCompraGov` sai como `NaoAvaliado`, porque sob
+> compra governamental o `pRedAliq` esperado é zero e não o da tabela (D-030).
+
 ```java
 package br.com.validadorlote.infrastructure.rules;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 /**
- * Percentual de redução divergente do oficial. Não é código de rejeição da NT: é conferência
- * possível porque a tabela publica {@code PercRedIbs} e {@code PercRedCbs}, e um percentual
- * errado leva a valor errado, que a SEFAZ recusa.
+ * Rejeições 1034, 1046 e 1063 (UB27-10, UB46-10 e UB65-10): o {@code pRedAliq} declarado não é o
+ * que a tabela oficial publica para a classificação tributária. Três regras espelhadas, uma por
+ * {@link Esfera}. UF e Município conferem contra {@code percRedIbs}; a CBS contra {@code percRedCbs}.
  */
 public final class ReductionPercentageRule implements RejectionRule {
 
-    @Override public String rejectionCode() { return "PERC-RED"; }
+    private final Esfera esfera;
 
-    @Override public String ruleId() { return "—"; }
+    public ReductionPercentageRule(Esfera esfera) {
+        this.esfera = Objects.requireNonNull(esfera, "esfera");
+    }
+
+    @Override
+    public String rejectionCode() {
+        return switch (esfera) {
+            case UF -> "1034";
+            case MUNICIPIO -> "1046";
+            case CBS -> "1063";
+        };
+    }
+
+    @Override
+    public String ruleId() {
+        return switch (esfera) {
+            case UF -> "UB27-10";
+            case MUNICIPIO -> "UB46-10";
+            case CBS -> "UB65-10";
+        };
+    }
+
+    /** Transcrição literal da NT, sem o sufixo {@code [nItem: 999]} que o relatório já mostra. */
+    private String mensagemOficial() {
+        return switch (esfera) {
+            case UF -> "Rejeição: Percentual de redução de alíquota da UF "
+                    + "não é válido para este cClassTrib";
+            case MUNICIPIO -> "Rejeição: Percentual de redução de alíquota do Município "
+                    + "não é válido para este cClassTrib";
+            case CBS -> "Rejeição: Percentual de redução de alíquota da CBS "
+                    + "não é válido para este cClassTrib";
+        };
+    }
 
     @Override
     public RuleOutcome evaluate(RuleContext ctx) {
-        String codigo = ctx.item().cClassTrib();
-        if (codigo == null) {
-            return new RuleOutcome.NaoAplicavel("Item sem cClassTrib.");
+        // Cascata completa no código entregue: gatilho gRed, gCompraGov, CST, data, CST na base,
+        // ind_gRed, cClassTrib, cClassTrib na base, percentual oficial e percentual declarado.
+        // Toda consulta à tabela é precedida de guard de data nula.
+        if (!esfera.informouReducao(ctx.item())) {
+            return new RuleOutcome.NaoAplicavel(
+                    "Item sem o grupo gRed nesta esfera: a " + ruleId() + " não tem gatilho.");
         }
-        var entry = ctx.tables().classTrib(codigo, ctx.operationDate());
-        if (entry.isEmpty()) {
-            return new RuleOutcome.NaoAvaliado("cClassTrib " + codigo + " não consta na base.");
+        if (ctx.document().hasCompraGov()) {
+            return new RuleOutcome.NaoAvaliado("Documento informa gCompraGov: em compra "
+                    + "governamental o pRedAliq esperado é zero e o cálculo envolve "
+                    + "gCompraGov/pRedutor, aritmética que esta versão ainda não cobre (D-030).");
         }
-        var ct = entry.get();
-        RuleOutcome uf = compara("estadual", ctx.item().percReducaoUf(), ct.percRedIbs());
-        if (uf != null) return uf;
-        RuleOutcome mun = compara("municipal", ctx.item().percReducaoMun(), ct.percRedIbs());
-        if (mun != null) return mun;
-        RuleOutcome cbs = compara("da CBS", ctx.item().percReducaoCbs(), ct.percRedCbs());
-        if (cbs != null) return cbs;
-        return new RuleOutcome.Conforme();
-    }
-
-    /** Devolve o achado quando diverge; null quando confere ou quando não há o que comparar. */
-    private RuleOutcome compara(String esfera, BigDecimal declarado, BigDecimal oficial) {
-        if (declarado == null || oficial == null) {
-            return null;
-        }
-        if (declarado.compareTo(oficial) == 0) {
-            return null;
-        }
-        return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), String.format(
-                "Percentual de redução %s declarado como %s; o oficial para esta classificação é %s.",
-                esfera, declarado.toPlainString(), oficial.toPlainString()));
+        // ... demais degraus da cascata ...
+        BigDecimal oficial = esfera.percentualOficial(/* ClassTribEntry */ null);
+        BigDecimal declarado = esfera.percentualDeclarado(ctx.item());
+        // compareTo e nunca equals: 60.0 e 60.00 são o mesmo percentual em escalas diferentes.
+        return declarado.compareTo(oficial) == 0
+                ? new RuleOutcome.Conforme()
+                : new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), mensagemOficial());
     }
 }
 ```
@@ -1514,13 +1567,14 @@ public final class ReductionPercentageRule implements RejectionRule {
 - [ ] **Step 4: Rodar e ver passar**
 
 Run: `./gradlew test --tests 'br.com.validadorlote.infrastructure.rules.TableRulesTest' --console=plain`
-Expected: 8 testes passando.
+Expected: 37 testes passando (o rascunho previa 8, antes da 1024, do `gCompraGov` e dos guards de
+data nula).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/java/br/com/validadorlote/infrastructure/rules src/test/java/br/com/validadorlote/infrastructure/rules
-git commit -m "feat(b6): regras 1025, 1033, 1074, 1079 e divergência de percentual"
+git add src/main/java/br/com/validadorlote src/test/java/br/com/validadorlote docs/decisions.md
+git commit -m "feat(b6): regras 1024, 1025, 1033/1074/1079 e 1034/1046/1063"
 ```
 
 ---
