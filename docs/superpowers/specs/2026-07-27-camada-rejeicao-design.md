@@ -133,17 +133,58 @@ suprimidas — senão o relatório afoga o usuário repetindo a mesma causa.
 
 ---
 
-## 5. Tabelas oficiais: obtenção e proveniência
+## 5. Artefatos oficiais: um mecanismo único de ingestão
 
-As tabelas são baixadas da Calculadora e **embarcadas no build**, como já é feito com os XSDs
-(D-005): a task `updateTables` consulta os endpoints de dados abertos, grava os JSON em resources
-e registra a proveniência. Build e CI continuam sem tocar a rede.
+O projeto passa a depender de **três** fontes oficiais externas: os XSDs (do JAR da Calculadora), as
+tabelas de dados abertos (API da Calculadora) e a tabela CST × cClassTrib (portal da SVRS). Tratar
+cada uma de um jeito produziria três mecanismos ad-hoc, três formatos de proveniência e três modos
+de falhar.
 
-Endpoints usados:
-`/dados-abertos/classificacoes-tributarias/cbs-ibs`, `/situacoes-tributarias/cbs-ibs`,
-`/ncm`, `/nbs`, `/aliquota-uf`, `/aliquota-municipio`, `/versao`.
+**Decisão: um mecanismo só, com a mesma forma para todos.** A task `updateSchemas` já existente
+(D-005) vira o molde; as demais seguem o mesmo contrato.
 
-### 5.1 Duas visões da mesma tabela, com conteúdos diferentes
+### 5.1 O contrato de ingestão
+
+Cada artefato oficial embarcado obedece às mesmas cinco regras:
+
+1. **Uma task Gradle dedicada**, no grupo `build setup`, fora do build e do CI. Rede **só** aqui —
+   a política de que build e CI não tocam a rede continua valendo integralmente.
+2. **Destilação na ingestão**: grava-se em resources apenas o que o produto consome, não o bruto.
+   O bruto é reproduzível a partir da fonte e não é versionado. (A tabela da SVRS, por exemplo, tem
+   4,4 MB brutos e 420 KB destilados.)
+3. **Validação de esquema com falha ruidosa**: a task confere que o formato recebido é o esperado e
+   **falha alto** se mudou. Isso vale especialmente para a SVRS, cujo JSON está embutido em HTML e
+   não é contrato de API — uma mudança de layout precisa quebrar a atualização, nunca produzir
+   tabela silenciosamente vazia ou truncada.
+4. **Proveniência uniforme**: cada ingestão registra origem, data de extração e versão/vigência num
+   manifesto único, `resources/officialdata/manifest.properties`. Um só arquivo descreve tudo que
+   está embarcado.
+5. **Idempotência e diff legível**: rodar duas vezes sem publicação nova não muda nada; quando muda,
+   o diff é revisável em PR.
+
+### 5.2 O manifesto e o aviso de idade
+
+O manifesto é o que alimenta a proveniência exibida na tela e no CSV (§7) e o aviso de base
+desatualizada (§6). Como cada artefato tem sua própria data, o aviso considera **o mais antigo** —
+não adianta os schemas estarem novos se a tabela de CST tem quatro meses.
+
+### 5.3 As três fontes
+
+| Artefato | Fonte | Task | Conteúdo |
+|---|---|---|---|
+| Schemas XSD | JAR da Calculadora (endpoint oficial da RFB) | `updateSchemas` | 14 XSDs de NF-e/NFC-e |
+| CST × cClassTrib | Portal SVRS, JSON em `dadosOriginais` | `updateFiscalTables` | 18 CSTs com indicadores, 164 classificações, anexos de NCM/NBS |
+| Tabelas de apoio | API de dados abertos da Calculadora | `updateFiscalTables` | NCM, NBS, alíquotas UF/município, fundamentações |
+
+**A verificar na implementação:** há sobreposição entre a cClassTrib da SVRS e a da Calculadora. A
+da SVRS é mais completa (traz os indicadores por CST e os anexos de NCM/NBS), mas a da Calculadora
+tem campos que ainda não foram comparados um a um — `exigeGrupoDesoneracao`,
+`incompativelComSuspensao`, `creditoOperacaoAntecedente`. Antes de eleger uma como primária,
+comparar campo a campo e registrar o resultado. Se a da SVRS cobrir tudo, a da Calculadora deixa de
+ser necessária para classificação, e restam dela apenas as tabelas de apoio e o papel de oráculo de
+cálculo.
+
+### 5.4 Duas visões da mesma tabela, com conteúdos diferentes
 
 A tabela de **situações tributárias** (`/situacoes-tributarias/cbs-ibs`) traz apenas `id`, `codigo`
 e `descricao` — nenhum indicador. Os indicadores estão nas duas visões de **classificação
@@ -164,7 +205,7 @@ rejeição 1025), `exigeGrupoTributacaoRegular`, `permiteDiferimento`,
 massa para os metadados gerais, e a por-DFe iterando as classificações válidas para os modelos 55
 e 65 (96 e 40 respectivamente). O resultado embarcado é a junção das duas.
 
-### 5.2 Os indicadores por CST vivem em outra tabela
+### 5.5 Os indicadores por CST vivem em outra tabela
 
 Investigação [INV-1](../../pesquisa/inv-1-tabela-cclasstrib-portal.md) localizou os indicadores que
 a NT referencia: eles estão na **Tabela 03 (CST)** do Informe Técnico IT 2025.002, não na tabela de
@@ -258,7 +299,7 @@ Além da estratégia leve e dirigida já vigente:
 | # | Decisão | Impacto |
 |---|---|---|
 | **D-012** | Fonte da Calculadora na v1: embutir × baixar no primeiro uso | Volta à pauta — a conferência de valores exige o motor rodando, e o pacote oficial não tem licença |
-| **D-025** | Tabela auxiliar `cst-indicators.json` embarcada, atualizada fora do build — recomendação da INV-1 | §5.2 |
+| **D-025** | Ingestão da tabela CST × cClassTrib da SVRS pelo mesmo contrato dos demais artefatos oficiais | §5.1, §5.5 |
 | **D-026** | Quais rejeições entram no primeiro corte | Recomendação: 1115, 1021, 1025, 1033, 1074, 1079 |
 
 ---
