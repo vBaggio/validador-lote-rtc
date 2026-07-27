@@ -17,7 +17,7 @@ class RootCauseGrouperTest {
 
     private Finding schemaFinding(String file, String field, String code, String message) {
         return new Finding(Path.of(file), null, 1, FindingKind.SCHEMA, Severity.REJECTION,
-                field, code, message, null, 10, 1);
+                field, code, message, null, 10, 1, null, null);
     }
 
     @Test
@@ -72,7 +72,7 @@ class RootCauseGrouperTest {
     @Test
     void explanationIsEmptyWhenNeitherTranslationNorOfficialMessageExists() {
         var f = new Finding(Path.of("a.xml"), null, null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, null, null, null, null);
+                Severity.WARNING, null, null, null, null, null, null, null, null);
 
         var causes = new RootCauseGrouper().group(List.of(f), NO_TEXTS);
 
@@ -95,9 +95,9 @@ class RootCauseGrouperTest {
     @Test
     void unreadableFindingsGroupTogetherWithNullCodeAndField() {
         var u1 = new Finding(Path.of("x.xml"), null, null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, "ilegível", null, null, null);
+                Severity.WARNING, null, null, "ilegível", null, null, null, null, null);
         var u2 = new Finding(Path.of("y.xml"), null, null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, "ilegível", null, null, null);
+                Severity.WARNING, null, null, "ilegível", null, null, null, null, null);
         var causes = new RootCauseGrouper().group(List.of(u1, u2), NO_TEXTS);
         assertThat(causes).hasSize(1);
         assertThat(causes.getFirst().affectedDocuments()).isEqualTo(2);

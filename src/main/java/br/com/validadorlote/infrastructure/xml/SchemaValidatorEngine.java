@@ -252,7 +252,7 @@ public final class SchemaValidatorEngine {
             findings.clear();
             return List.of(new Finding(xml, meta.document().accessKey(), null,
                     FindingKind.UNREADABLE, Severity.WARNING, null, null,
-                    OUT_OF_MEMORY_NOTICE, null, null, null));
+                    OUT_OF_MEMORY_NOTICE, null, null, null, null, null));
         }
         return findings;
     }
@@ -272,7 +272,7 @@ public final class SchemaValidatorEngine {
             return new Finding(xml, meta.document().accessKey(), null, FindingKind.UNREADABLE,
                     Severity.WARNING, null, null,
                     String.format(PT_BR, SIZE_REFUSAL_NOTICE, bytes / 1_048_576.0,
-                            MAX_DOCUMENT_BYTES / 1_048_576), null, null, null);
+                            MAX_DOCUMENT_BYTES / 1_048_576), null, null, null, null, null);
         } catch (IOException e) {
             return unreadable(xml, meta, e);
         }
@@ -332,7 +332,7 @@ public final class SchemaValidatorEngine {
                 .map(XsdErrorTranslator.Translation::message).orElse(facet.friendlyMessage());
         return new Finding(facet.source(), facet.accessKey(), facet.itemNumber(), facet.kind(),
                 facet.severity(), field, facet.xsdCode(), official, friendly,
-                facet.line(), facet.column());
+                facet.line(), facet.column(), null, null);
     }
 
     private Finding truncationNotice(Path xml, ParsedMetadata meta,
@@ -343,7 +343,7 @@ public final class SchemaValidatorEngine {
         // O texto vai também em officialMessage porque é dele que o agrupamento de causa-raiz
         // tira a explicação quando não há tradução por código.
         return new Finding(xml, meta.document().accessKey(), null, FindingKind.SCHEMA,
-                Severity.WARNING, null, null, notice, notice, null, null);
+                Severity.WARNING, null, null, notice, notice, null, null, null, null);
     }
 
     /** Sinaliza um teto (contagem ou volume de texto) sem confundir-se com erro real do documento. */
@@ -382,7 +382,8 @@ public final class SchemaValidatorEngine {
         Integer item = meta.itemIndex().itemAt(e.getLineNumber());
         // Código, classificação e campo saem da mensagem íntegra; só o texto retido é cortado.
         return new Finding(xml, meta.document().accessKey(), item, kind, severity, field,
-                xsdCode, capMessage(message), friendly, e.getLineNumber(), e.getColumnNumber());
+                xsdCode, capMessage(message), friendly, e.getLineNumber(), e.getColumnNumber(),
+                null, null);
     }
 
     /** Corta mensagens desproporcionais, dizendo no texto que o corte foi nosso e não do Xerces. */
@@ -461,7 +462,7 @@ public final class SchemaValidatorEngine {
             column = positiveOrNull(parse.getColumnNumber());
         }
         return new Finding(xml, meta.document().accessKey(), null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, describe(e), null, line, column);
+                Severity.WARNING, null, null, describe(e), null, line, column, null, null);
     }
 
     /** Exceções de I/O de arquivo trazem só o caminho como mensagem: sem isto o achado não explica nada. */

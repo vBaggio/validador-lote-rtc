@@ -14,7 +14,7 @@ class DomainImmutabilityTest {
 
     private Finding finding() {
         return new Finding(Path.of("a.xml"), null, null, FindingKind.SCHEMA, Severity.REJECTION,
-                "pCBS", "cvc-pattern-valid", "msg", null, 1, 1);
+                "pCBS", "cvc-pattern-valid", "msg", null, 1, 1, null, null);
     }
 
     private RootCause cause(List<Finding> findings) {
