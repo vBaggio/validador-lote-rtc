@@ -1,6 +1,7 @@
 package br.com.validadorlote.infrastructure.tables;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -34,40 +36,129 @@ public final class FiscalTables {
                 throw new IllegalStateException(
                         "Tabelas ausentes no classpath — rode ./gradlew updateFiscalTables");
             }
-            JsonNode raiz = new ObjectMapper().readTree(in);
-            Map<String, CstEntry> csts = new HashMap<>();
-            Map<String, ClassTribEntry> cts = new HashMap<>();
-            for (JsonNode c : raiz) {
-                String cst = c.path("cst").asText();
-                csts.put(cst, new CstEntry(cst, c.path("nome").asText(),
-                        c.path("exigeGrupo").asBoolean(), c.path("exigeReducao").asBoolean(),
-                        c.path("permiteDiferimento").asBoolean(),
-                        data(c, "iniVig"), data(c, "fimVig")));
-                for (JsonNode ct : c.path("classificacoes")) {
-                    String codigo = ct.path("codigo").asText();
-                    cts.put(codigo, new ClassTribEntry(codigo, ct.path("nome").asText(), cst,
-                            ct.path("nfe").asBoolean(), ct.path("nfce").asBoolean(),
-                            decimal(ct, "percRedIbs"), decimal(ct, "percRedCbs"),
-                            data(ct, "iniVig"), data(ct, "fimVig")));
-                }
-            }
-            return new FiscalTables(csts, cts);
+            return load(in);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static LocalDate data(JsonNode no, String campo) {
-        String v = no.path(campo).asText(null);
-        if (v == null || v.isBlank() || "null".equals(v) || v.length() < 10) {
-            return null;
+    static FiscalTables load(InputStream in) {
+        JsonNode root;
+        try {
+            root = new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .readTree(in);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("JSON inválido na tabela fiscal", e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
-        return LocalDate.parse(v.substring(0, 10));
+        if (root == null || !root.isArray()) {
+            throw new IllegalStateException("A tabela fiscal deve ser uma lista JSON de CSTs");
+        }
+
+        Map<String, CstEntry> csts = new HashMap<>();
+        Map<String, ClassTribEntry> classifications = new HashMap<>();
+        for (JsonNode cstNode : root) {
+            if (!cstNode.isObject()) {
+                throw new IllegalStateException("CST inválido na tabela fiscal");
+            }
+            String cst = requiredText(cstNode, "cst", "CST");
+            String cstContext = "CST '" + cst + "'";
+            CstEntry entry = new CstEntry(cst, requiredText(cstNode, "nome", cstContext),
+                    requiredBoolean(cstNode, "exigeGrupo", cstContext),
+                    requiredBoolean(cstNode, "exigeReducao", cstContext),
+                    requiredBoolean(cstNode, "permiteDiferimento", cstContext),
+                    requiredDate(cstNode, "iniVig", cstContext),
+                    optionalDate(cstNode, "fimVig", cstContext));
+            if (csts.putIfAbsent(cst, entry) != null) {
+                throw new IllegalStateException("CST duplicado na tabela fiscal: '" + cst + "'");
+            }
+            for (JsonNode classificationNode : requiredArray(cstNode, "classificacoes", cstContext)) {
+                if (!classificationNode.isObject()) {
+                    throw new IllegalStateException("Classificação inválida em " + cstContext);
+                }
+                String code = requiredText(classificationNode, "codigo", cstContext);
+                String classificationContext = "classificação '" + code + "' do " + cstContext;
+                ClassTribEntry classification = new ClassTribEntry(code,
+                        requiredText(classificationNode, "nome", classificationContext), cst,
+                        requiredBoolean(classificationNode, "nfe", classificationContext),
+                        requiredBoolean(classificationNode, "nfce", classificationContext),
+                        optionalDecimal(classificationNode, "percRedIbs", classificationContext),
+                        optionalDecimal(classificationNode, "percRedCbs", classificationContext),
+                        requiredDate(classificationNode, "iniVig", classificationContext),
+                        optionalDate(classificationNode, "fimVig", classificationContext));
+                if (classifications.putIfAbsent(code, classification) != null) {
+                    throw new IllegalStateException(
+                            "Classificação duplicada na tabela fiscal: '" + code + "'");
+                }
+            }
+        }
+        return new FiscalTables(csts, classifications);
     }
 
-    private static BigDecimal decimal(JsonNode no, String campo) {
-        return no.path(campo).isMissingNode() || no.path(campo).isNull()
-                ? null : no.path(campo).decimalValue();
+    private static String requiredText(JsonNode node, String field, String context) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isTextual() || value.asText().isBlank()) {
+            throw new IllegalStateException("Campo textual obrigatório '" + field
+                    + "' inválido em " + context);
+        }
+        return value.asText();
+    }
+
+    private static boolean requiredBoolean(JsonNode node, String field, String context) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isBoolean()) {
+            throw new IllegalStateException("Campo booleano obrigatório '" + field
+                    + "' inválido em " + context);
+        }
+        return value.booleanValue();
+    }
+
+    private static JsonNode requiredArray(JsonNode node, String field, String context) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isArray()) {
+            throw new IllegalStateException("Campo lista obrigatório '" + field
+                    + "' inválido em " + context);
+        }
+        return value;
+    }
+
+    private static LocalDate requiredDate(JsonNode node, String field, String context) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isTextual() || value.asText().length() < 10) {
+            throw new IllegalStateException("Campo de data obrigatório '" + field
+                    + "' inválido em " + context);
+        }
+        return parseDate(value.asText(), field, context);
+    }
+
+    private static LocalDate optionalDate(JsonNode node, String field, String context) {
+        JsonNode value = node.get(field);
+        if (value == null || (!value.isNull() && !value.isTextual())) {
+            throw new IllegalStateException("Campo de data opcional '" + field
+                    + "' inválido em " + context);
+        }
+        return value.isNull() ? null : parseDate(value.asText(), field, context);
+    }
+
+    private static LocalDate parseDate(String value, String field, String context) {
+        if (value.length() < 10) {
+            throw new IllegalStateException("Campo de data '" + field + "' inválido em " + context);
+        }
+        try {
+            return LocalDate.parse(value.substring(0, 10));
+        } catch (DateTimeParseException e) {
+            throw new IllegalStateException("Campo de data '" + field + "' inválido em " + context, e);
+        }
+    }
+
+    private static BigDecimal optionalDecimal(JsonNode node, String field, String context) {
+        JsonNode value = node.get(field);
+        if (value == null || (!value.isNull() && !value.isNumber())) {
+            throw new IllegalStateException("Campo decimal opcional '" + field
+                    + "' inválido em " + context);
+        }
+        return value.isNull() ? null : value.decimalValue();
     }
 
     public Optional<CstEntry> cst(String codigo, LocalDate data) {

@@ -3,11 +3,37 @@ package br.com.validadorlote.infrastructure.tables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FiscalTablesTest {
+
+    private static final String MINIMAL_TABLE = """
+            [{
+              "cst": "000",
+              "nome": "Tributação integral",
+              "exigeGrupo": true,
+              "exigeReducao": false,
+              "permiteDiferimento": false,
+              "iniVig": "2025-05-05T00:00:00",
+              "fimVig": null,
+              "classificacoes": [{
+                "codigo": "000001",
+                "nome": "Situações tributadas integralmente",
+                "nfe": true,
+                "nfce": true,
+                "percRedIbs": 0.0,
+                "percRedCbs": 0.0,
+                "iniVig": "2025-05-05T00:00:00",
+                "fimVig": null
+              }]
+            }]
+            """;
 
     private static FiscalTables tables;
     private static final LocalDate HOJE = LocalDate.of(2026, 8, 3);
@@ -92,5 +118,62 @@ class FiscalTablesTest {
         assertThat(tables.provenance()).matches(
                 "tabelas de https://dfe-portal\\.svrs\\.rs\\.gov\\.br/DFE/ClassificacaoTributaria, "
                         + "extraídas em \\d{4}-\\d{2}-\\d{2}");
+    }
+
+    @Test
+    void rootMustBeAnArray() {
+        assertThatThrownBy(() -> FiscalTables.load(json("{}")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("lista");
+    }
+
+    @Test
+    void malformedJsonIsReportedAsInvalidFiscalTable() {
+        assertThatThrownBy(() -> FiscalTables.load(json("[{")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JSON");
+    }
+
+    @Test
+    void trailingJsonValueIsReportedAsInvalidFiscalTable() {
+        assertThatThrownBy(() -> FiscalTables.load(json(MINIMAL_TABLE.strip() + "{}")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JSON");
+    }
+
+    @Test
+    void missingRequiredBooleanFailsInsteadOfDefaultingToFalse() {
+        String malformed = MINIMAL_TABLE.replace("\"nfe\": true,", "");
+
+        assertThatThrownBy(() -> FiscalTables.load(json(malformed)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("nfe")
+                .hasMessageContaining("000001");
+    }
+
+    @Test
+    void duplicateCstFailsInsteadOfOverwritingTheFirstEntry() {
+        String single = MINIMAL_TABLE.strip();
+        String duplicated = "[" + single.substring(1, single.length() - 1)
+                + "," + single.substring(1);
+
+        assertThatThrownBy(() -> FiscalTables.load(json(duplicated)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CST duplicado")
+                .hasMessageContaining("000");
+    }
+
+    @Test
+    void malformedRequiredDateFailsInsteadOfBecomingOpenEnded() {
+        String malformed = MINIMAL_TABLE.replace(
+                "2025-05-05T00:00:00", "data-invalida");
+
+        assertThatThrownBy(() -> FiscalTables.load(json(malformed)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("iniVig");
+    }
+
+    private static InputStream json(String body) {
+        return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));
     }
 }
