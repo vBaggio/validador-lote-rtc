@@ -466,3 +466,28 @@ Task nova (b6): complete (commit efe058a, revisão independente PASS/PASS) — 2
   DÉBITO PARA O FECHAMENTO DO BLOCO: reconciliar as duas versões de `candidatas-rejeicao-pos-b6.md`
   (ou substituir a commitada pela mais extensa, com decisão explícita) antes do PR, para que as
   citações no código deixem de apontar para conteúdo que não existe na branch.
+
+### PARADA — 28/07/2026, fim de sessão. Bloco pronto para a Task 11, aguardando o dono do projeto.
+
+HEAD: c448ad5 na branch bloco/6-camada-rejeicao. Árvore Git limpa, nada pushado.
+  `./gradlew clean test --console=plain`: BUILD SUCCESSFUL, 251 testes.
+
+O que esta sessão fez, em ordem: fechou a Task 10 (D-037, causa-raiz única mantida para a 1022);
+  commitou as duas auditorias órfãs de sessão anterior (e0fde5f); implementou e revisou
+  independentemente duas tasks extras decididas pelo dono do projeto a partir dos achados de
+  auditoria — correção da Exceção 1 da 1115/DFeReferenciado (4f31297, D-038) e as rejeições
+  1118/1119 de coerência de totais (efe058a, D-039). Todas as quatro revisões independentes desta
+  sessão (duas por task) deram PASS/PASS.
+
+PENDÊNCIAS ANTES DA TASK 11 (fechamento/push/PR), nenhuma bloqueadora para o merge em si:
+  1. Reconciliar `docs/pesquisa/candidatas-rejeicao-pos-b6.md` — existe uma versão divergente e mais
+     extensa, untracked no worktree principal (fora deste worktree), nunca commitada em nenhum
+     branch. A versão commitada aqui (8fb24d7) não tem a seção "Lote 1" que o código desta sessão
+     cita duas vezes (D-039, javadoc de `TotalGroupForbiddenRule`). Reportado ao dono do projeto;
+     decisão dele qual versão prevalece, ou se as duas se fundem.
+  2. Débito XSD desatualizado (D-005, ver auditoria-artefatos-oficiais.md) — falso positivo
+     estrutural a partir de 03/08/2026, fora do escopo do bloco 6, ação do dono do projeto.
+
+PRÓXIMO PASSO: Task 11 do plano (`docs/superpowers/plans/2026-07-27-camada-rejeicao.md:1980`) —
+  suíte completa (feito acima), relatório do bloco ao dono do projeto, aguardar liberação explícita
+  antes de qualquer `git push`/PR. Não fazer push nem abrir PR sem essa liberação.
