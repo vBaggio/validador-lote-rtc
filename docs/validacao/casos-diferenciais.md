@@ -72,11 +72,39 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 
 #### Catálogo preliminar de códigos observados
 
-| Categoria | Códigos | Tratamento neste gate |
-|---|---|---|
-| Implementados no bloco 6 | 1021, 1022, 1033, 1074, 1079 | Comparar individualmente com o resultado local; divergências são bloqueadoras. |
-| IBS/CBS fora do bloco atual | 1026, 1036, 1041, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | Registrar como candidatos para estudo posterior; não implementar nesta task. |
-| Assinatura, cadastro e consistência geral | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245 | Ruído esperado das fixtures sintéticas; não comparar com a camada de rejeições IBS/CBS. |
+| Categoria | Código | Descrição retornada pela SVRS | Tratamento neste gate |
+|---|---:|---|---|
+| Implementado | 1021 | Grupo IBS/CBS informado indevidamente | Comparar individualmente; divergência é bloqueadora. |
+| Implementado | 1022 | Grupo IBS/CBS não informado | Comparar individualmente; divergência é bloqueadora. |
+| Implementado | 1033 | Não informado o grupo de redução de alíquota Estadual | Comparar individualmente; divergência é bloqueadora. |
+| Implementado | 1074 | Não informado o grupo de redução de alíquota Municipal | Comparar individualmente; divergência é bloqueadora. |
+| Implementado | 1079 | Não informado o grupo de redução de alíquota da CBS | Comparar individualmente; divergência é bloqueadora. |
+| IBS/CBS fora do bloco | 1026 | Alíquota do IBS da UF inválida | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1036 | Alíquota do IBS do Município inválida | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1041 | Valor do IBS da UF difere do calculado | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1052 | Valor do IBS Municipal difere do calculado | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1069 | Valor da CBS difere do calculado | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1119 | Total de IBS e CBS não informado | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1076 | Total da BC do IBS e da CBS difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1080 | Total de IBS UF difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1084 | Total de IBS Municipal difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1085 | Total do IBS difere da soma do vIBS dos itens | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1091 | Total de CBS difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
+| Assinatura/cadastro/geral | 297 | Assinatura difere do calculado | Ruído esperado da assinatura sintética. |
+| Assinatura/cadastro/geral | 213 | CNPJ-Base do Emitente difere do CNPJ-Base do Certificado Digital | Ruído esperado da assinatura sintética. |
+| Assinatura/cadastro/geral | 598 | NF-e emitida em ambiente de homologação com Razão Social do destinatário diferente de NF-E EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL | Ruído da fixture de homologação. |
+| Assinatura/cadastro/geral | 502 | Erro na Chave de Acesso - Campo ID não corresponde à concatenação dos campos correspondentes | Ruído da fixture sintética. |
+| Assinatura/cadastro/geral | 703 | Data-Hora de Emissão posterior ao horário de recebimento | Ruído da data futura da fixture. |
+| Assinatura/cadastro/geral | 253 | Dígito Verificador da chave de acesso composta inválida | Ruído da chave sintética. |
+| Assinatura/cadastro/geral | 207 | CNPJ do emitente inválido | Ruído cadastral da fixture. |
+| Assinatura/cadastro/geral | 209 | IE do emitente inválida | Ruído cadastral da fixture. |
+| Assinatura/cadastro/geral | 208 | CNPJ do destinatário inválido | Ruído cadastral da fixture. |
+| Assinatura/cadastro/geral | 210 | IE do destinatário inválida | Ruído cadastral da fixture. |
+| Assinatura/cadastro/geral | 591 | Informado CSOSN para emissor que não é do Simples Nacional (CRT diferente de 1 ou 4) | Ruído de coerência da fixture. |
+| Assinatura/cadastro/geral | 437 | CNPJ da instituição de pagamento inválido | Ruído cadastral da fixture. |
+| Assinatura/cadastro/geral | 866 | Ausência de troco quando o valor dos pagamentos informados for maior que o total da nota | Ruído de valores da fixture. |
+| Assinatura/cadastro/geral | 233 | IE do destinatário não cadastrada | Ruído cadastral da fixture. |
+| Assinatura/cadastro/geral | 245 | CNPJ Emitente não cadastrado | Ruído cadastral da fixture. |
 
 **Achado confirmado:** o controle `c1022-com-grupo-interno.xml` não retornou 1022/1033/1074/1079.
 Logo, a diferença de multiplicidade entre a SVRS e a política local de causa-raiz única está
