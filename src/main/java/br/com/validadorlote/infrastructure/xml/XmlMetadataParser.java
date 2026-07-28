@@ -76,6 +76,10 @@ public final class XmlMetadataParser {
         // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
         // (infNFe/ide), não do item — daí não caber no TaxGroupExtractor.
         boolean hasCompraGov = false;
+        // IBSCBSTot é presença de grupo, mesmo raciocínio de gCompraGov: é filho de total, não de
+        // item, e sustenta as rejeições 1118/1119 (docs/decisions.md D-039). Não cabe no
+        // TaxGroupExtractor, que só existe para o conteúdo tributário por item.
+        boolean hasIbsCbsTot = false;
         int infNFeCount = 0;
         List<ReferencedNote> references = new ArrayList<>();
         // refNF/refNFP aberto cujo AAMM ainda não apareceu. Se ele fechar sem o campo, a
@@ -128,6 +132,9 @@ public final class XmlMetadataParser {
                     // stack.peek() ainda é o pai: o push do elemento corrente vem depois.
                     if ("gCompraGov".equals(name) && "ide".equals(stack.peek())) {
                         hasCompraGov = true;
+                    }
+                    if ("IBSCBSTot".equals(name) && "total".equals(stack.peek())) {
+                        hasIbsCbsTot = true;
                     }
                     if ("det".equals(name)) {
                         Integer item = parseItem(r.getAttributeValue(null, "nItem"));
@@ -195,12 +202,12 @@ public final class XmlMetadataParser {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
                     new FiscalDocument(source, null, null, null, null, null, root, null,
-                            null, null, false, List.of()),
+                            null, null, false, false, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
                 new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root,
-                        crt, finNFe, tpNFDebito, hasCompraGov, references),
+                        crt, finNFe, tpNFDebito, hasCompraGov, hasIbsCbsTot, references),
                 ItemLineIndex.of(ranges));
     }
 

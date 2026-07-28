@@ -99,6 +99,12 @@ public final class TaxGroupExtractor {
         // DFeReferenciado é filho de det/prod, mas não tem o marcador de esfera das reduções:
         // precisa do próprio flag para chaveAcesso não ser lido fora do grupo.
         boolean emDFeReferenciado = false;
+        // total/IBSCBSTot/gCBS reusa o mesmo nome local que abre a esfera CBS do item (auditoria
+        // docs/pesquisa/auditoria-regras-e-leitura.md §4.2): sem este flag, Esfera.of() não
+        // consegue distinguir as duas ocorrências só pelo nome. Hoje a colisão é inofensiva por
+        // coincidência de ordenação do leiaute (total vem depois do último det, e a subárvore de
+        // totais não tem gRed/pRedAliq) — o flag existe para que deixe de depender disso.
+        boolean emDet = false;
         // Esfera atualmente aberta. Precisa ser zerada no fechamento da esfera e na abertura de
         // cada det: um gRed fora de esfera não pode herdar a última esfera vista, sob pena de
         // acusar redução onde não há.
@@ -116,7 +122,9 @@ public final class TaxGroupExtractor {
                 String nome = r.getLocalName();
                 Esfera aberta = Esfera.of(nome);
                 if (aberta != null) {
-                    esfera = aberta;
+                    // Só abre esfera dentro de um item: gIBSUF/gIBSMun/gCBS de
+                    // total/IBSCBSTot não representam a esfera do item corrente.
+                    if (emDet) esfera = aberta;
                     continue;
                 }
                 switch (nome) {
@@ -129,6 +137,7 @@ public final class TaxGroupExtractor {
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
+                        emDet = true;
                     }
                     case "IBSCBS" -> { emIbsCbs = true; temGrupo = true; }
                     // O grupo interno só conta dentro do invólucro do item corrente.
@@ -179,6 +188,7 @@ public final class TaxGroupExtractor {
                     itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,
                             prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado));
                     nItem = null;
+                    emDet = false;
                 }
             }
         }

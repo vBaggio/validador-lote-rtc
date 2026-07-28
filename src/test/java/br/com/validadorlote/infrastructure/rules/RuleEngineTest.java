@@ -89,8 +89,27 @@ class RuleEngineTest {
     }
 
     private FiscalDocument doc(String crt, LocalDate data, String modelo, boolean compraGov) {
+        // hasIbsCbsTot=true por padrão: a esmagadora maioria dos testes deste arquivo usa item()
+        // com o invólucro presente (padrão de Item), e a 1119 (item com grupo, total ausente)
+        // acusaria um documento com total=false — ruído que nenhum destes testes quer. Os poucos
+        // testes cujos itens não têm invólucro algum usam docSemTotal, que mantém as duas
+        // presenças coerentemente ausentes.
+        return doc(crt, data, modelo, compraGov, true);
+    }
+
+    private FiscalDocument doc(String crt, LocalDate data, String modelo, boolean compraGov,
+            boolean hasIbsCbsTot) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, modelo, "NFe", crt, null, null, compraGov, List.of());
+                data, modelo, "NFe", crt, null, null, compraGov, hasIbsCbsTot, List.of());
+    }
+
+    /**
+     * Documento em que nenhum item tem o invólucro IBSCBS: o total também precisa estar ausente,
+     * senão a 1118 (nova, coerência item×total — D-039) entraria em cena e o teste deixaria de
+     * isolar o que quer isolar (a cascata por item).
+     */
+    private FiscalDocument docSemTotal(String crt) {
+        return doc(crt, DATA, "55", false, false);
     }
 
     private List<Finding> achados(FiscalDocument documento, Item... itens) {
@@ -103,7 +122,7 @@ class RuleEngineTest {
     @Test
     void itemWithoutTheWrapperProducesExactlyOneFinding() {
         // Sem o invólucro, as dez regras restantes seriam não aplicáveis pelo mesmo motivo.
-        assertThat(achados(doc("3"), item().semInvolucro()))
+        assertThat(achados(docSemTotal("3"), item().semInvolucro()))
                 .singleElement()
                 .satisfies(f -> {
                     assertThat(f.kind()).isEqualTo(FindingKind.REJECTION_RULE);
@@ -256,7 +275,7 @@ class RuleEngineTest {
     void ruleNotYetInForceIsNeitherFindingNorVerification() {
         // CRT=1 antes de 04/01/2027: a exigência não vigora. Sem o contador de verificados, o
         // relatório mostraria "nenhum achado" e o contador concluiria que está tudo certo (§4.5).
-        var resultado = engine.evaluate(doc("1"), List.of(item().semInvolucro().build()));
+        var resultado = engine.evaluate(docSemTotal("1"), List.of(item().semInvolucro().build()));
 
         assertThat(resultado.findings()).isEmpty();
         assertThat(resultado.itemCount()).isEqualTo(1);
@@ -277,7 +296,7 @@ class RuleEngineTest {
 
     @Test
     void unreadableItemNumberIsCarriedAsNullInsteadOfDroppingTheItem() {
-        assertThat(achados(doc("3"), item().numero(null).semInvolucro()))
+        assertThat(achados(docSemTotal("3"), item().numero(null).semInvolucro()))
                 .singleElement()
                 .satisfies(f -> {
                     assertThat(f.itemNumber()).isNull();
@@ -287,11 +306,63 @@ class RuleEngineTest {
 
     @Test
     void documentWithoutItemsProducesNothing() {
-        var resultado = engine.evaluate(doc("3"), List.of());
+        var resultado = engine.evaluate(docSemTotal("3"), List.of());
 
         assertThat(resultado.findings()).isEmpty();
         assertThat(resultado.itemCount()).isZero();
         assertThat(resultado.verifiedItemCount()).isZero();
+    }
+
+    // ---- 1118/1119: regras de nível documento, avaliadas uma vez, não por item (D-039) ----
+
+    @Test
+    void documentRuleFindingCarriesNoItemNumber() {
+        // hasIbsCbsTot=false (docSemTotal) + item com invólucro: dispara a 1119. O achado é do
+        // documento, não de item nenhum — itemNumber precisa sair null, e não "o item que causou".
+        var achados = achados(docSemTotal("3"), item().cst("000").classTrib("000001"));
+
+        assertThat(achados).filteredOn(f -> "1119".equals(f.rejectionCode()))
+                .singleElement()
+                .satisfies(f -> assertThat(f.itemNumber()).isNull());
+    }
+
+    @Test
+    void documentRuleDoesNotAffectVerifiedItemCount() {
+        // verifiedItemCount é contagem de item; a 1119 é achado de documento e não deve inflar
+        // nem esconder esse número.
+        var resultado = engine.evaluate(docSemTotal("3"),
+                List.of(item().cst("000").classTrib("000001").build()));
+
+        assertThat(resultado.findings()).extracting(Finding::rejectionCode).contains("1119");
+        assertThat(resultado.itemCount()).isEqualTo(1);
+        assertThat(resultado.verifiedItemCount()).isEqualTo(1);
+    }
+
+    @Test
+    void totalPresentWithNoItemHavingTheWrapperFiresOnly1118() {
+        // doc("3") teria hasIbsCbsTot=true por padrão; aqui construímos explicitamente para não
+        // depender do default do helper.
+        var documento = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
+                DATA, "55", "NFe", "1", null, null, false, true, List.of());
+        // CRT=1 antes de 04/01/2027: a 1115 não dispara (item sem invólucro é NaoAplicavel aqui).
+
+        assertThat(engine.evaluate(documento, List.of(item().semInvolucro().build())).findings())
+                .extracting(Finding::rejectionCode)
+                .containsExactly("1118");
+    }
+
+    @Test
+    void documentRuleCoexistsWithItemLevelFindingsInTheSameDocument() {
+        // Dois itens: item 1 tem o invólucro (sustenta a coerência do total), item 2 não tem CST
+        // na tabela — gera seu próprio achado de item, independente da regra de documento.
+        var achados = achados(doc("3"),
+                item().numero(1).cst("000").classTrib("000001"),
+                item().numero(2).cst("999"));
+
+        assertThat(achados).extracting(Finding::rejectionCode).doesNotContain("1118", "1119");
+        assertThat(achados).singleElement()
+                .satisfies(f -> assertThat(f.notEvaluatedCause())
+                        .isEqualTo(NotEvaluatedCause.CST_NOT_IN_TABLE));
     }
 
     // ---- A invariante que sustenta a cascata inteira ----

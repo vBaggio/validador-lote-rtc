@@ -32,7 +32,7 @@ class DocumentRulesTest {
     private FiscalDocument doc(String crt, LocalDate data, String finNFe, String tpNFDebito,
             List<ReferencedNote> referencias) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, "55", "NFe", crt, finNFe, tpNFDebito, false, referencias);
+                data, "55", "NFe", crt, finNFe, tpNFDebito, false, false, referencias);
     }
 
     /** Item cujo invólucro e cujo grupo interno andam juntos — o suficiente para a 1115. */

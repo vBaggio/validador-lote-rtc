@@ -362,4 +362,36 @@ class TaxGroupExtractorTest {
         assertThat(itens.getFirst().dfeReferenciado()).isNotNull();
         assertThat(itens.get(1).dfeReferenciado()).isNull();
     }
+
+    /**
+     * Documenta o achado da sonda de mutação do fix de contexto (D-039, §"pré-requisito"): o
+     * {@code det} zera {@code esfera}/{@code redUf}/{@code redMun}/{@code redCbs} de propósito
+     * como primeiro efeito do próprio evento de abertura (antes de qualquer filho ser lido) — por
+     * isso nenhum estado deixado por um {@code total/IBSCBSTot/gCBS} anterior sobrevive à abertura
+     * do item seguinte, com ou sem a guarda de contexto. Comentar a guarda e reordenar
+     * total/det aqui não derruba nenhuma asserção porque essa proteção independente já cobre o
+     * caminho; ela não cobre a leitura de {@code total/IBSCBSTot} em si (que não existe nesta
+     * classe — 1118/1119 leem a presença via {@link XmlMetadataParser}, D-039), nem um
+     * {@code gCBS} de totais aninhado dentro de um {@code det} real (fora de escopo: exigiria
+     * outro nome colidindo dentro do próprio item, não o caso que a auditoria descreve).
+     */
+    @Test
+    void totalBeforeDetDoesNotPolluteTheFollowingItem(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("total-antes-do-det.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <total><IBSCBSTot><gCBS><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vCBS>0.00</vCBS><vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gCBS></IBSCBSTot></total>
+                  <det nItem="1"><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <gIBSCBS><gIBSUF><gRed><pRedAliq>60.00</pRedAliq></gRed></gIBSUF></gIBSCBS>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        var g = extractor.extract(xml).getFirst();
+
+        assertThat(g.hasReducaoUf()).isTrue();
+        assertThat(g.percReducaoUf()).isEqualByComparingTo("60.00");
+        assertThat(g.hasReducaoCbs()).isFalse();
+        assertThat(g.percReducaoCbs()).isNull();
+    }
 }

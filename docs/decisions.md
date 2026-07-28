@@ -4,6 +4,75 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-039 — 1118/1119 introduzem `DocumentRejectionRule`, avaliada por documento, não por item (28/07/2026)
+
+Task fora do plano original, priorizada em `docs/pesquisa/candidatas-rejeicao-pos-b6.md` §"Lote 1"
+por ser a única família do catálogo pós-bloco-6 que é presença pura, sem aritmética. Texto literal
+conferido no PDF `NT_2025.002_v1.50` (p. 72, Grupo W03), não só no brief:
+
+> **W34-10** (1118): *"Se grupo de totais do IBS e da CBS (tag: total/IBSCBSTot) informado:
+> Nenhum item possui IBS / CBS informado (id: UB12, tag: IBSCBS)"* → Rejeição: Total de IBS e CBS
+> informado indevidamente.
+>
+> **W34-20** (1119): *"Se grupo de totais do IBS e da CBS (tag: total/IBSCBSTot) não informado:
+> Pelo menos um item possui IBS / CBS informado (id: UB12, tag: IBSCBS)"* → Rejeição: Total de IBS
+> e CBS não informado.
+
+Sem exceção e sem gatilho de vigência nas duas linhas da tabela. A remissão "(id: UB12, tag:
+IBSCBS)" resolve a ambiguidade que o brief sinalizava: é o mesmo elemento que a UB12-10 (1115)
+observa — o **invólucro** `IBSCBS`, não o `gIBSCBS` interno (D-027) — logo as duas regras leem
+`ItemTaxGroup.hasIbsCbsGroup()`.
+
+**Encaixe no motor.** As onze regras do primeiro corte (D-026) são todas por item:
+`RejectionRule.evaluate(RuleContext)`, e `RuleContext` carrega um único item. 1118/1119 comparam
+duas presenças de escopos diferentes — o grupo de totais (documento) contra a presença do
+invólucro em **qualquer** item da lista — e não cabem nesse contrato sem distorcê-lo. Considerei
+forçá-las a receber `RuleContext` mesmo assim (com a lista de itens pendurada nele) e descartei:
+isso obrigaria as onze regras existentes e todo teste que constrói `RuleContext` a carregar uma
+lista que nunca leem, só para duas regras novas. Criei uma segunda interface,
+`DocumentRejectionRule.evaluate(FiscalDocument, List<ItemTaxGroup>)`, e uma segunda (pequena)
+lista de bindings no `RuleEngine`, avaliada uma vez por documento em `RuleEngine.evaluate`, fora do
+laço por item e fora da cascata de `Precondition` (que é toda sobre disponibilidade de dado de
+item — CST, cClassTrib — e não tem o que dizer sobre uma comparação de presença entre documento e
+itens). O achado gerado carrega `itemNumber = null`: não é de item nenhum, e inventar um item para
+carregá-lo mentiria sobre a causa. Não altera `verifiedItemCount`, que é contagem de item.
+
+**Pré-requisito do `TaxGroupExtractor`.** `docs/pesquisa/auditoria-regras-e-leitura.md §4.2`
+encontrou uma colisão de nome latente: `Esfera.of(String)` decide a esfera de um `gRed`/`pRedAliq`
+só pelo nome local (`gIBSUF`, `gIBSMun`, `gCBS`), e `total/IBSCBSTot/gCBS` tem o mesmo nome local
+que abre a esfera CBS do item. `TaxGroupExtractor` ganhou um booleano `emDet` (mesmo padrão de
+`emIbsCbs`) e a abertura de esfera só é aceita quando `emDet` é verdadeiro.
+
+**Achado da sonda de mutação, honesto:** o cenário literal do brief — `total` antes de `det` na
+ordem do documento, com `gCBS` de totais tentando abrir a esfera CBS — **não produz nenhuma
+diferença observável** em `extract()`, com ou sem a guarda. A razão é uma proteção independente já
+existente: o caso `"det"` do laço zera `esfera`, `redUf`, `redMun`, `redCbs`, `pUf`, `pMun`, `pCbs`
+como primeiro efeito da própria abertura do item, antes de qualquer filho ser lido — nenhum estado
+sujo por algo anterior (dentro ou fora de `det`) sobrevive a essa reinicialização. A guarda `emDet`
+continua correta e vale manter: fecha a lacuna que a auditoria nomeou, documenta a intenção no
+código e protege uma extensão futura que leia `total/IBSCBSTot` **através deste mesmo extractor**
+(hoje não é o caso — 1118/1119 leem a presença via `XmlMetadataParser`, mesmo padrão de
+`hasCompraGov`, por instrução explícita do brief). Mas ela é defesa em profundidade, não a correção
+de um caminho hoje alcançável, e o teste
+`TaxGroupExtractorTest#totalBeforeDetDoesNotPolluteTheFollowingItem` documenta isso
+explicitamente — sem fingir ser prova de mutação do que não se prova. `FiscalDocument.hasIbsCbsTot`
+(capturado em `XmlMetadataParser`, mesmo padrão de `hasCompraGov`) é o dado que sustenta 1118/1119.
+
+**Consequência nas fixtures.** Nenhuma fixture de `src/test/resources/fixtures/` (canônica ou do
+corpus de rejeição) tinha `total/IBSCBSTot`. Com 1119 implementada, todo item com `IBSCBS`
+informado sem o total correspondente passa a ser genuinamente rejeitado — o que já era visível em
+`docs/validacao/casos-diferenciais.md`, onde a SVRS retorna 1119 em quase todas as fixtures do
+Bloco 6 e o documento registra "1119 fica fora do escopo atual". Passou a estar no escopo: as 22
+fixtures cujo item tem o invólucro (`nfe-valida.xml` e 21 arquivos de `fixtures/rejeicao/`, todos
+exceto `r1115-sem-grupo.xml`, cujo item não tem invólucro nenhum) ganharam
+`<IBSCBSTot><vBCIBSCBS>0.00</vBCIBSCBS></IBSCBSTot>` em `total` — o único filho obrigatório do tipo
+`TIBSCBSMonoTot` (`DFeTiposBasicos_v1.00.xsd:515`), presença mínima válida contra o XSD. Nenhuma
+delas testa valor de `IBSCBSTot` (fora do escopo desta task, e do produto: `vBCIBSCBS`/`gIBS` etc.
+pertencem à v1, W35 em diante), então `0.00` uniforme não interfere em nenhuma asserção existente.
+
+**Fora do escopo desta task**, catalogado em `docs/pesquisa/candidatas-rejeicao-pos-b6.md`: as
+demais regras de totais (W35 em diante) exigem soma e pertencem ao motor `regime-geral` da v1.
+
 ## D-038 — Exceção 1 da 1115 passa a ler `DFeReferenciado`, por item, além de `NFref` (28/07/2026)
 
 Achado de auditoria independente (`docs/pesquisa/auditoria-regras-e-leitura.md §2`), fora do plano

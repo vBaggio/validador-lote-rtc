@@ -40,7 +40,9 @@ class RejectionFixturesTest {
             new Case("r1079-reducao-cbs-ausente.xml", "1079"),
             new Case("r1034-percentual-uf-invalido.xml", "1034"),
             new Case("r1046-percentual-municipio-invalido.xml", "1046"),
-            new Case("r1063-percentual-cbs-invalido.xml", "1063"));
+            new Case("r1063-percentual-cbs-invalido.xml", "1063"),
+            new Case("r1118-total-sem-item.xml", "1118"),
+            new Case("r1119-item-sem-total.xml", "1119"));
     private static final List<String> CONTROL_CASES = List.of(
             "c1115-com-grupo.xml",
             "c1021-sem-grupo-interno.xml",
@@ -52,7 +54,9 @@ class RejectionFixturesTest {
             "c1079-reducao-cbs-presente.xml",
             "c1034-percentual-uf-correto.xml",
             "c1046-percentual-municipio-correto.xml",
-            "c1063-percentual-cbs-correto.xml");
+            "c1063-percentual-cbs-correto.xml",
+            "c1118-total-com-item.xml",
+            "c1119-item-com-total.xml");
 
     private static final XmlMetadataParser parser = new XmlMetadataParser();
     private static final TaxGroupExtractor extractor = new TaxGroupExtractor();
@@ -139,6 +143,19 @@ class RejectionFixturesTest {
         assertReductionPercentages("r1034-percentual-uf-invalido.xml", "59.99", "60.00", "60.00");
         assertReductionPercentages("r1046-percentual-municipio-invalido.xml", "60.00", "59.99", "60.00");
         assertReductionPercentages("r1063-percentual-cbs-invalido.xml", "60.00", "60.00", "59.99");
+
+        // 1118/1119 (W34-10/W34-20): coerência entre total/IBSCBSTot (documento) e IBSCBS (item).
+        assertTaxGroup("r1118-total-sem-item.xml", null, null, false, false, false, false, false);
+        assertHasIbsCbsTot("r1118-total-sem-item.xml", true);
+        assertTaxGroup("c1118-total-com-item.xml", "000", "000001", true, true,
+                false, false, false);
+        assertHasIbsCbsTot("c1118-total-com-item.xml", true);
+        assertTaxGroup("r1119-item-sem-total.xml", "000", "000001", true, true,
+                false, false, false);
+        assertHasIbsCbsTot("r1119-item-sem-total.xml", false);
+        assertTaxGroup("c1119-item-com-total.xml", "000", "000001", true, true,
+                false, false, false);
+        assertHasIbsCbsTot("c1119-item-com-total.xml", true);
     }
 
     @Test
@@ -196,6 +213,11 @@ class RejectionFixturesTest {
                     assertThat(item.hasReducaoMun()).isEqualTo(reductionMun);
                     assertThat(item.hasReducaoCbs()).isEqualTo(reductionCbs);
                 });
+    }
+
+    private static void assertHasIbsCbsTot(String file, boolean expected) {
+        assertThat(parser.parse(fixture(file)).document().hasIbsCbsTot())
+                .as("hasIbsCbsTot of %s", file).isEqualTo(expected);
     }
 
     private static void assertReductionPercentages(String file, String uf, String mun, String cbs) {

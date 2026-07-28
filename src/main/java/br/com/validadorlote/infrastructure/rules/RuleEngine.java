@@ -74,6 +74,15 @@ public final class RuleEngine {
     private static final RejectionRule GROUP_REQUIRED = new GroupRequiredRule();
 
     /**
+     * Regras de nível <b>documento</b>, avaliadas uma vez por documento — não por item, como as
+     * onze de {@link #BINDINGS}. Hoje só 1118/1119 (W34-10/W34-20), que comparam a presença de
+     * {@code total/IBSCBSTot} contra a de {@code IBSCBS} em qualquer item (D-039). Sem cascata:
+     * são independentes uma da outra e não compartilham precondição com as regras de item.
+     */
+    private static final List<DocumentRejectionRule> DOCUMENT_RULES =
+            List.of(new TotalGroupForbiddenRule(), new TotalGroupRequiredRule());
+
+    /**
      * As dez regras restantes, na ordem em que a NT as numera. A ordem também escolhe quem fala
      * por uma causa suprimida: dentro de um grupo suprimido, o primeiro que tem o que dizer diz,
      * e a mensagem continua sendo a da regra — o motor não escreve explicação fiscal.
@@ -127,7 +136,42 @@ public final class RuleEngine {
                 verified++;
             }
         }
+        evaluateDocument(document, items, findings);
         return new RuleEvaluation(List.copyOf(findings), items.size(), verified);
+    }
+
+    /**
+     * As regras de documento não participam da cascata de {@link Precondition}: não pressupõem
+     * CST, cClassTrib nem o invólucro de item nenhum, e por isso rodam sempre, uma vez por
+     * documento — não entram em {@link #verifiedItemCount}, que é contagem de item, não de
+     * documento.
+     */
+    private void evaluateDocument(FiscalDocument document, List<ItemTaxGroup> items,
+            List<Finding> out) {
+        for (DocumentRejectionRule rule : DOCUMENT_RULES) {
+            reportDocument(out, document, rule, rule.evaluate(document, items));
+        }
+    }
+
+    /** @return se o desfecho de uma regra de documento virou achado. Espelha {@link #report}. */
+    private boolean reportDocument(List<Finding> out, FiscalDocument document,
+            DocumentRejectionRule rule, RuleOutcome outcome) {
+        if (outcome instanceof RuleOutcome.Rejeitado rejeitado) {
+            out.add(Finding.rejection(document.source(), document.accessKey(), null,
+                    rejeitado.rejectionCode(), rejeitado.ruleId(), rejeitado.officialMessage(),
+                    rejeitado.friendlyMessage()));
+            return true;
+        }
+        if (outcome instanceof RuleOutcome.NaoAvaliado naoAvaliado) {
+            // Nenhuma das duas regras de documento devolve isto hoje (não há precondição que
+            // falte); tratado do mesmo jeito que o report() de item, para não deixar buraco se
+            // uma regra de documento futura vier a desistir por falta de dado.
+            out.add(Finding.notEvaluated(document.source(), document.accessKey(), null,
+                    NotEvaluatedCause.RULE_SPECIFIC, rule.ruleId(), naoAvaliado.motivo()));
+            return true;
+        }
+        // Conforme e NaoAplicavel não entram no relatório, mesma semântica do report() de item.
+        return false;
     }
 
     /** @return se ao menos uma regra chegou a veredito neste item. */

@@ -78,7 +78,7 @@ class TableRulesTest {
 
     private FiscalDocument doc(String modelo, LocalDate data, boolean compraGov) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, modelo, "NFe", "3", null, null, compraGov, List.of());
+                data, modelo, "NFe", "3", null, null, compraGov, false, List.of());
     }
 
     private RuleContext ctx(Item item) {
