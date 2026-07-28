@@ -4,6 +4,26 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-036 — Ledger do SDD versionado; o resto de `.superpowers/` é scratch (27/07/2026)
+
+`.superpowers/` estava inteiramente no `.gitignore`. Não foi escolha do projeto: é a convenção do
+superpowers, que trata o diretório como scratch descartável — o próprio skill avisa que
+`git clean -fdx` o destrói.
+
+Revisto por conteúdo, o diretório tem 1,3 MB de naturezas diferentes: 588 KB de diffs de revisão
+(100% regeneráveis com `git diff base..head`), 224 KB de briefs e 228 KB de relatórios de task
+(derivados do plano e efêmeros), e 28 KB de ledger — que é memória de decisão, achado e débito, e
+**não existe em nenhum outro lugar**.
+
+**Decisão:** versionar apenas `.superpowers/sdd/progress.md`; manter o restante ignorado. Exigiu
+regra no `.gitignore` da raiz e negação no `.gitignore` aninhado que o tooling cria em
+`.superpowers/sdd/` (`*` + `!progress.md`), porque o aninhado vence para os arquivos dele.
+
+**Consequência aceita:** o ledger aparece nos diffs de PR. É ruído pequeno em troca de o histórico
+de decisão sobreviver a `git clean`, viajar entre máquinas e ficar revisável. Se o tooling
+sobrescrever o `.gitignore` aninhado numa atualização do superpowers, a negação precisa ser
+recolocada.
+
 ## D-035 — `itemNumber` nulável e não único é débito da agregação, não do motor (27/07/2026)
 `TaxGroupExtractor` insere todo item com `nItem` ilegível com `itemNumber = null` (decisão certa:
 descartá-lo o faria sumir do relatório). Consequência que só aparece agora: num documento com
