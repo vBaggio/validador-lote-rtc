@@ -602,15 +602,20 @@ Task 19 (b3): complete (commit 1836b25, revisão independente PASS/PASS) — 332
   mesmo padrão em teste). Custo de I/O, não de corretude; candidato a otimização futura se o
   desempenho em lotes grandes se mostrar um problema real.
 
-### PARADA — 28/07/2026, fim do bloco 3 (Tasks 18 e 19). Pronto para push/PR, aguardando decisão
-  de fechamento do dono do projeto (mesmo padrão dos blocos 6 e 7: Task 20 — suíte, relatório,
-  liberação).
+Task 20 (b3): review do orquestrador antes do fechamento encontrou um achado real no
+  `ValidateBatchUseCase.execute`: o laço que drena o `CompletionService` usava o índice `i` da
+  submissão (`files.get(i)`) para nomear o arquivo no `Finding` de erro inesperado, mas
+  `CompletionService.take()` entrega pela ordem de **conclusão**, não de submissão — sob execução
+  paralela um erro (uma exceção não-`RuntimeException`, ex. `Error`, já que `validateOne` captura
+  `RuntimeException` internamente) seria atribuído ao arquivo errado. Corrigido: um
+  `Map<Future<List<Finding>>, Path>` (`fileOf`) associa cada tarefa submetida ao seu arquivo, e o
+  `catch (ExecutionException)` consulta esse mapa pela própria `Future` em vez do índice. Dobrado
+  no mesmo commit da Task 19 (`--soft reset` + recommit, não pushado ainda — sem cadeia de fix
+  commits). Sem teste automatizado novo: os colaboradores de `validateOne` são construídos
+  concretos (sem seam de injeção de falha por arquivo), então forçar esse caminho end-to-end exigiria
+  refactor fora do escopo deste achado; verificado por leitura e reprodução mental do agendamento,
+  não por mutação. Suíte completa reconfirmada verde (332 testes) após a correção.
 
-HEAD: 1836b25 na branch `bloco/3-usecase-csv` (nascida de main pós-bloco-7, commit 4e85fbf).
-  Árvore limpa (`./gradlew clean test --console=plain`: BUILD SUCCESSFUL, 332 testes, 0 falhas),
-  nada pushado. Duas tasks completas e revisadas independentemente (PASS/PASS nas duas). D-043
-  registra a decisão do bloco. Task 20 (fechamento/PR/push) NÃO executada — aguardando liberação
-  explícita do dono do projeto. Nenhuma pergunta em aberto sem resposta: as duas ambiguidades que
-  o dispatch da coordenação sinalizou (o que significa "estruturalmente válido o bastante para
-  extrair" e se `BatchReport` precisa de novos campos) foram resolvidas e documentadas em D-043,
-  não deixadas como pendência.
+### PARADA — 28/07/2026, fim do bloco 3. Suíte verde, revisão do orquestrador feita e achado
+  corrigido. Pronto para push + PR (Task 20), aguardando confirmação do dono do projeto antes do
+  merge.
