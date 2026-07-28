@@ -73,6 +73,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | `r1025-classtrib-modelo.xml` | 297, 213, 598, 373, 502, 410, 703, 705, 253, 716, 717, 207, 209, 208, 789, 729, 383, 591, 753, 760, 437, 866, 394, 245, **1025**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1025 confirmado.** Os códigos NFC-e, IBS/CBS futuros e ruídos cadastrais ficam catalogados separadamente. |
 | `c1025-classtrib-permitida-modelo.xml` | 297, 213, 598, 373, 502, 410, 703, 705, 253, 716, 717, 207, 209, 208, 789, 729, 383, 591, 753, 760, 437, 866, 394, 245, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1025. Os códigos restantes são ruído, regras de NFC-e fora do bloco ou cobertura IBS/CBS futura. |
 | `r1033-reducao-uf-ausente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1033**, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **1033 confirmado.** Os códigos de cálculo/totais são cobertura futura; os cadastrais/assinatura são ruído da fixture. |
+| `c1033-reducao-uf-presente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1033. Os códigos restantes são cálculo/total futuro ou ruído da fixture. |
 
 #### Catálogo preliminar de códigos observados
 
