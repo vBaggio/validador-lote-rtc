@@ -369,3 +369,32 @@ Task 9 (b6): complete (commit 17c4c6d, revisão local limpa) — 228 testes, 0 f
 
 HEAD: 17c4c6d na branch bloco/6-camada-rejeicao. Árvore limpa, 228 testes verdes, nada pushado.
 Próximo: Task 10, gate humano SVRS; aguardar o dono do projeto executar ou delegar a validação.
+
+Task 10 (b6): evidência humana registrada até aqui (último commit edd9c22; sem push).
+  A SVRS aceitou parser e schema em todos os 22 XMLs. Os 11 positivos confirmaram os códigos
+  implementados: 1115, 1021, 1022, 1024, 1025, 1033, 1074, 1079, 1034, 1046 e 1063. Os 11
+  controles não retornaram a rejeição-alvo correspondente.
+  EVIDÊNCIA: resultados e descrições literais estão em docs/validacao/casos-diferenciais.md,
+  seção "Evidências já executadas". A assinatura sintética, erros cadastrais e inconsistências
+  gerais das fixtures foram classificados como ruído; códigos de cálculo/totais não implementados
+  foram catalogados, sem implementação nesta task.
+  ACHADO IMPORTANTE: no positivo r1022 a SVRS retorna 1022 + 1033 + 1074 + 1079, enquanto o
+  motor local retorna somente 1022 por política deliberada de causa-raiz única quando falta
+  gIBSCBS. O controle c1022 não retorna nenhum dos quatro; a divergência de multiplicidade está
+  comprovada. Não alterar código sem decisão explícita sobre essa política.
+  CANDIDATO NOVO: 1064 — "Valor da Alíquota Efetiva da CBS calculado incorretamente", observado
+  no positivo da 1063. Outros candidatos IBS/CBS já catalogados: 1026, 1036, 1041, 1052, 1069,
+  1119, 1076, 1080, 1084, 1085 e 1091. A fixture NFC-e de 1025 também revelou candidatos gerais
+  de NFC-e (373, 410, 705, 716, 717, 789, 729, 383, 753, 760) e ruídos cadastrais.
+  DÉBITO: decidir se o bloco deve preservar a causa-raiz única local ou reproduzir a multiplicidade
+  observada na SVRS para 1022; depois atualizar teste, spec/decisão e código em uma task de correção.
+
+### PARADA — 28/07/2026, handoff para troca de agente.
+
+HEAD: edd9c22 na branch bloco/6-camada-rejeicao. Árvore Git limpa, nada pushado. Última suíte
+  completa conhecida: 228 testes, 0 falhas. Alterações desde Task 9 são documentais, registrando
+  o gate SVRS e o catálogo de códigos; nenhum código de produção foi alterado.
+  PRÓXIMO AGENTE: ler docs/context.md, docs/workflow.md, este ledger e
+  docs/validacao/casos-diferenciais.md; conferir git status/log; começar pela divergência 1022,
+  sem implementar candidatos 1026/1036/1041/1052/1064/1069/1076/1080/1084/1085/1091/1119 antes
+  de decisão do dono do projeto. Task 10 não deve ser declarada "sem divergências".
