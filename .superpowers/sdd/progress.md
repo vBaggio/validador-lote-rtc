@@ -510,3 +510,28 @@ Reconciliação (b6): `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (commit f91e
   do worktree principal (não versionada, sem perda: conteúdo já fundido).
   DÉBITO NOVO, fora do bloco 6: o motor de schema (bloco 2) não diferencia modelo 55 de 65 em
   nenhum ponto — pode afetar mais códigos além de 1049/1138. Reportado ao dono do projeto.
+
+Task nova (b7): complete (commit b6fef09, aguardando revisão independente) — 303 testes, 0 falhas.
+  Bloco novo (`bloco/7-cobertura-adicional`), brief `task-presenca-indicador-modelo-brief.md`,
+  16 códigos em 4 mecanismos: diferimento por indicador CST (1029/1030/1044/1061/1083/1090),
+  devolução de tributo proibida (1111/1112/1187), gTribCompraGov (1141/1144) e grupo proibido no
+  modelo 65 (1006/1049/1138/1165/708, confirmado empiricamente por D-040). Decisão registrada:
+  D-041.
+  ACHADO: `permiteDiferimento` já estava mapeado corretamente (direto do `IndDiferimento` bruto da
+  SVRS, sem inversão — só 510/515 verdadeiro) — o nome que mentia, sugerindo facultatividade que o
+  indicador não tem. Renomeado para `exigeDiferimento`, sem mudar nenhum valor.
+  ACHADO: 1138 e 1165 disparam sempre juntas em qualquer XML XSD-válido — `tpCredPresIBSZFM` é
+  campo obrigatório dentro de `gCredPresIBSZFM`, não há como isolar. Uma fixture cobre as duas.
+  DÉBITO: 1141/1144 sem fixture de corpus — isolar exige CST com `ind_gIBSCBS=1` e
+  `gCompraGov=true` ao mesmo tempo, o que aciona o gatilho de compra governamental de
+  `ReductionGroupRule`/`ReductionPercentageRule` (D-030) e contamina o achado com 3 findings extras
+  em qualquer combinação XSD-válida. Cobertos só por unidade (`TableRulesTest`, 16 testes). Detalhe
+  completo em D-041.
+  DÉBITO: `docs/pesquisa/candidatas-rejeicao-pos-b6.md` não foi atualizado para mover os quatro
+  mecanismos de "candidata" para "entregue" — fora do escopo explícito do brief, fica para quem
+  mexer nesse documento de novo.
+  Seis sondas de mutação, todas capturadas (classe genérica `PresenceForbiddenRule`, leitura de
+  `exigeDiferimento`, `DiferimentoRequiredRule`, `ComprasGovComposicaoRequiredRule`,
+  `TaxGroupExtractor` captura de `gDif`, `CompraGovForbiddenInNfceRule`) — `git status` limpo após
+  cada uma. Revisor independente e sonda própria: próximo passo.
+  nenhum ponto — pode afetar mais códigos além de 1049/1138. Reportado ao dono do projeto.
