@@ -70,6 +70,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | `c1022-com-grupo-interno.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado para o conjunto:** não retornou 1022/1033/1074/1079. Os códigos IBS/CBS restantes são cálculos/totais fora do escopo. |
 | `r1024-classtrib-incompativel-cst.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1024**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1024 confirmado.** Os demais códigos IBS/CBS são cobertura futura; os códigos cadastrais/assinatura são ruído da fixture. |
 | `c1024-classtrib-compativel-cst.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1024. Os demais códigos são ruído ou cobertura futura. |
+| `r1025-classtrib-modelo.xml` | 297, 213, 598, 373, 502, 410, 703, 705, 253, 716, 717, 207, 209, 208, 789, 729, 383, 591, 753, 760, 437, 866, 394, 245, **1025**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1025 confirmado.** Os códigos NFC-e, IBS/CBS futuros e ruídos cadastrais ficam catalogados separadamente. |
 
 #### Catálogo preliminar de códigos observados
 
@@ -91,6 +92,17 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | IBS/CBS fora do bloco | 1084 | Total de IBS Municipal difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1085 | Total do IBS difere da soma do vIBS dos itens | Candidato para estudo posterior; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1091 | Total de CBS difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 373 | Descrição do primeiro item diferente de NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 410 | UF informada no campo cUF não é atendida pelo Web Service | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 705 | NFC-e com data de entrada/saída | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 716 | NFC-e em operação não destinada a consumidor final | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 717 | NFC-e em operação não presencial | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 789 | NFC-e para destinatário contribuinte de ICMS | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 729 | NFC-e com tag IE do destinatário | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 383 | Item com CSOSN indevido | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 753 | NFC-e com frete | Candidato futuro; não implementar nesta task. |
+| Modelo/NFC-e fora do bloco | 760 | NFC-e com dados de cobrança (Fatura, Duplicata) | Candidato futuro; não implementar nesta task. |
+| Assinatura/cadastro/geral | 394 | CNPJ da instituição de pagamento inválido [Ocorr:2] | Ruído cadastral da fixture. |
 | Assinatura/cadastro/geral | 297 | Assinatura difere do calculado | Ruído esperado da assinatura sintética. |
 | Assinatura/cadastro/geral | 213 | CNPJ-Base do Emitente difere do CNPJ-Base do Certificado Digital | Ruído esperado da assinatura sintética. |
 | Assinatura/cadastro/geral | 598 | NF-e emitida em ambiente de homologação com Razão Social do destinatário diferente de NF-E EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL | Ruído da fixture de homologação. |
