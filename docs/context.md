@@ -26,10 +26,14 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 
 ## Índice
 
-1. [`architecture.md`](./architecture.md) — camadas, pacotes, regra de dependência, fluxo
-2. [`conventions.md`](./conventions.md) — regras de código, commits, fronteiras
-3. [`testing.md`](./testing.md) — estratégia de testes, fixtures, tags
-4. [`decisions.md`](./decisions.md) — log ADR-lite (D-001..)
-5. [`calculadora/`](./calculadora/) — contrato real da Calculadora RFB (descoberta 26/07/2026)
-6. [`superpowers/specs/`](./superpowers/specs/) — spec de design aprovada
-7. [`superpowers/plans/`](./superpowers/plans/) — plano de implementação vigente
+1. [`workflow.md`](./workflow.md) — como se executa trabalho aqui: bloco, ledger, brief e adendo, handoff
+2. [`architecture.md`](./architecture.md) — camadas, pacotes, regra de dependência, fluxo
+3. [`conventions.md`](./conventions.md) — regras de código, commits, fronteiras
+4. [`testing.md`](./testing.md) — estratégia de testes, fixtures, tags
+5. [`decisions.md`](./decisions.md) — log ADR-lite (D-001..)
+6. [`calculadora/`](./calculadora/) — contrato real da Calculadora RFB (descoberta 26/07/2026)
+7. [`superpowers/specs/`](./superpowers/specs/) — spec de design aprovada
+8. [`superpowers/plans/`](./superpowers/plans/) — plano de implementação vigente
+
+O projeto é desenvolvido por mais de uma ferramenta de agente. Tudo que vale para todas fica aqui em
+`docs/`; `CLAUDE.md` e `AGENTS.md` são adaptadores finos com o que é específico de cada uma.

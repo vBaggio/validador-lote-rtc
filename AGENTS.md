@@ -5,10 +5,6 @@ Reforma Tributária do Consumo (IBS/CBS, NT 2025.002). Java 21 + Swing/FlatLaf.
 
 A documentação canônica vive em [`docs/`](./docs/) e é tool-agnostic. Este arquivo só aponta para lá.
 
-> O projeto é desenvolvido por mais de uma ferramenta. Tudo que vale para todas fica em `docs/`;
-> aqui e em [`AGENTS.md`](./AGENTS.md) fica só o que é específico da ferramenta. Adaptador que
-> cresce com regra de projeto está com conteúdo no lugar errado.
-
 ## Antes de qualquer tarefa em contexto limpo
 
 1. [`docs/context.md`](./docs/context.md) — projeto, princípios e índice completo.
@@ -25,9 +21,19 @@ A documentação canônica vive em [`docs/`](./docs/) e é tool-agnostic. Este a
 - **1 commit semântico por task**, escopo do bloco (`feat(b6): ...`). Branch por bloco + PR. Nunca `git push` durante as tasks.
 - Spec e plano vigentes: [`docs/superpowers/`](./docs/superpowers/). Decisões: [`docs/decisions.md`](./docs/decisions.md).
 
-## Configuração específica do Claude Code
+## Configuração específica do Codex
 
-O agente `validador-senior-dev` (`.claude/agents/`) é o dispatch padrão para trabalho de
-desenvolvimento neste repositório.
+O `subagent-driven-development` do superpowers precisa de dispatch de subagente. Habilite em
+`~/.codex/config.toml`:
+
+```toml
+[features]
+multi_agent = true
+```
+
+Isso libera `spawn_agent`, `wait_agent` e `close_agent`. Feche o subagente **revisor** assim que a
+revisão retornar; mantenha o **implementador** aberto até a revisão da task passar, porque o fix loop
+o retoma. Se não for possível reenviar mensagem a um subagente vivo, despache cada rodada de correção
+como implementador novo, carregando o caminho do brief, o do relatório e os achados em aberto.
 
 Não existe `gradle` no PATH — sempre `./gradlew`.
