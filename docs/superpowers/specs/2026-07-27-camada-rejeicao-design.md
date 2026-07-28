@@ -102,17 +102,19 @@ camadas (como o validador da SVRS faz) e o usuário precisa saber o que foi veri
 enum FindingKind {
     SCHEMA, SIGNATURE_MISSING, UNREADABLE,   // existentes
     REJECTION_RULE,                          // regra de presença/tabela — previsão de rejeição
-    VALUE_DIVERGENCE                         // valor declarado ≠ calculado (v1, via Calculadora)
+    NOT_EVALUATED                            // faltou dado para emitir veredito
 }
 ```
 
-`Finding` ganha um campo opcional `rejectionCode` (ex.: `"1115"`) e `ruleId` (ex.: `"UB12-10"`),
-ambos nulos para achados de schema. A chave de causa-raiz passa a considerar o código de rejeição
-quando houver — dois documentos com a mesma rejeição agrupam juntos.
+`Finding` carrega `rejectionCode` e `ruleId` nas rejeições previstas, e `notEvaluatedCause` nos
+itens não avaliados. A identidade de agrupamento não é texto nem uma tupla única: a fábrica
+`RootCauseKey.from(Finding)` escolhe a chave por camada — schema por `kind + xsdCode + field`,
+rejeição por `kind + rejectionCode`, e não avaliado por `kind + notEvaluatedCause` (acrescentando
+`ruleId` somente para `RULE_SPECIFIC`).
 
-`BatchReport` ganha o manifesto de proveniência (§5.2) e os contadores dos três desfechos (§4.3):
-avaliados conformes, com rejeição prevista, e **não avaliados** — este último nunca somado aos
-conformes.
+O `RuleEngine` devolve `RuleEvaluation(findings, itemCount, verifiedItemCount)`. O último contador
+inclui somente itens em que alguma regra chegou a veredito (`Conforme` ou `Rejeitado`); ele não
+confunde ausência de achado com aprovação.
 
 ### 4.2 Fluxo por documento
 
@@ -136,17 +138,18 @@ O primeiro corte aprovado cobre as rejeições **1115, 1021, 1022, 1024, 1025, 1
 5. (v1) Oráculo diferencial de valores via regime-geral
 ```
 
-### 4.3 Três desfechos por verificação, não dois
+### 4.3 Quatro desfechos por verificação, não dois
 
-Toda regra termina em um de **três** estados, e a distinção é decisiva para a confiança:
+Toda regra termina em um de **quatro** estados, e a distinção é decisiva para a confiança:
 
 | Desfecho | Quando | Como aparece |
 |---|---|---|
 | **Conforme** | verificado e correto | camada aprovada |
-| **Rejeição prevista** | verificado e viola a regra | achado com código e mensagem |
+| **Não aplicável** | a exigência não vale para o documento (regime ou vigência) | não é aprovação nem achado |
 | **Não avaliado** | falta dado para julgar | contado à parte, nunca somado aos aprovados |
+| **Rejeitado** | verificado e viola a regra | achado com código e mensagem oficial |
 
-O terceiro estado existe porque **base velha não é erro do emitente**. Um `cClassTrib` publicado
+Os desfechos de ausência de veredito existem porque **base velha não é erro do emitente**. Um `cClassTrib` publicado
 depois da nossa extração não está na tabela embarcada; tratá-lo como rejeição seria acusar o
 usuário de um defeito nosso. O mesmo vale para documento sem CRT legível, ou com CST fora da
 tabela. O relatório precisa dizer "não consegui avaliar 12 itens" em vez de aprová-los em silêncio
@@ -155,16 +158,20 @@ ou reprová-los injustamente.
 ### 4.4 Supressão em cascata
 
 Sem hierarquia explícita, um documento vazio gera dezenas de achados repetindo a mesma causa. A
-regra é: **quando uma verificação falha, as que dependem dela são suprimidas naquele item.**
+regra é: **só a indisponibilidade de uma precondição suprime as regras que dela dependem no item**.
+O motor não usa o desfecho `Rejeitado` como sinal de parada: é a ausência do dado observado — por
+exemplo, o invólucro `IBSCBS`, e não a 1115 que ele pode produzir — que corta a cascata. Fora esses
+cortes, cada regra ainda pode revelar uma rejeição independente.
 
 ```
-1115 (grupo IBSCBS ausente)  suprime  todas as regras do item
-cClassTrib inválida/ausente  suprime  1025, redução, percentuais, NCM/NBS
-CST ausente ou fora da tabela suprime  1021, 1033, 1074, 1079
+data de emissão ausente ou invólucro IBSCBS ausente  suprime  as dez regras dependentes
+CST ausente                                      suprime  as regras que exigem CST
+CST fora da tabela                                suprime  as regras que exigem seus indicadores
+cClassTrib ausente ou fora da tabela              suprime  as regras que exigem seus metadados
 ```
 
-O achado suprimido não é perdido: ele não existe, porque a causa-raiz é a de cima. É o mesmo
-princípio do agrupamento — o contador precisa de uma causa acionável, não de sintomas.
+O achado suprimido não é perdido: ele não existe, porque a causa-raiz é a precondição indisponível.
+É o mesmo princípio do agrupamento — o contador precisa de uma causa acionável, não de sintomas.
 
 ### 4.5 Aplicabilidade por regime e vigência
 
@@ -203,17 +210,19 @@ Cada artefato oficial embarcado obedece às mesmas cinco regras:
    **falha alto** se mudou. Isso vale especialmente para a SVRS, cujo JSON está embutido em HTML e
    não é contrato de API — uma mudança de layout precisa quebrar a atualização, nunca produzir
    tabela silenciosamente vazia ou truncada.
-4. **Proveniência uniforme**: cada ingestão registra origem, data de extração e versão/vigência num
-   manifesto único, `resources/officialdata/manifest.properties`. Um só arquivo descreve tudo que
-   está embarcado.
+4. **Proveniência por artefato**: nesta rodada, schemas e tabelas preservam seus manifestos
+   separados e seus consumidores atuais: `resources/schemas/schemas-version.properties` e
+   `resources/tables/manifest.properties`. Unificá-los exigiria migrar o contrato de schemas sem
+   reduzir o risco fiscal imediato (D-025).
 5. **Idempotência e diff legível**: rodar duas vezes sem publicação nova não muda nada; quando muda,
    o diff é revisável em PR.
 
 ### 5.2 O manifesto e o aviso de idade
 
-O manifesto é o que alimenta a proveniência exibida na tela e no CSV (§7) e o aviso de base
-desatualizada (§6). Como cada artefato tem sua própria data, o aviso considera **o mais antigo** —
-não adianta os schemas estarem novos se a tabela de CST tem quatro meses.
+Cada manifesto alimenta a proveniência do artefato que descreve: schemas em
+`schemas/schemas-version.properties` e tabela em `tables/manifest.properties`. Eles permanecem
+separados nesta rodada; qualquer política conjunta de exibição ou aviso depende de integração que
+não faz parte deste corte.
 
 ### 5.3 As três fontes
 
@@ -343,7 +352,7 @@ Além da estratégia leve e dirigida já vigente:
   quando a base for atualizada.
 - **Vigência**: o mesmo documento antes e depois de 03/08/2026 produz resultados diferentes; e um
   documento de CRT 1 antes de 04/01/2027 não gera a 1115.
-- **Terceiro desfecho**: item com `cClassTrib` ausente da tabela embarcada sai como *não avaliado*,
+- **Não avaliado**: item com `cClassTrib` ausente da tabela embarcada sai como *não avaliado*,
   nunca como conforme nem como rejeição. É o teste que protege contra acusar o usuário de um
   defeito nosso.
 - **Consulta por data do fato gerador**: registro com vigência encerrada não vale para documento
