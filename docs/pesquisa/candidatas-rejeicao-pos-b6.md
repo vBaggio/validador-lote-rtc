@@ -1,18 +1,28 @@
 # Candidatas a rejeição após o Bloco 6
 
-**Data do estudo:** 28/07/2026
+**Data do estudo:** 28/07/2026 · **Reconciliado em:** 28/07/2026
 **Escopo:** regras do grupo UB da NT 2025.002 v1.50 aplicáveis à NF-e/NFC-e
 (modelos 55/65), excluídas as regras exclusivas de Imposto Seletivo e eventos.
 **Resultado:** backlog de estudo; este documento não autoriza nem implementa regra, extração ou
 alteração de tabela.
+
+**Nota de reconciliação:** este documento nasceu de duas pesquisas independentes e paralelas —
+esta (produzida numa sessão anterior deste agente) e uma segunda, mais profunda em pontos
+específicos, feita pelo Codex enquanto implementava tasks do bloco e precisou ler a NT diretamente
+(ficou fora deste branch, untracked no worktree principal). Nenhuma das duas é mais "oficial" que a
+outra por autoria; onde divergiram, a fonte de desempate foi a NT e o código-fonte atual, conferidos
+de novo nesta reconciliação — não a preferência por um documento sobre o outro. As correções estão
+marcadas inline como "🔧 Reconciliação". 1118 e 1119, candidatas na pesquisa do Codex, foram
+implementadas nesta mesma sessão (D-039) e saem da lista de candidatas para a tabela de entregues.
 
 ## Resultado executivo
 
 A NT contém 167 regras UB. Excluídas as 10 regras exclusivas de Imposto Seletivo
 (`UB01-10/20/30`, `UB02-10`, `UB03-10`, `UB05-10`, `UB06-10`, `UB07-10`, `UB08-10` e
 `UB11-10`), restam **157 regras de IBS/CBS**: 85 de presença, 17 de tabela, 48 de cálculo e 7
-outras. O Bloco 6 já cobre 11; este estudo tria as outras 146. O fechamento aritmético da triagem
-é: `11 entregues + 101 futuras sem cálculo + 45 futuras de cálculo = 157`.
+outras. O Bloco 6 cobre 13 (as 11 originais mais 1118/1119, entregues nesta sessão); este estudo
+tria as outras 144. O fechamento aritmético da triagem é:
+`13 entregues + 99 futuras sem cálculo + 45 futuras de cálculo = 157`.
 
 Sem telemetria ou frequência observada, todo rótulo de valor deste documento é **hipótese**. A
 priorização usa alcance normativo e reaproveitamento de dados como aproximações, não como prova de
@@ -26,8 +36,25 @@ incidência real.
 | 2 | `1032 / UB26-10`, `1007 / UB45-10`, `1028 / UB64-10` | Fecha o lado “informado indevidamente” das regras de redução já existentes. Indicador, grupos e `pRedAliq` já estão disponíveis; a exceção oficial é completa. | Capturar `gCompraGov/pRedutor` em vez de inferi-lo só pela presença de `gCompraGov`. |
 | 3 | `1111 / UB24-10`, `1112 / UB43-10`, `1187 / UB62-10` | Veda presença de `gDevTrib` sem depender de tabela: 1111/1112 cobrem 55/65 e 1187 cobre 65. Sem exceções; o alcance é médio–alto **como hipótese** após corrigir a aplicabilidade. | Capturar as três presenças com escopo de pai e aplicar a guarda de modelo por regra. |
 | 4 | `1141 / UB82a-10`, `1144 / UB82a-30` | `hasCompraGov` já é extraído; falta apenas a presença do grupo de item. A exceção da 1141 usa `ind_gIBSCBS`, já embarcado. | Capturar `gTribCompraGov` e limitar ao modelo 55. |
+| 5 🔧 | `1006 / B31-10`, `1049 / UB120-10`, `1138 / UB131-10`, `1165 / I05k-10`, `708 / VC02-04` | Mesma regra cinco vezes: "grupo/tag X não pode aparecer em documento modelo 65". Sem tabela, sem vigência, sem exceção — risco de falso positivo nulo. Ver correção abaixo sobre por que **não** dá para tratar como redundante com o XSD. | Capturar a presença de cada grupo/tag e checar `model`, já em `FiscalDocument`. |
 
-A shortlist revisada reúne **14 rejeições em quatro mecanismos**.
+A shortlist revisada reúne **19 rejeições em cinco mecanismos**.
+
+**🔧 Reconciliação — 1049/1138 não são cobertas pelo XSD, ao contrário do que a matriz abaixo
+originalmente afirmava.** A versão anterior deste documento classificava 1049 e 1138 como "não
+recomendar, o XSD já cobre", porque o tipo `TTribNFCe` (definido em `DFeTiposBasicos_v1.00.xsd:226`)
+de fato não declara `gCredPresOper` nem `gCredPresIBSZFM`, e existe até um `src/main/resources/
+schemas/nfce/grupo.xsd` que amarra `IBSCBS` a `TTribNFCe` corretamente. **O problema é que esse
+arquivo nunca é usado**: `SchemaValidatorEngine.SCHEMA_DIR` está fixo em `"/schemas/nfe/"`
+(`SchemaValidatorEngine.java:46`), e todo documento — NF-e ou NFC-e — é validado contra
+`nfe/nota.xsd`, que tipa `IBSCBS` como `TTribNFe` (o tipo permissivo da NF-e) para qualquer `mod`.
+Confirmado lendo o código nesta reconciliação, não apenas o achado do documento anterior: **hoje
+não existe nenhuma validação estrutural específica de NFC-e** além do que os dois leiautes já
+compartilham. A árvore `schemas/nfce/` (incluindo `grupo.xsd`, corretamente restritivo) é código
+morto. Isso reabre 1049 e 1138 como candidatas reais — o "XSD já cobre" era verdade só no papel — e
+sugere um achado maior, fora do escopo deste documento: **o motor de schema não diferencia modelo
+55 de 65 em nenhum ponto**, o que pode afetar mais códigos além destes dois. Vale um débito
+separado no bloco do motor XSD (bloco 2) para decidir se a validação passa a ser model-aware.
 
 As prioridades são independentes de volume de código. Se a promoção de um indicador da SVRS
 exigir alterar a ingestão, ela deve manter a proveniência, a vigência por data do fato gerador e as
@@ -114,7 +141,7 @@ semântica ambígua; não sustentam acusação por si sós.
 
 ## Matriz abrangente — regras já entregues
 
-Estas 11 regras fecham o universo, mas não são candidatas a novo trabalho.
+Estas 13 regras fecham o universo, mas não são candidatas a novo trabalho.
 
 | Código / ID | Regra em uma frase | Dados necessários | Disponibilidade | Exceções completas? | Esforço | Risco de falso positivo | Valor provável | Recomendação |
 |---|---|---|---|---|---|---|---|---|
@@ -123,6 +150,7 @@ Estas 11 regras fecham o universo, mas não são candidatas a novo trabalho.
 | `1024 / UB14-20`; `1025 / UB14-25` | Confere vínculo `cClassTrib × CST` e modelo permitido. | CST, `cClassTrib`, modelo e data. | E + S-E. | Sim; sem exceções na NT. Código desconhecido não vira acusação. | — | Baixo para registros encontrados; ausência fica não avaliada. | Alto (hipótese). | — **já entregues**. |
 | `1033 / UB26-20`; `1074 / UB45-20`; `1079 / UB64-20` | Exige `gRed` nas três esferas por CST ou compra governamental. | CST, três `gRed`, `gCompraGov`, `gIBSCBS`. | E + S-E. | Sim: não se aplica quando `ind_gIBSCBS=0`. | — | Baixo com escopo correto das três esferas. | Alto (hipótese). | — **já entregues**. |
 | `1034 / UB27-10`; `1046 / UB46-10`; `1063 / UB65-10` | Confere `pRedAliq` oficial nas três esferas. | CST, `cClassTrib`, percentuais, compra governamental. | E + S-E. | Sim; compra governamental fica conservadoramente não avaliada quando faltam os dados da exceção. | — | Controlado pelo não avaliado. | Alto (hipótese). | — **já entregues**. |
+| `1118 / W34-10`; `1119 / W34-20` 🔧 | Coerência entre o invólucro `IBSCBS` do item e `total/IBSCBSTot` do documento. | Presença de `IBSCBS` por item e de `IBSCBSTot` no documento. | E (`hasIbsCbsTot` em `FiscalDocument`, no padrão de `hasCompraGov`). | Sim; sem exceção na NT. | — | Nulo — comparação de presença pura, sem tabela nem cálculo. | Alto (medido: 1119 aparecia em quase toda fixture do gate SVRS da Task 10). | — **já entregues nesta sessão** (commit `efe058a`, D-039). Não identificadas na pesquisa original desta sessão; vieram da pesquisa do Codex. |
 
 ## Matriz abrangente — presença e tabelas próximas
 
@@ -134,10 +162,10 @@ Estas 11 regras fecham o universo, mas não são candidatas a novo trabalho.
 | `1043 / UB14-30`; `1059 / UB14-50` | Compara `pBio` com o índice obrigatório para `620004/620005`. | `cClassTrib`, `pBio`, `cProdANP` e tabela de índice por produto. | E parcial + X + **T**. | Fonte da condição está completa, mas a tabela oficial indicada não está local. | Alto. | Alto sem tabela versionada. | Médio (hipótese; combustível específico). | **Depois**. |
 | `1057 / UB14-40` | Exige `finNFe=5` para `cClassTrib=620005`. | `cClassTrib`, `finNFe`, modelo. | E. | Sim; sem exceções. | Baixo, sem nova extração. | Baixo. | Baixo–médio (hipótese; classificação específica). | **Depois**, como quick win após a shortlist. |
 | `1202 / UB14-60`; `1200 / UB14-70`; `1201 / UB14-80` | Confere `cClassTrib` com tipo de nota de débito/crédito. | `cClassTrib`, `tpNFDebito`, `tpNFCredito` e mapa da NT. | E + X; mapa oficial está na NT, mas não materializado em recurso. | Sim: os casos “não limitar” são parte do mapa e não podem virar código implícito. | Médio. | Médio se o mapa for hardcoded ou incompleto. | Médio (hipótese). | **Depois**; materializar o mapa oficial com proveniência. |
-| `1029 / UB22-10`; `1030 / UB22-20`; `1044 / UB40-10`; `1083 / UB40-20`; `1061 / UB59-10`; `1090 / UB59-20` | Veda ou exige `gDif` em UF, Município e CBS conforme `ind_gDif`. | CST, data e três presenças de `gDif`. | E + S-E + X. | Sim; as seis regras não trazem exceção. | Baixo. | Baixo se a captura respeitar o pai; alto se usar só nome local. | Alto (hipótese). | **Agora**, prioridade 1. |
+| `1029 / UB22-10`; `1030 / UB22-20`; `1044 / UB40-10`; `1083 / UB40-20`; `1061 / UB59-10`; `1090 / UB59-20` 🔧 | Veda ou exige `gDif` em UF, Município e CBS conforme `ind_gDif`. | CST, data e três presenças de `gDif`. | E + S-E + X. | Sim; as seis regras não trazem exceção. | Baixo. | Baixo se a captura respeitar o pai; alto se usar só nome local. | Alto (hipótese). | **Agora**, prioridade 1. **Correção necessária antes de usar:** o campo já destilado se chama `permiteDiferimento` (mapeado de `IndDiferimento`), mas a NT lê o mesmo indicador nos dois sentidos — `ind_gDif=1` **exige** o grupo (UB22-20/1030), `ind_gDif=0` **não permite** (UB22-10/1029). O nome atual só sugere a segunda leitura e convida a inverter a primeira; `exigeDiferimento` seria fiel ao texto e alinhado com `exigeGrupo`/`exigeReducao`. |
 | `1111 / UB24-10`; `1112 / UB43-10`; `1187 / UB62-10` | Veda `gDevTrib`: IBS/UF e IBS/Município nos modelos 55/65; CBS somente no modelo 65. | Presença de `gDevTrib` por esfera e modelo. | E (modelo) + X. | Sim; sem exceções. | Baixo. | Baixo com escopo de pai e guarda de modelo por regra. | Médio–alto (hipótese; 1111/1112 alcançam ambos os modelos). | **Agora**, prioridade 3. |
 | `1188 / UB62a-10` | Exige `pDevTrib` quando há devolução da CBS na NF-e. | `gCBS/gDevTrib` e `pDevTrib`. | X, mas o XSD local `TDevTrib` contém `vDevTrib`, não `pDevTrib`. | A NT não traz exceção; há conflito de artefatos a resolver. | Médio. | **Alto** enquanto NT e XSD local divergem. | Baixo–médio (hipótese). | **Depois**, somente após reconciliação oficial. |
-| `1032 / UB26-10`; `1007 / UB45-10`; `1028 / UB64-10` | Veda `gRed` nas três esferas quando `ind_gRed=0`. | CST, três `gRed/pRedAliq` e `gCompraGov/pRedutor`. | E + S-E; `pRedutor` é X. | Sim: grupo é permitido se `pRedutor` foi informado e o `pRedAliq` da esfera é zero. | Baixo. | Baixo–médio; não se pode substituir “`pRedutor` informado” por “grupo presente”. | Alto (hipótese; fecha a simetria das regras existentes). | **Agora**, prioridade 2. |
+| `1032 / UB26-10`; `1007 / UB45-10`; `1028 / UB64-10` 🔧 | Veda `gRed` nas três esferas quando `ind_gRed=0`. | CST, três `gRed/pRedAliq` e `gCompraGov/pRedutor`. | E + S-E; `pRedutor` é X. | Sim: grupo é permitido se `pRedutor` foi informado e o `pRedAliq` da esfera é zero. | Baixo. | Baixo–médio; não se pode substituir “`pRedutor` informado” por “grupo presente”. | Alto (hipótese; fecha a simetria das regras existentes). | **Agora**, prioridade 2. **Nota de histórico:** a v1.33 criou UB26-15/UB45-15/UB64-15 (permitir `gRed` só com alíquota > 0) e a v1.34 desabilitou as três e alterou as `-20`. Família com churn — conferir contra o PDF vigente na implementação, não contra este resumo. |
 | `1190 / UB66a-10`; `1192 / UB66c-10` | Exige inscrição SUFRAMA ou processo quando `gALCZFMCBS` aciona a condição. | `gALCZFMCBS`, `tpALCZFMCBS`, `ISUFemit`, `nProcSuframa`. | X. | Sim; 1192 também considera processo preenchido só com zeros como ausente. | Baixo. | Baixo–médio; nicho e escopo documental/item. | Baixo (hipótese). | **Depois**. |
 | `1191 / UB66a-20` | Veda `gALCZFMCBS` por NCM ou combinação territorial. | NCM, municípios de emitente/destinatário e relação oficial ALC/ZFM. | X + **T**; a lista aparece na NT, mas não existe como recurso versionado. | A condição é extensa e completa na NT; precisa ser artefato, não tabela hardcoded. | Alto. | Alto por mudança territorial/normativa. | Médio (hipótese). | **Depois**. |
 | `1065 / UB68-10`; `1114 / UB68-11` | Veda ou exige `gTribRegular` por `cClassTrib`. | `cClassTrib`, data e presença de `gTribRegular`. | E + X + S-L (`IndTribRegular`); falta fonte reproduzível/proveniente. | Sim; sem exceções. | Médio–alto até fechar a fonte. | Alto enquanto S-L for a única evidência; lookup desconhecido continua não avaliado. | Alto (hipótese). | **Depois**; o destilado de pesquisa não sustenta acusação. |
@@ -167,7 +195,10 @@ obter esses indicadores só produziria dados sem condição segura de julgamento
 | `1133 / UB106-30`; `1168 / UB106-31`; `1129 / UB106-40` | No modelo 55, com `gTransfCred`, exige `finNFe=6`, `tpNFDebito` 01/05 e ao menos um valor positivo. | Grupo, finalidade, tipo, modelo e `vIBS/vCBS`. | E parcial + X; `TTribNFe` admite o grupo. | Sim; são exclusivamente modelo 55 e não trazem exceções. “Ou” significa que basta um dos valores ser maior que zero. | Baixo isoladamente; médio no mecanismo completo. | Baixo com guarda explícita de modelo 55 e sem transformar “ou” em exigência dos dois valores. | Médio (hipótese). | **Depois**, junto do mecanismo: as `UB106` não usam o indicador, mas não devem mascarar a lacuna de fonte e o conflito 65 das 1131/1132. |
 | `1169 / UB112-10`; `1170 / UB112-20`; `1171 / UB112-30` | Veda/exige `gAjusteCompet` por CST e exige ao menos um valor positivo. | CST, grupo, `vIBS/vCBS`, modelo e data. | E + X + S-L (`IndAjusteCompet`). | Sim; 1170/1171 são modelo 55, enquanto 1169 também lista 65. Sem outras exceções. | Médio. | Baixo–médio; o XSD de NFC-e já limita o grupo. | Baixo–médio (hipótese; CST 811). | **Depois**. |
 | `1172 / UB116-10`; `1173 / UB116-20`; `1174 / UB116-30` | Veda/exige `gEstornoCred` por classificação e exige valor positivo. | `cClassTrib`, indicador, grupo, valores e `tpNFDebito`. | E parcial + X + **T** (`ind_gEstornoCred`). | Sim: 1172 e 1174 não se aplicam a `tpNFDebito=07`; 1173 passa a exigir o grupo nesse tipo de débito. | Alto. | Alto sem o indicador oficial local. | Médio (hipótese). | **Depois**. |
-| `1049 / UB120-10`; `1138 / UB131-10` | Veda crédito presumido comum ou ZFM na NFC-e. | Modelo e presença dos grupos. | E + X. | Sim; sem exceções. | Baixo. | Baixo, mas o XSD `TTribNFCe` já não oferece esses grupos. | Baixo (hipótese; duplicação estrutural). | **Não recomendar** nesta camada; o XSD já cobre. |
+| `1049 / UB120-10`; `1138 / UB131-10` 🔧 | Veda crédito presumido comum ou ZFM na NFC-e. | Modelo e presença dos grupos. | E + X. | Sim; sem exceções. | Baixo. | **Nulo** — não redundante: `nfce/grupo.xsd` restringiria corretamente, mas `SchemaValidatorEngine` nunca o carrega (`SCHEMA_DIR` fixo em `nfe/`); hoje NFC-e é validada com o `TTribNFe` permissivo. Ver §1 acima. | Médio (hipótese; sem cobertura estrutural real). | **Agora**, prioridade 5, junto de 1006/1165/708. |
+| `1006 / B31-10` | Veda `gCompraGov` na NFC-e. | `hasCompraGov`, `model` — ambos já em `FiscalDocument`. | E. | Sim; sem exceções. | Trivial. | Nulo. | Médio (hipótese). | **Agora**, prioridade 5. |
+| `1165 / I05k-10` | Veda `tpCredPresIBSZFM` na NFC-e. | Presença do campo, `model`. | X (campo simples). | Sim; sem exceções. | Trivial. | Nulo, mesma ressalva de cobertura do XSD acima. | Médio (hipótese). | **Agora**, prioridade 5. |
+| `708 / VC02-04` | Veda `DFeReferenciado` na NFC-e. | Presença do grupo por item, `model`. | X — a captura de `DFeReferenciado` por item já existe desde a correção da Exceção 1 da 1115 nesta sessão (D-038); falta só o veto por modelo. | Sim; sem exceções. | Trivial (dado já capturado). | Nulo. | Médio (hipótese). | **Agora**, prioridade 5 — é o carona mais barato do lote, dado já em mãos. |
 | `1175 / UB120-20` | Veda `gCredPresOper` quando a classificação não permite. | `cClassTrib`, indicador, grupo e `indBemMovelUsado`. | E parcial + X + S-L (`IndPermiteCredPres`, equivalência ainda a confirmar). | Sim: não se aplica a bem móvel usado; indicador 1 permite, não obriga. | Médio–alto. | Alto até confirmar a equivalência nominal do indicador local. | Médio (hipótese). | **Depois**. |
 | `1055 / UB122-10`; `1053 / UB123-10`; `1054 / UB123-20`; `1050 / UB127-10`; `1058 / UB127-20` | Valida `cCredPres` e veda/exige subgrupos IBS/CBS. | Código, tabela de crédito, indicadores IBS/CBS, grupos e `indBemMovelUsado`. | X + **T**. | Sim: 1053 e 1050 não se aplicam a bem móvel usado; os pares de exigência não têm essa exceção. | Alto. | Alto sem tabela oficial local e completa. | Médio (hipótese). | **Depois**. |
 | `1056 / UB126-10`; `1060 / UB130-10`; `1107 / UB125-10`; `1124 / UB129-10` | Restringe condição suspensiva por ano/código e limita crédito a `vProd`. | Data, `cCredPres`, valores de crédito e `vProd`. | E (data) + X + C simples. | Sim: IBS suspensivo só de 2033 em diante e código 4; CBS só de 2027 em diante e código 4; limites aplicam ao código 4. | Médio. | Médio; depende de identificar o código oficial sem tabela incompleta. | Baixo no horizonte atual (hipótese). | **Depois**. |
@@ -184,7 +215,7 @@ produto e todos os ramos.
 | Código / ID | Regra em uma frase | Dados necessários | Disponibilidade | Exceções completas? | Esforço | Risco de falso positivo | Valor provável | Recomendação |
 |---|---|---|---|---|---|---|---|---|
 | `1104 / UB16-10` | Recompõe a base IBS/CBS a partir de todos os componentes do item. | Valores de produto, serviço, frete, seguros, tributos e indicadores ST. | X + C. | Sim: PISST/COFINSST só não são subtraídos quando compõem o total. A NT marca implementação futura aguardando orientação normativa. | Alto. | Muito alto enquanto a própria NT aguarda orientação. | Alto (hipótese). | **Não recomendar** antes de orientação/motor oficial. |
-| `1026 / UB18-10`; `1036 / UB37-10`; `1037 / UB56-10`; `1037 / UB56-20` | Confere alíquotas temporais de IBS UF/Município e CBS. | Data, alíquotas, `cClassTrib`, `tpNFCredito`, NCM, municípios e grupo ALC/ZFM; após 2026/2028, tabelas de alíquota. | E parcial + X + S-L + **T** + C. | Sim: tributação regular força zero; `tpNFCredito=04` isenta; CBS 2025/26 inclui exceção territorial/NCM; após 2027 aceita zero com `gALCZFMCBS`; anos futuros dependem de alíquotas publicadas. | Alto. | Muito alto nas exceções territoriais e viradas de vigência. | Alto (hipótese). | **Não recomendar** localmente; usar motor/tabela oficial. |
+| `1026 / UB18-10`; `1036 / UB37-10`; `1037 / UB56-10`; `1037 / UB56-20` 🔧 | Confere alíquotas temporais de IBS UF/Município e CBS. | Data, alíquotas, `cClassTrib`, `tpNFCredito`, NCM, municípios e grupo ALC/ZFM; após 2026/2028, tabelas de alíquota. | E parcial + X + S-L + **T** + C. | Sim: tributação regular força zero; `tpNFCredito=04` isenta; CBS 2025/26 inclui exceção territorial/NCM; após 2027 aceita zero com `gALCZFMCBS`; anos futuros dependem de alíquotas publicadas. | Alto. | Muito alto nas exceções territoriais e viradas de vigência. | Alto (hipótese; único mecanismo que atinge todo item do período — alíquota é constante de configuração do emissor). | **Reclassificado de "não recomendar" para "depois, condicionado".** Para 2025-2028 `pIBSUF`/`pIBSMun`/`pCBS` são **constantes legais fixas** (art. 343/344/346 da LC 214/25: 0,1%/0%/0,9% em 2025-26; 0,05%/0,05%/a publicar em 2027-28), não valores recompostos de outros campos — o mesmo padrão de comparação com constante oficial que 1034/1046/1063 já implementam (D-030), não o de "recalcular a partir da base" que justifica "não recomendar" nas demais linhas desta tabela. A condição real para liberar é destilar `IndTribRegular` (bruto SVRS, hoje S-L, verdadeiro em 27/164 classificações) e tratar `tpNFCredito` ilegível, `gALCZFMCBS` sem captura ou ano ≥ 2029 como **não avaliado**, nunca conforme/rejeitado — cobrir 2025-2028 com certeza em vez de 2025-2035 com chute. `1065/UB68-10` e `1114/UB68-11` (`gTribRegular` × `cClassTrib`) usam o mesmo indicador e viram carona de custo marginal. |
 | `1031 / UB23-10`; `1045 / UB42-10`; `1062 / UB61-10` | Recalcula diferimento em UF, Município e CBS. | Base, alíquota, `pDif`, `vDif` e `pAliqEfet` quando há redução. | X + C. | Sim: usa alíquota efetiva se `gRed` existe; tolerância de ±0,01. | Médio–alto. | Médio–alto por escala/arredondamento. | Médio (hipótese). | **Não recomendar** localmente; motor oficial. |
 | `1035 / UB28-10`; `1047 / UB47-10`; `1064 / UB66-10` | Recalcula alíquota efetiva nas três esferas. | Alíquota nominal, `pRedAliq`, `pRedutor` e `pAliqEfet`. | X + C. | Sim: fórmula muda em compra governamental; quatro casas decimais com arredondamento na última. | Médio–alto. | Alto por regra de arredondamento. | Alto (hipótese). | **Não recomendar** localmente; motor oficial. |
 | `1041 / UB35-10`; `1052 / UB54-10`; `1069 / UB67-10` | Recalcula os valores de IBS UF/Município e CBS. | Base, alíquota nominal/efetiva, diferimento, devolução e valores declarados. | X + C. | Sim: usa alíquota efetiva com `gRed`; tolerância de ±0,01. | Alto. | Alto por encadeamento com regras anteriores. | Alto (hipótese). | **Não recomendar** localmente; motor oficial. |
@@ -214,11 +245,14 @@ produto e todos os ramos.
 - **Cálculos têm dono melhor.** Mesmo fórmulas curtas dependem de arredondamento, tolerância,
   transição ou tabelas a publicar. Reimplementá-las na camada local disputa autoridade com a
   Calculadora oficial planejada para a v1.
-- **Algumas rejeições apenas refinam erro estrutural.** 1049 e 1138 proíbem na NFC-e grupos que o
-  XSD local já não admite; o ganho incremental não compensa uma segunda regra.
+- 🔧 ~~Algumas rejeições apenas refinam erro estrutural. 1049 e 1138 proíbem na NFC-e grupos que o
+  XSD local já não admite; o ganho incremental não compensa uma segunda regra.~~ **Corrigido**: não
+  refinam nada — o XSD local **não** cobre isso na prática, porque `SchemaValidatorEngine` nunca
+  carrega o schema restritivo de NFC-e (ver correção na shortlist, prioridade 5). Promovidas a
+  candidatas reais, junto de 1006/1165/708.
 - **Quick wins de nicho permanecem visíveis.** 1057, 1190 e 1192 exigem só comparação/captura XML
   local simples e têm fonte completa, mas ficaram para depois porque o valor provável é menor —
-  ainda uma hipótese — que o dos quatro mecanismos da shortlist. As 1111, 1112 e 1187 subiram para
+  ainda uma hipótese — que o dos cinco mecanismos da shortlist. As 1111, 1112 e 1187 subiram para
   agora após a correção de aplicabilidade mostrar que as duas primeiras alcançam 55/65.
 
 ## Guardas para qualquer implementação futura
@@ -227,7 +261,12 @@ produto e todos os ramos.
 2. Toda consulta à SVRS usa código **e data do fato gerador**; um registro conhecido fora da
    vigência não pode ser tratado como inexistente.
 3. A captura StAX precisa conferir ancestrais. `gDif`, `gRed`, `gDevTrib` e nomes monofásicos se
-   repetem em esferas diferentes; estado herdado entre itens produz falso positivo.
+   repetem em esferas diferentes; estado herdado entre itens produz falso positivo. 🔧 Caso
+   concreto já resolvido: `total/IBSCBSTot/gCBS` tem o mesmo nome local que o abridor de esfera CBS
+   dentro do item — o `TaxGroupExtractor` ganhou a guarda `emDet` na implementação de 1118/1119
+   (D-039) para fechar isso por construção, mesmo tendo se confirmado, por mutação, que o reset de
+   estado na abertura de `det` já protegia todo caminho alcançável hoje. Vale de referência para
+   qualquer captura nova que entre em `total/IBSCBSTot` ou em `det/prod` fora do invólucro `IBSCBS`.
 4. `tpAmb`, modelo e datas de implantação fazem parte da condição, não são metadados opcionais para
    regras com transição.
 5. Nova coluna SVRS exige ingestão com validação estrutural, snapshot oficial versionado ou geração
