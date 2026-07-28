@@ -71,6 +71,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | `r1024-classtrib-incompativel-cst.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1024**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1024 confirmado.** Os demais códigos IBS/CBS são cobertura futura; os códigos cadastrais/assinatura são ruído da fixture. |
 | `c1024-classtrib-compativel-cst.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1024. Os demais códigos são ruído ou cobertura futura. |
 | `r1025-classtrib-modelo.xml` | 297, 213, 598, 373, 502, 410, 703, 705, 253, 716, 717, 207, 209, 208, 789, 729, 383, 591, 753, 760, 437, 866, 394, 245, **1025**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1025 confirmado.** Os códigos NFC-e, IBS/CBS futuros e ruídos cadastrais ficam catalogados separadamente. |
+| `c1025-classtrib-permitida-modelo.xml` | 297, 213, 598, 373, 502, 410, 703, 705, 253, 716, 717, 207, 209, 208, 789, 729, 383, 591, 753, 760, 437, 866, 394, 245, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1025. Os códigos restantes são ruído, regras de NFC-e fora do bloco ou cobertura IBS/CBS futura. |
 
 #### Catálogo preliminar de códigos observados
 
