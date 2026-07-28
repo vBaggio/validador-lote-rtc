@@ -34,7 +34,5 @@ class ArchitectureTest {
     @ArchTest
     static final ArchRule presentationDoesNotSeeInfrastructure = noClasses()
             .that().resideInAPackage("..presentation..")
-            .should().dependOnClassesThat().resideInAPackage("..infrastructure..")
-            // pacote presentation ainda não existe neste bloco; ver D-015.
-            .allowEmptyShould(true);
+            .should().dependOnClassesThat().resideInAPackage("..infrastructure..");
 }
