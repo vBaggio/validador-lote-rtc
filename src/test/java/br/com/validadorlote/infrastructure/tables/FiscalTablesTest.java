@@ -115,9 +115,17 @@ class FiscalTablesTest {
 
     @Test
     void provenanceNamesSourceAndDate() {
-        assertThat(tables.provenance()).matches(
-                "tabelas de https://dfe-portal\\.svrs\\.rs\\.gov\\.br/DFE/ClassificacaoTributaria, "
-                        + "extraídas em \\d{4}-\\d{2}-\\d{2}");
+        assertThat(tables.provenance())
+                .contains("https://dfe-portal.svrs.rs.gov.br/DFE/ClassificacaoTributaria")
+                .contains("extraídas em 2026-07-27");
+    }
+
+    @Test
+    void provenanceNamesTheOfficialPublicationVersion() {
+        assertThat(tables.provenance())
+                .contains("Informe Técnico 2025.002")
+                .contains("v1.60")
+                .contains("23/06/2026");
     }
 
     @Test

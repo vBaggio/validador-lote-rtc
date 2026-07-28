@@ -112,24 +112,78 @@ tasks.register('updateFiscalTables') {
         if (bruto.size() < 10) {
             throw new GradleException("Esperava ao menos 10 CSTs, vieram ${bruto.size()}.")
         }
-        def obrigatorios = ['Cst', 'IndExigeTrib', 'IndReducaoAliq', 'ClassificacoesTributarias']
-        obrigatorios.each { campo ->
-            if (!bruto[0].containsKey(campo)) {
-                throw new GradleException("Campo '${campo}' ausente no primeiro CST. Formato mudou.")
+        def requiredBoolean = { map, field, context ->
+            if (!map.containsKey(field) || !(map[field] instanceof Boolean)) {
+                throw new GradleException(
+                        "Campo booleano '${field}' inválido em ${context}. Formato mudou.")
             }
         }
-        // Mesma checagem no nível da classificação: sem isso, uma classificação renomeada
-        // passa pelas guardas de cima intacta e só quebra silenciosamente na destilação.
-        def primeiroComClassificacao = bruto.find { (it.ClassificacoesTributarias ?: []).size() > 0 }
-        if (primeiroComClassificacao == null) {
-            throw new GradleException('Nenhum CST trouxe classificações tributárias. Formato mudou.')
-        }
-        def obrigatoriosCt = ['CodClassTrib', 'NomeReduzido', 'IndNfe', 'IndNfce']
-        def primeiraClassificacao = primeiroComClassificacao.ClassificacoesTributarias[0]
-        obrigatoriosCt.each { campo ->
-            if (!primeiraClassificacao.containsKey(campo)) {
-                throw new GradleException("Campo '${campo}' ausente na primeira classificação tributária. Formato mudou.")
+        def requiredText = { map, field, context ->
+            if (!map.containsKey(field) || !(map[field] instanceof String)
+                    || map[field].trim().isEmpty()) {
+                throw new GradleException(
+                        "Campo textual '${field}' inválido em ${context}. Formato mudou.")
             }
+        }
+        def validDate = { value, field, context, required ->
+            if (value == null && !required) return
+            if (!(value instanceof String) || value.length() < 10) {
+                throw new GradleException("Data '${field}' inválida em ${context}.")
+            }
+            try {
+                java.time.LocalDate.parse(value.substring(0, 10))
+            } catch (java.time.DateTimeException e) {
+                throw new GradleException("Data '${field}' inválida em ${context}.", e)
+            }
+        }
+
+        bruto.eachWithIndex { cst, cstIndex ->
+            def context = "CST na posição ${cstIndex}"
+            if (!(cst instanceof Map)) {
+                throw new GradleException("Registro inválido em ${context}. Formato mudou.")
+            }
+            requiredText(cst, 'Cst', context)
+            requiredText(cst, 'NomeCst', context)
+            requiredBoolean(cst, 'IndExigeTrib', context)
+            requiredBoolean(cst, 'IndReducaoAliq', context)
+            requiredBoolean(cst, 'IndDiferimento', context)
+            validDate(cst.DthIniVig, 'DthIniVig', context, true)
+            validDate(cst.DthFimVig, 'DthFimVig', context, false)
+            if (!(cst.ClassificacoesTributarias instanceof List)) {
+                throw new GradleException(
+                        "Coleção 'ClassificacoesTributarias' inválida em ${context}. Formato mudou.")
+            }
+
+            cst.ClassificacoesTributarias.eachWithIndex { ct, ctIndex ->
+                def ctContext = "classificação na posição ${ctIndex} de ${context}"
+                if (!(ct instanceof Map)) {
+                    throw new GradleException("Registro inválido em ${ctContext}. Formato mudou.")
+                }
+                requiredText(ct, 'CodClassTrib', ctContext)
+                requiredText(ct, 'Cst', ctContext)
+                requiredText(ct, 'NomeReduzido', ctContext)
+                requiredBoolean(ct, 'IndNfe', ctContext)
+                requiredBoolean(ct, 'IndNfce', ctContext)
+                validDate(ct.DthIniVig, 'DthIniVig', ctContext, true)
+                validDate(ct.DthFimVig, 'DthFimVig', ctContext, false)
+                ['PercRedIbs', 'PercRedCbs'].each { field ->
+                    if (ct[field] != null && !(ct[field] instanceof Number)) {
+                        throw new GradleException(
+                                "Percentual '${field}' inválido em ${ctContext}. Formato mudou.")
+                    }
+                }
+                if (ct.Cst != cst.Cst) {
+                    throw new GradleException("CST da ${ctContext} diverge de ${context}.")
+                }
+            }
+        }
+
+        def cstsDuplicados = bruto.collect { it.Cst }
+                .countBy { it }
+                .findAll { codigo, vezes -> vezes > 1 }
+                .keySet()
+        if (!cstsDuplicados.isEmpty()) {
+            throw new GradleException("CSTs duplicados: ${cstsDuplicados}.")
         }
 
         def destilado = bruto.collect { cst ->
@@ -220,16 +274,26 @@ tasks.register('updateFiscalTables') {
             }
         }
 
-        arquivoAtual.text = groovy.json.JsonOutput.toJson(destilado)
+        arquivoAtual.text = groovy.json.JsonOutput.prettyPrint(
+                groovy.json.JsonOutput.toJson(destilado)) + System.lineSeparator()
 
         def props = new File(dir, 'manifest.properties')
+        def old = new Properties()
+        if (props.exists()) {
+            props.withInputStream { old.load(it) }
+        }
         props.text = """# Proveniência dos artefatos oficiais embarcados.
 # Atualize com: ./gradlew updateSchemas updateFiscalTables
 tables.source=${url}
 tables.extractedAt=${new Date().format('yyyy-MM-dd')}
+tables.reference=Informe Técnico 2025.002
+tables.referenceVersion=${old.getProperty('tables.referenceVersion', 'ATUALIZAR-MANUALMENTE')}
+tables.referencePublishedAt=${old.getProperty('tables.referencePublishedAt', 'ATUALIZAR-MANUALMENTE')}
 tables.cstCount=${destilado.size()}
 tables.classTribCount=${totalCt}
 """
         logger.lifecycle("Gravados ${destilado.size()} CSTs e ${totalCt} classificações.")
+        logger.lifecycle(
+                'Tabela atualizada. CONFIRA tables.referenceVersion e tables.referencePublishedAt no manifesto.')
     }
 }
