@@ -84,6 +84,8 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | `c1046-percentual-municipio-correto.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1046. Os códigos restantes são cálculo/total futuro ou ruído da fixture. |
 | `c1063-percentual-cbs-correto.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1063. Os códigos restantes são cálculo/total futuro ou ruído da fixture. |
 
+| `r1063-percentual-cbs-invalido.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, **1063**, **1064**, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **1063 confirmado.** `1064` é novo candidato de cálculo; os demais códigos já estão catalogados. |
+
 #### Catálogo preliminar de códigos observados
 
 | Categoria | Código | Descrição retornada pela SVRS | Tratamento neste gate |
@@ -98,6 +100,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | IBS/CBS fora do bloco | 1041 | Valor do IBS da UF difere do calculado | Candidato para estudo posterior; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1052 | Valor do IBS Municipal difere do calculado | Candidato para estudo posterior; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1069 | Valor da CBS difere do calculado | Candidato para estudo posterior; não implementar nesta task. |
+| IBS/CBS fora do bloco | 1064 | Valor da Alíquota Efetiva da CBS calculado incorretamente | Novo candidato observado; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1119 | Total de IBS e CBS não informado | Candidato para estudo posterior; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1076 | Total da BC do IBS e da CBS difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
 | IBS/CBS fora do bloco | 1080 | Total de IBS UF difere da soma dos itens | Candidato para estudo posterior; não implementar nesta task. |
