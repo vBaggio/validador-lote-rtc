@@ -9,8 +9,9 @@ package br.com.validadorlote.infrastructure.rules;
  */
 public final class ClassTribCstRule implements RejectionRule {
 
-    private static final String MENSAGEM_OFICIAL = "Rejeição: Classificação Tributária do IBS e "
-            + "da CBS incompatível com o CST informado";
+    private static final String MENSAGEM_OFICIAL =
+            "Rejeição: Rejeição: Classificação Tributária do IBS e da CBS "
+                    + "incompatível com o CST informado";
 
     @Override public String rejectionCode() { return "1024"; }
 
@@ -43,8 +44,8 @@ public final class ClassTribCstRule implements RejectionRule {
         if (cstDaClassificacao.equals(cst)) {
             return new RuleOutcome.Conforme();
         }
-        return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), MENSAGEM_OFICIAL
-                + " (cClassTrib " + codigo + " pertence ao CST " + cstDaClassificacao
-                + "; o item informou CST " + cst + ")");
+        String detalhe = "cClassTrib " + codigo + " pertence ao CST " + cstDaClassificacao
+                + "; o item informou CST " + cst;
+        return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), MENSAGEM_OFICIAL, detalhe);
     }
 }

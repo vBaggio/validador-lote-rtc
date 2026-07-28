@@ -154,7 +154,7 @@ class RuleEngineTest {
                 .satisfies(f -> {
                     assertThat(f.kind()).isEqualTo(FindingKind.NOT_EVALUATED);
                     assertThat(f.notEvaluatedCause()).isEqualTo(NotEvaluatedCause.CST_NOT_IN_TABLE);
-                    assertThat(f.officialMessage()).contains("999");
+                    assertThat(f.friendlyMessage()).contains("999");
                 });
     }
 
@@ -198,7 +198,7 @@ class RuleEngineTest {
                     assertThat(f.kind()).isEqualTo(FindingKind.NOT_EVALUATED);
                     assertThat(f.notEvaluatedCause())
                             .isEqualTo(NotEvaluatedCause.CLASS_TRIB_UNAVAILABLE);
-                    assertThat(f.officialMessage()).contains("999999");
+                    assertThat(f.friendlyMessage()).contains("999999");
                 });
     }
 
@@ -210,7 +210,7 @@ class RuleEngineTest {
 
         assertThat(achados).singleElement().satisfies(f -> {
             assertThat(f.kind()).isEqualTo(FindingKind.NOT_EVALUATED);
-            assertThat(f.officialMessage()).contains("cClassTrib");
+            assertThat(f.friendlyMessage()).contains("cClassTrib");
         });
     }
 
@@ -218,6 +218,17 @@ class RuleEngineTest {
     void absentClassTribIsNeverTurnedIntoARejection() {
         // Nenhuma regra deste conjunto acusa a falta da cClassTrib — quem cobra a tag é o XSD.
         assertThat(achados(doc("3"), item().cst("000"))).isEmpty();
+    }
+
+    @Test
+    void rejection1024KeepsOfficialMessageSeparateFromLocalDetail() {
+        assertThat(achados(doc("3"), item().cst("000").classTrib("011001")))
+                .filteredOn(f -> "1024".equals(f.rejectionCode()))
+                .singleElement()
+                .satisfies(f -> {
+                    assertThat(f.officialMessage()).startsWith("Rejeição: Rejeição:");
+                    assertThat(f.friendlyMessage()).contains("011001").contains("CST 011");
+                });
     }
 
     // ---- A cascata não pode engolir causa distinta ----

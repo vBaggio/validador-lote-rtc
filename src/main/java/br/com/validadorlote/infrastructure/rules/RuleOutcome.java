@@ -16,6 +16,11 @@ public sealed interface RuleOutcome {
     record NaoAvaliado(String motivo) implements RuleOutcome {}
 
     /** A SEFAZ rejeitaria. A mensagem oficial vem da NT e não é reescrita. */
-    record Rejeitado(String rejectionCode, String ruleId, String officialMessage)
-            implements RuleOutcome {}
+    record Rejeitado(String rejectionCode, String ruleId, String officialMessage,
+            String friendlyMessage) implements RuleOutcome {
+
+        Rejeitado(String rejectionCode, String ruleId, String officialMessage) {
+            this(rejectionCode, ruleId, officialMessage, null);
+        }
+    }
 }

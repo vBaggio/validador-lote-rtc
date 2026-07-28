@@ -105,7 +105,11 @@ class TableRulesTest {
         var rejeitado = (RuleOutcome.Rejeitado) out;
         assertThat(rejeitado.rejectionCode()).isEqualTo("1024");
         assertThat(rejeitado.ruleId()).isEqualTo("UB14-20");
-        assertThat(rejeitado.officialMessage()).contains("011001").contains("011").contains("000");
+        assertThat(rejeitado.officialMessage()).isEqualTo(
+                "Rejeição: Rejeição: Classificação Tributária do IBS e da CBS "
+                        + "incompatível com o CST informado");
+        assertThat(rejeitado.friendlyMessage())
+                .contains("011001").contains("011").contains("000");
     }
 
     @Test

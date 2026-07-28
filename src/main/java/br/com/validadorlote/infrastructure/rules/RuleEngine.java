@@ -202,7 +202,7 @@ public final class RuleEngine {
         if (outcome instanceof RuleOutcome.Rejeitado rejeitado) {
             out.add(Finding.rejection(document.source(), document.accessKey(), item,
                     rejeitado.rejectionCode(), rejeitado.ruleId(), rejeitado.officialMessage(),
-                    null));
+                    rejeitado.friendlyMessage()));
             return true;
         }
         if (outcome instanceof RuleOutcome.NaoAvaliado naoAvaliado) {

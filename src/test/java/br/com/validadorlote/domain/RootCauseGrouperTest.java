@@ -70,6 +70,17 @@ class RootCauseGrouperTest {
     }
 
     @Test
+    void prefersLocalExplanationOverOfficialMessageWhenNoTranslation() {
+        var f = Finding.rejection(Path.of("a.xml"), null, 1, "1024", "UB14-20",
+                "Rejeição: mensagem oficial", "Detalhe local da incompatibilidade");
+
+        var causes = new RootCauseGrouper().group(List.of(f), NO_TEXTS);
+
+        assertThat(causes.getFirst().friendlyExplanation())
+                .isEqualTo("Detalhe local da incompatibilidade");
+    }
+
+    @Test
     void explanationIsEmptyWhenNeitherTranslationNorOfficialMessageExists() {
         var f = new Finding(Path.of("a.xml"), null, null, FindingKind.UNREADABLE,
                 Severity.WARNING, null, null, null, null, null, null, null, null, null);

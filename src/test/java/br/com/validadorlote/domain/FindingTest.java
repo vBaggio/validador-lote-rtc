@@ -30,7 +30,8 @@ class FindingTest {
         assertThat(f.kind()).isEqualTo(FindingKind.NOT_EVALUATED);
         assertThat(f.severity()).isEqualTo(Severity.INFO);
         assertThat(f.rejectionCode()).isNull();
-        assertThat(f.officialMessage()).contains("999999");
+        assertThat(f.officialMessage()).isNull();
+        assertThat(f.friendlyMessage()).contains("999999");
     }
 
     @Test

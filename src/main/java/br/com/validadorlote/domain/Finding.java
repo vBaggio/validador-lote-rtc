@@ -37,6 +37,6 @@ public record Finding(Path source, String accessKey, Integer itemNumber, Finding
     public static Finding notEvaluated(Path source, String accessKey, Integer item,
             NotEvaluatedCause cause, String ruleId, String reason) {
         return new Finding(source, accessKey, item, FindingKind.NOT_EVALUATED, Severity.INFO,
-                null, null, reason, null, null, null, null, ruleId, cause);
+                null, null, null, reason, null, null, null, ruleId, cause);
     }
 }
