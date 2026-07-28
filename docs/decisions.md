@@ -4,6 +4,57 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-044 — Cerimônia proporcional ao risco fiscal; harness seco (28/07/2026)
+O fluxo de bloco completo (brief, revisor relendo a fonte, sonda de mutação, ledger extenso) fica
+reservado para código de **julgamento fiscal** (regra de rejeição, tabela, indicador, mensagem
+oficial). Código de orquestração/plumbing (wiring, exportador, caso de uso que só invoca engines já
+vetadas) recebe revisão mais leve, sem reabrir NT/XSD; doc/config/refactor mecânico continua sem
+processo. O mesmo critério guia o modelo do implementador (caro para julgamento/ambiguidade,
+barato para padrão repetido). Tasks mecânicas da mesma natureza (ex.: N instâncias do mesmo
+mecanismo) se fundem em uma. Motivo: o processo pesava igual para todo código, e o custo real do
+projeto está concentrado na releitura de arquivos inteiros e na redescoberta de estado entre
+sessões, não na prosa da resposta do agente (avaliado e descartado: comprimir a prosa de saída,
+tipo "Caveman", não ataca esse custo). Harness também secado: `docs/superpowers/plans/done/`
+recebe planos/blocos já mergeados por inteiro (movidos, não apagados); `.superpowers/sdd/CURRENT.md`
+(agora versionado, com exceção no `.gitignore`) é o ponteiro rápido de bloco/task/branch/próximo
+passo, lido antes do ledger completo; o ledger teve os blocos 0-2 (fechados, sem judgment em aberto)
+compactados para um parágrafo cada, com achados que já viraram D-0XX citados por número em vez de
+repetidos. Registrado em `docs/workflow.md` §1.1 e §8.
+
+## D-043 — `ValidateBatchUseCase` liga o `RuleEngine` ao lote sem gate por schema; `BatchReport` não ganha contador de desfecho ainda (28/07/2026)
+
+Bloco 3 (Task 19), plano escrito antes dos blocos 6/7 existirem — quando a única fonte de achado
+era `SchemaValidatorEngine`. Hoje há também um `RuleEngine` completo (30 rejeições/não-avaliados da
+NT), sem nenhum consumidor de produção. Duas decisões:
+
+**1. Schema e `RuleEngine` rodam sempre juntos, sem um gatear o outro.** Por arquivo, se
+`XmlMetadataParser.parse` tiver sucesso, tanto `SchemaValidatorEngine` quanto
+`TaxGroupExtractor`+`RuleEngine` rodam — mesmo quando o schema já encontrou erro. Os dois leitores
+de metadado (`XmlMetadataParser`, `TaxGroupExtractor`) são StAX tolerantes por contrato (campo
+ilegível vira `null`, nunca inventam dado), e o `RuleEngine` já devolve `NaoAvaliado`, nunca
+`Rejeitado`, quando falta um dado que uma regra pressupõe (cascata de `Precondition`, D-032).
+Verificado no código, não suposto: `GroupRequiredRule` (a raiz da cascata) lê `crt` nulo e para em
+`NaoAvaliado` antes de qualquer exceção; o mesmo vale para `CompraGovForbiddenInNfceRule` com
+`model` nulo. O caso mais extremo — `enviNFe` multi-nota, que zera `crt`/`finNFe`/`issueDate`/
+`model` inteiros por documento (D-016) — cai exatamente nesse caminho: confissão (`NaoAvaliado`),
+nunca acusação. Condicionar a segunda fonte à ausência de erro de schema esconderia rejeições
+genuínas de documentos que passam "quase" no XSD, sem ganho de segurança correspondente.
+
+**2. `BatchReport` não ganha contadores de conforme/rejeitado/não-avaliado nesta task.**
+`documentsWithFindings` e `documentsUnreadable` já são genéricos (contam por `Finding::source` e por
+`kind == UNREADABLE`, respectivamente) e passam a cobrir achados de `REJECTION_RULE`/
+`NOT_EVALUATED` sem qualquer mudança de código. O que ficaria de fora — uma classificação **por
+documento** em três baldes para a UI mestre-detalhe — é decisão de apresentação (que bucket um
+documento com só achados `NOT_EVALUATED` cai?) que este bloco não precisa resolver para entregar o
+que faltava (ligar o motor ao lote), e que arrisca fixar semântica errada num record caro de mudar
+sem o consumidor (a tela do bloco 4) para validar contra caso real. Registrado como decisão
+explícita — não reabrir como lacuna esquecida; é do bloco 4.
+
+**Verificação por mutação:** comentada a chamada `ruleEngine.evaluate(...)` dentro de
+`validateOne`; `ValidateBatchUseCaseTest#rejectionRuleFindingsAreWiredIntoTheReport` caiu sozinho,
+os demais 8 testes da classe continuaram verdes. Restaurado, suíte completa (332 testes)
+reconfirmada verde.
+
 ## D-042 — `pRedutor` vira campo de documento; a exceção binária da 1032/1007/1028 é decidida sem aritmética (28/07/2026)
 
 Implementa o mecanismo 2 de `candidatas-rejeicao-pos-b6.md` (brief `task-gred-indevido`): as três

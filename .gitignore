@@ -3,11 +3,12 @@
 .claude/settings.local.json
 
 # Scratch do SDD: briefs, relatórios e diffs são derivados do plano e do git.
-# Exceção: o ledger é versionado — é memória de decisão que não existe em outro lugar.
+# Exceção: o ledger é versionado (memória de decisão) e CURRENT.md também (ponteiro de estado).
 .superpowers/*
 !.superpowers/sdd/
 .superpowers/sdd/*
 !.superpowers/sdd/progress.md
+!.superpowers/sdd/CURRENT.md
 
 # Build
 /build/
