@@ -425,3 +425,21 @@ Task 10 (b6): complete — decisão do dono do projeto sobre a divergência de m
   `ISUFEmit`) que entram em produção em 03/08/2026, a 6 dias desta sessão. É falso positivo
   estrutural iminente, mas é escopo do bloco 2 (motor XSD), não do bloco 6 — revisitar D-005.
   Reportado ao dono do projeto; ação fica fora deste bloco por decisão dele.
+
+Task nova (b6): complete (commit 4f31297, revisão independente PASS/PASS) — 238 testes, 0 falhas.
+  ENTREGUE: Exceção 1 da 1115 passa a ler `DFeReferenciado` (item) além de `NFref` (documento),
+  decisão D-038. `AccessKeyMonth` extraído como utilitário compartilhado da decodificação de AAMM,
+  sem duplicar lógica entre `XmlMetadataParser` e `TaxGroupExtractor`.
+  VERIFICAÇÃO POR MUTAÇÃO, duas vezes: o implementador comentou a leitura de `dfeReferenciado` na
+  regra (3 testes específicos caem, 235 continuam verdes); o revisor, independentemente, removeu o
+  reset de `det` no extractor (1 teste de vazamento entre itens cai sozinho) e deslocou
+  `KEY_AAMM_START/END` em `AccessKeyMonth` (cai o teste novo E dois testes pré-existentes de
+  `XmlMetadataParserTest` — confirma que a extração do utilitário não regrediu o comportamento
+  documento). Ambas as sondas restauradas, árvore limpa.
+  DÉBITO MENOR (revisão): D-038 e o brief afirmam que VC02-05/1010, 321/VC02-14 e 708/VC02-04 já
+  estão catalogados em `docs/pesquisa/candidatas-rejeicao-pos-b6.md` — o arquivo commitado (8fb24d7)
+  não contém essas referências; a afirmação veio de `auditoria-regras-e-leitura.md §2.4` sem
+  conferência contra o artefato real. Não é risco fiscal (nada de VC02-05/321 foi implementado).
+  Relacionado à divergência de conteúdo do próprio `candidatas-rejeicao-pos-b6.md` entre a versão
+  commitada no bloco e uma versão mais extensa que ficou untracked no worktree principal — reportado
+  ao dono do projeto, não reconciliado nesta sessão.
