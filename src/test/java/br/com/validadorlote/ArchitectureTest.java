@@ -24,9 +24,7 @@ class ArchitectureTest {
     @ArchTest
     static final ArchRule applicationDoesNotSeePresentation = noClasses()
             .that().resideInAPackage("..application..")
-            .should().dependOnClassesThat().resideInAPackage("..presentation..")
-            // pacote application ainda não existe neste bloco; ver D-015.
-            .allowEmptyShould(true);
+            .should().dependOnClassesThat().resideInAPackage("..presentation..");
 
     @ArchTest
     static final ArchRule infrastructureSeesOnlyDomain = noClasses()

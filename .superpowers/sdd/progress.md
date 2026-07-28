@@ -567,3 +567,50 @@ HEAD: 6ff9811 na branch bloco/7-cobertura-adicional (nascida de main pós-bloco-
   (gRed indevido). Débitos abertos, sem risco fiscal: `candidatas-rejeicao-pos-b6.md` não atualizado
   para mover os mecanismos entregues; 1141/1144 sem fixture de corpus (cobertos por unidade, ver
   D-041).
+
+Task 18 (b3): complete (commit 19c5321, revisão independente PASS/PASS) — 323 testes.
+  CsvExporter (BOM, ';', CRLF, escaping) implementado a partir do plano (linha 2191). ADENDO
+  registrado no brief: o exemplo do plano usava o construtor de 12 argumentos de `Finding`, de
+  antes dos blocos 6/7 (hoje 15 componentes, com rejectionCode/ruleId/notEvaluatedCause). Contrato
+  público, colunas e formato do CSV não mudam. Teste extra cobrindo achado de REJECTION_RULE e
+  NOT_EVALUATED (sem xsdCode).
+  Sonda de mutação: `escape()` esvaziado (devolve a célula sem tratar `;`/aspas), o teste de
+  escaping caiu sozinho; restaurado, `git status` limpo.
+
+Task 19 (b3): complete (commit 1836b25, revisão independente PASS/PASS) — 332 testes.
+  ENTREGUE: `ValidateBatchUseCase` (+ `BatchRequest`, `ProgressListener`, `CancellationToken`) liga
+  o `RuleEngine` (blocos 6/7, até então sem consumidor de produção) ao fluxo real do lote, ao lado
+  do `SchemaValidatorEngine`. Ver D-043 para a decisão completa; resumo:
+  DECISÃO 1: as duas fontes (schema; extração+regras) rodam sempre que o parse de metadados tiver
+  sucesso, mesmo com erro de schema já encontrado — os leitores StAX são tolerantes por contrato e
+  o `RuleEngine` nunca rejeita por dado ausente (cascata de `Precondition`, D-032). Verificado no
+  código (não suposto) que `GroupRequiredRule` e `CompraGovForbiddenInNfceRule` respondem
+  `NaoAvaliado` a `crt`/`model` nulos, inclusive no caso mais extremo (enviNFe multi-nota, D-016).
+  DECISÃO 2: `BatchReport` NÃO ganhou contadores novos (conforme/rejeitado/não-avaliado) —
+  `documentsWithFindings`/`documentsUnreadable` já são genéricos por `Finding::source`/`kind` e já
+  cobrem achados de `REJECTION_RULE`/`NOT_EVALUATED` sem mudança de código. Classificação por
+  documento em três desfechos fica para o bloco 4 (UI mestre-detalhe), que tem o consumidor real
+  para validar a semântica contra um caso concreto.
+  ArchUnit (D-015): `applicationDoesNotSeePresentation` perdeu `allowEmptyShould(true)` — pacote
+  `application` agora tem classes reais. `presentationDoesNotSeeInfrastructure` mantém (bloco 4
+  ainda não existe).
+  Sonda de mutação: `ruleEngine.evaluate(...)` comentado dentro de `validateOne`;
+  `rejectionRuleFindingsAreWiredIntoTheReport` caiu sozinho, os demais 8 testes da classe
+  continuaram verdes; restaurado, `git status` limpo.
+  DÉBITO, sem risco fiscal: cada arquivo agora é lido do disco até 3× por documento (metadados,
+  schema, extração de grupos) — já era 2× antes deste bloco (RejectionFixturesTest já exercitava o
+  mesmo padrão em teste). Custo de I/O, não de corretude; candidato a otimização futura se o
+  desempenho em lotes grandes se mostrar um problema real.
+
+### PARADA — 28/07/2026, fim do bloco 3 (Tasks 18 e 19). Pronto para push/PR, aguardando decisão
+  de fechamento do dono do projeto (mesmo padrão dos blocos 6 e 7: Task 20 — suíte, relatório,
+  liberação).
+
+HEAD: 1836b25 na branch `bloco/3-usecase-csv` (nascida de main pós-bloco-7, commit 4e85fbf).
+  Árvore limpa (`./gradlew clean test --console=plain`: BUILD SUCCESSFUL, 332 testes, 0 falhas),
+  nada pushado. Duas tasks completas e revisadas independentemente (PASS/PASS nas duas). D-043
+  registra a decisão do bloco. Task 20 (fechamento/PR/push) NÃO executada — aguardando liberação
+  explícita do dono do projeto. Nenhuma pergunta em aberto sem resposta: as duas ambiguidades que
+  o dispatch da coordenação sinalizou (o que significa "estruturalmente válido o bastante para
+  extrair" e se `BatchReport` precisa de novos campos) foram resolvidas e documentadas em D-043,
+  não deixadas como pendência.
