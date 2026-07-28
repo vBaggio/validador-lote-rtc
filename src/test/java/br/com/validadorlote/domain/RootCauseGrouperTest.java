@@ -17,7 +17,7 @@ class RootCauseGrouperTest {
 
     private Finding schemaFinding(String file, String field, String code, String message) {
         return new Finding(Path.of(file), null, 1, FindingKind.SCHEMA, Severity.REJECTION,
-                field, code, message, null, 10, 1);
+                field, code, message, null, 10, 1, null, null, null);
     }
 
     @Test
@@ -70,9 +70,20 @@ class RootCauseGrouperTest {
     }
 
     @Test
+    void prefersLocalExplanationOverOfficialMessageWhenNoTranslation() {
+        var f = Finding.rejection(Path.of("a.xml"), null, 1, "1024", "UB14-20",
+                "Rejeição: mensagem oficial", "Detalhe local da incompatibilidade");
+
+        var causes = new RootCauseGrouper().group(List.of(f), NO_TEXTS);
+
+        assertThat(causes.getFirst().friendlyExplanation())
+                .isEqualTo("Detalhe local da incompatibilidade");
+    }
+
+    @Test
     void explanationIsEmptyWhenNeitherTranslationNorOfficialMessageExists() {
         var f = new Finding(Path.of("a.xml"), null, null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, null, null, null, null);
+                Severity.WARNING, null, null, null, null, null, null, null, null, null);
 
         var causes = new RootCauseGrouper().group(List.of(f), NO_TEXTS);
 
@@ -95,11 +106,56 @@ class RootCauseGrouperTest {
     @Test
     void unreadableFindingsGroupTogetherWithNullCodeAndField() {
         var u1 = new Finding(Path.of("x.xml"), null, null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, "ilegível", null, null, null);
+                Severity.WARNING, null, null, "ilegível", null, null, null, null, null, null);
         var u2 = new Finding(Path.of("y.xml"), null, null, FindingKind.UNREADABLE,
-                Severity.WARNING, null, null, "ilegível", null, null, null);
+                Severity.WARNING, null, null, "ilegível", null, null, null, null, null, null);
         var causes = new RootCauseGrouper().group(List.of(u1, u2), NO_TEXTS);
         assertThat(causes).hasSize(1);
         assertThat(causes.getFirst().affectedDocuments()).isEqualTo(2);
+    }
+
+    @Test
+    void differentRejectionCodesBecomeDifferentRootCauses() {
+        var r1115 = Finding.rejection(Path.of("a.xml"), null, 1,
+                "1115", "UB12-10", "Rejeição: IBS/CBS não informado", null);
+        var r1025 = Finding.rejection(Path.of("b.xml"), null, 1,
+                "1025", "UB14-25",
+                "Rejeição: cClassTrib do IBS/CBS não permitido neste modelo de DFe", null);
+
+        var causes = new RootCauseGrouper().group(List.of(r1115, r1025), NO_TEXTS);
+
+        assertThat(causes).hasSize(2);
+        assertThat(causes).extracting(c -> c.key().rejectionCode())
+                .containsExactlyInAnyOrder("1115", "1025");
+    }
+
+    @Test
+    void sharedPreconditionIgnoresRuleIdWhenGrouping() {
+        var first = Finding.notEvaluated(Path.of("a.xml"), null, 1,
+                NotEvaluatedCause.CST_NOT_IN_TABLE, "UB13-20", "CST 999 ausente");
+        var second = Finding.notEvaluated(Path.of("b.xml"), null, 2,
+                NotEvaluatedCause.CST_NOT_IN_TABLE, "UB26-20", "CST 998 ausente");
+
+        var causes = new RootCauseGrouper().group(List.of(first, second), NO_TEXTS);
+
+        assertThat(causes).singleElement().satisfies(cause -> {
+            assertThat(cause.key().notEvaluatedCause())
+                    .isEqualTo(NotEvaluatedCause.CST_NOT_IN_TABLE);
+            assertThat(cause.key().ruleId()).isNull();
+        });
+    }
+
+    @Test
+    void ruleSpecificCausesUseRuleIdToStaySeparate() {
+        var first = Finding.notEvaluated(Path.of("a.xml"), null, 1,
+                NotEvaluatedCause.RULE_SPECIFIC, "UB12-10", "CRT ilegível");
+        var second = Finding.notEvaluated(Path.of("b.xml"), null, 2,
+                NotEvaluatedCause.RULE_SPECIFIC, "UB27-10", "aritmética não coberta");
+
+        var causes = new RootCauseGrouper().group(List.of(first, second), NO_TEXTS);
+
+        assertThat(causes).hasSize(2);
+        assertThat(causes).extracting(c -> c.key().ruleId())
+                .containsExactlyInAnyOrder("UB12-10", "UB27-10");
     }
 }

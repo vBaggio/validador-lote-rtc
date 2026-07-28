@@ -1,11 +1,18 @@
 # Insumos locais não versionados
 /tmp/
 .claude/settings.local.json
-.superpowers/
+
+# Scratch do SDD: briefs, relatórios e diffs são derivados do plano e do git.
+# Exceção: o ledger é versionado — é memória de decisão que não existe em outro lugar.
+.superpowers/*
+!.superpowers/sdd/
+.superpowers/sdd/*
+!.superpowers/sdd/progress.md
 
 # Build
 /build/
 /.gradle/
+/.worktrees/
 
 # IDE
 /.idea/

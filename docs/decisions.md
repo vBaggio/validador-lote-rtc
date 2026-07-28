@@ -4,6 +4,332 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-039 — 1118/1119 introduzem `DocumentRejectionRule`, avaliada por documento, não por item (28/07/2026)
+
+Task fora do plano original, priorizada em `docs/pesquisa/candidatas-rejeicao-pos-b6.md` §"Lote 1"
+por ser a única família do catálogo pós-bloco-6 que é presença pura, sem aritmética. Texto literal
+conferido no PDF `NT_2025.002_v1.50` (p. 72, Grupo W03), não só no brief:
+
+> **W34-10** (1118): *"Se grupo de totais do IBS e da CBS (tag: total/IBSCBSTot) informado:
+> Nenhum item possui IBS / CBS informado (id: UB12, tag: IBSCBS)"* → Rejeição: Total de IBS e CBS
+> informado indevidamente.
+>
+> **W34-20** (1119): *"Se grupo de totais do IBS e da CBS (tag: total/IBSCBSTot) não informado:
+> Pelo menos um item possui IBS / CBS informado (id: UB12, tag: IBSCBS)"* → Rejeição: Total de IBS
+> e CBS não informado.
+
+Sem exceção e sem gatilho de vigência nas duas linhas da tabela. A remissão "(id: UB12, tag:
+IBSCBS)" resolve a ambiguidade que o brief sinalizava: é o mesmo elemento que a UB12-10 (1115)
+observa — o **invólucro** `IBSCBS`, não o `gIBSCBS` interno (D-027) — logo as duas regras leem
+`ItemTaxGroup.hasIbsCbsGroup()`.
+
+**Encaixe no motor.** As onze regras do primeiro corte (D-026) são todas por item:
+`RejectionRule.evaluate(RuleContext)`, e `RuleContext` carrega um único item. 1118/1119 comparam
+duas presenças de escopos diferentes — o grupo de totais (documento) contra a presença do
+invólucro em **qualquer** item da lista — e não cabem nesse contrato sem distorcê-lo. Considerei
+forçá-las a receber `RuleContext` mesmo assim (com a lista de itens pendurada nele) e descartei:
+isso obrigaria as onze regras existentes e todo teste que constrói `RuleContext` a carregar uma
+lista que nunca leem, só para duas regras novas. Criei uma segunda interface,
+`DocumentRejectionRule.evaluate(FiscalDocument, List<ItemTaxGroup>)`, e uma segunda (pequena)
+lista de bindings no `RuleEngine`, avaliada uma vez por documento em `RuleEngine.evaluate`, fora do
+laço por item e fora da cascata de `Precondition` (que é toda sobre disponibilidade de dado de
+item — CST, cClassTrib — e não tem o que dizer sobre uma comparação de presença entre documento e
+itens). O achado gerado carrega `itemNumber = null`: não é de item nenhum, e inventar um item para
+carregá-lo mentiria sobre a causa. Não altera `verifiedItemCount`, que é contagem de item.
+
+**Pré-requisito do `TaxGroupExtractor`.** `docs/pesquisa/auditoria-regras-e-leitura.md §4.2`
+encontrou uma colisão de nome latente: `Esfera.of(String)` decide a esfera de um `gRed`/`pRedAliq`
+só pelo nome local (`gIBSUF`, `gIBSMun`, `gCBS`), e `total/IBSCBSTot/gCBS` tem o mesmo nome local
+que abre a esfera CBS do item. `TaxGroupExtractor` ganhou um booleano `emDet` (mesmo padrão de
+`emIbsCbs`) e a abertura de esfera só é aceita quando `emDet` é verdadeiro.
+
+**Achado da sonda de mutação, honesto:** o cenário literal do brief — `total` antes de `det` na
+ordem do documento, com `gCBS` de totais tentando abrir a esfera CBS — **não produz nenhuma
+diferença observável** em `extract()`, com ou sem a guarda. A razão é uma proteção independente já
+existente: o caso `"det"` do laço zera `esfera`, `redUf`, `redMun`, `redCbs`, `pUf`, `pMun`, `pCbs`
+como primeiro efeito da própria abertura do item, antes de qualquer filho ser lido — nenhum estado
+sujo por algo anterior (dentro ou fora de `det`) sobrevive a essa reinicialização. A guarda `emDet`
+continua correta e vale manter: fecha a lacuna que a auditoria nomeou, documenta a intenção no
+código e protege uma extensão futura que leia `total/IBSCBSTot` **através deste mesmo extractor**
+(hoje não é o caso — 1118/1119 leem a presença via `XmlMetadataParser`, mesmo padrão de
+`hasCompraGov`, por instrução explícita do brief). Mas ela é defesa em profundidade, não a correção
+de um caminho hoje alcançável, e o teste
+`TaxGroupExtractorTest#totalBeforeDetDoesNotPolluteTheFollowingItem` documenta isso
+explicitamente — sem fingir ser prova de mutação do que não se prova. `FiscalDocument.hasIbsCbsTot`
+(capturado em `XmlMetadataParser`, mesmo padrão de `hasCompraGov`) é o dado que sustenta 1118/1119.
+
+**Consequência nas fixtures.** Nenhuma fixture de `src/test/resources/fixtures/` (canônica ou do
+corpus de rejeição) tinha `total/IBSCBSTot`. Com 1119 implementada, todo item com `IBSCBS`
+informado sem o total correspondente passa a ser genuinamente rejeitado — o que já era visível em
+`docs/validacao/casos-diferenciais.md`, onde a SVRS retorna 1119 em quase todas as fixtures do
+Bloco 6 e o documento registra "1119 fica fora do escopo atual". Passou a estar no escopo: as 22
+fixtures cujo item tem o invólucro (`nfe-valida.xml` e 21 arquivos de `fixtures/rejeicao/`, todos
+exceto `r1115-sem-grupo.xml`, cujo item não tem invólucro nenhum) ganharam
+`<IBSCBSTot><vBCIBSCBS>0.00</vBCIBSCBS></IBSCBSTot>` em `total` — o único filho obrigatório do tipo
+`TIBSCBSMonoTot` (`DFeTiposBasicos_v1.00.xsd:515`), presença mínima válida contra o XSD. Nenhuma
+delas testa valor de `IBSCBSTot` (fora do escopo desta task, e do produto: `vBCIBSCBS`/`gIBS` etc.
+pertencem à v1, W35 em diante), então `0.00` uniforme não interfere em nenhuma asserção existente.
+
+**Fora do escopo desta task**, catalogado em `docs/pesquisa/candidatas-rejeicao-pos-b6.md`: as
+demais regras de totais (W35 em diante) exigem soma e pertencem ao motor `regime-geral` da v1.
+
+## D-038 — Exceção 1 da 1115 passa a ler `DFeReferenciado`, por item, além de `NFref` (28/07/2026)
+
+Achado de auditoria independente (`docs/pesquisa/auditoria-regras-e-leitura.md §2`), fora do plano
+original do bloco: a partir de 01/09/2026 a NT v1.40 muda **onde** a devolução referencia a nota
+original. A regra de validação VC02-14, Observação 1, é literal: *"Fica proibido o referenciamento
+da Nota na tag `refNFe` na devolução, devendo referenciar no grupo `DFeReferenciado`"* — produção
+própria, no cronograma da NT (p. 5), separada da vigência da própria 1115 (D-028).
+
+`DFeReferenciado` é **item**, não documento: confirmado no XSD embarcado,
+`leiauteNFe_v4.00.xsd:5285-5309`, dentro de `det/prod`, irmão de `vItem` — ao contrário de `NFref`,
+que fica em `ide`, no nível do documento. `chaveAcesso` usa o mesmo tipo `TChNFe` de `refNFe`
+(chave de 44 dígitos, mesmo deslocamento de `AAMM` nas posições 2-5), então a decodificação de
+competência é a mesma; para não duplicá-la entre `XmlMetadataParser` (documento) e
+`TaxGroupExtractor` (item), ela foi extraída para o utilitário compartilhado
+`AccessKeyMonth`.
+
+**Consequência sem a correção:** a partir de 01/09/2026, uma devolução emitida **corretamente** —
+referenciando só em `DFeReferenciado`, como a norma passa a exigir — chegaria à Exceção 1 com
+`document().references()` vazio (`NFref` não foi usado), a exceção não encontraria referência
+alguma, e a regra seguiria até `Rejeitado` 1115: falso positivo na regra que motiva o bloco
+inteiro, contra quem fez certo.
+
+**Decisão:** `ItemTaxGroup` ganhou o campo `dfeReferenciado` (um `ReferencedNote`, já que o XSD
+permite no máximo uma ocorrência por item); `GroupRequiredRule.excecaoDeDevolucaoOuComplementar`
+passou a avaliar a **união** das duas fontes (`NFref` do documento e `DFeReferenciado` do item),
+não uma substituindo a outra — a VC02-14 só proíbe `refNFe` **na devolução**; documentos que ainda
+usam `NFref` (complementar, ou devolução emitida antes da produção da VC02-14) continuam cobertos.
+Caso intermediário decidido na direção que não acusa (mesmo padrão de D-028/D-029): item com
+`DFeReferenciado` presente mas `chaveAcesso` não decodável (formato inesperado, ausente, vazia ou
+com conteúdo misto) produz uma referência **sem data**, que a exceção trata como `NaoAvaliado`,
+nunca `Rejeitado` — base incompleta é limitação nossa, não defeito do emitente. Documento sem
+nenhuma das duas fontes segue o curso normal da regra, comportamento existente que não regride.
+
+**Fora do escopo desta task**, catalogado em `docs/pesquisa/candidatas-rejeicao-pos-b6.md`: a
+VC02-05 (referenciamento simultâneo em nota e item) e a rejeição por devolução sem referência
+nenhuma. Esta entrada só evita o falso positivo; não adiciona rejeição nova.
+
+**Verificação por mutação:** o bloco que une as duas fontes em
+`GroupRequiredRule.referenciasDaExcecao` foi comentado (fixado em `ctx.document().references()`),
+e os três testes que exercitam `DFeReferenciado` (`DocumentRulesTest`) falharam isoladamente; os
+demais 235 continuaram verdes. Restaurado e reconfirmado verde.
+
+## D-037 — 1022 mantém causa-raiz única; a multiplicidade da SVRS não é reproduzida (28/07/2026)
+
+O gate humano da Task 10 (`docs/validacao/casos-diferenciais.md`) mediu, contra o validador
+oficial da SVRS, que um item sem `gIBSCBS` obrigatório dispara **quatro** códigos simultâneos —
+1022, 1033, 1074 e 1079 — enquanto o motor local, por design de causa-raiz única (D-032/D-034),
+reporta só o 1022 e suprime os três seguintes.
+
+Não é falso positivo: o controle equivalente (`c1022-com-grupo-interno.xml`, com o grupo presente)
+não dispara nenhum dos quatro nos dois lados, e o critério de aceite do bloco — "nenhum documento
+aprovado pela SVRS é reprovado por nós" — está preservado. É divergência de **multiplicidade**, não
+de veredito.
+
+**Decisão:** manter a causa-raiz única. Reproduzir a multiplicidade da SVRS exigiria reabrir o
+motor (Task 8) para emitir 1033/1074/1079 mesmo quando suprimidas pela ausência de `gIBSCBS` —
+indo contra a política já registrada em D-032 de que "no máximo um achado por causa-raiz por
+item" é o comportamento pretendido, não um efeito colateral a corrigir. A SVRS relatar mais
+códigos não torna a política errada: ela relata **sintomas** de uma causa que nós já identificamos
+e nomeamos.
+
+**Consequência aceita:** quem comparar o relatório local linha a linha com o retorno da SVRS para
+o mesmo documento vê menos códigos do nosso lado — é esperado, não é bug. Registrado aqui para que
+uma sessão futura não "corrija" a supressão achando que é uma lacuna de cobertura.
+
+## D-036 — Ledger do SDD versionado; o resto de `.superpowers/` é scratch (27/07/2026)
+
+`.superpowers/` estava inteiramente no `.gitignore`. Não foi escolha do projeto: é a convenção do
+superpowers, que trata o diretório como scratch descartável — o próprio skill avisa que
+`git clean -fdx` o destrói.
+
+Revisto por conteúdo, o diretório tem 1,3 MB de naturezas diferentes: 588 KB de diffs de revisão
+(100% regeneráveis com `git diff base..head`), 224 KB de briefs e 228 KB de relatórios de task
+(derivados do plano e efêmeros), e 28 KB de ledger — que é memória de decisão, achado e débito, e
+**não existe em nenhum outro lugar**.
+
+**Decisão:** versionar apenas `.superpowers/sdd/progress.md`; manter o restante ignorado. Exigiu
+regra no `.gitignore` da raiz e negação no `.gitignore` aninhado que o tooling cria em
+`.superpowers/sdd/` (`*` + `!progress.md`), porque o aninhado vence para os arquivos dele.
+
+**Consequência aceita:** o ledger aparece nos diffs de PR. É ruído pequeno em troca de o histórico
+de decisão sobreviver a `git clean`, viajar entre máquinas e ficar revisável. Se o tooling
+sobrescrever o `.gitignore` aninhado numa atualização do superpowers, a negação precisa ser
+recolocada.
+
+## D-035 — `itemNumber` nulável e não único é débito da integração/apresentação, não do motor (27/07/2026)
+`TaxGroupExtractor` insere todo item com `nItem` ilegível com `itemNumber = null` (decisão certa:
+descartá-lo o faria sumir do relatório). Consequência que só aparece agora: num documento com
+**dois** itens sem `nItem`, um deles com achado, os achados não distinguem qual item é qual.
+O `RuleEngine` avalia cada item independentemente e não se confunde — o problema é de quem **agrupa
+por item** a partir da lista de `Finding`.
+
+O débito pertence ao bloco seguinte, de integração/apresentação: ele deverá decidir se a agregação
+assume o pior caso (todos os itens sem `nItem` viram um balde só, rotulado como tal), ou se o
+`Finding` passa a carregar o índice posicional do item além do `nItem` declarado. A segunda opção
+exige decidir antes se esse índice é informação que o relatório pode exibir sem induzir a erro, já
+que o documento não o declarou. A Task 9 permanece restrita a fixtures diferenciais.
+
+## D-034 — O gate de `gCompraGov` **não** entra no motor, e a razão é o risco futuro (27/07/2026)
+Documento com `gCompraGov` e `gRed` nas três esferas produz três achados "não avaliado" (1034, 1046
+e 1063) pela mesma causa: a aritmética da D-030 não está coberta. É a única duplicata de causa que
+sobrou depois da cascata.
+Considerei uma quarta precondição no `RuleEngine` para colapsá-la, e **não** a implementei. Registro
+a razão verdadeira, porque a primeira que me ocorreu não se sustenta: alegar que compra governamental
+é "conhecimento interno das regras" é fraco — `hasCompraGov()` é dado de **documento**, exatamente
+como `issueDate`, e uma precondição sobre ele seria estruturalmente idêntica às três existentes.
+O que decide é outra coisa: as três precondições atuais são de **disponibilidade de dado** (o código
+existe na base?), e a falta delas é permanente enquanto o dado faltar. Um gate de `gCompraGov` seria
+de **cobertura de implementação**, e some quando a D-030 entrar. Um gate assim, esquecido no motor
+depois que a aritmética for implementada, passaria a suprimir **rejeições reais** em silêncio —
+falso negativo invisível, o pior desfecho que este projeto admite. Três achados redundantes hoje
+custam menos que esse risco.
+Consequência aceita: até a D-030 entrar, nota governamental com redução nas três esferas gera três
+"não avaliado" em vez de um. Quando a D-030 for implementada, esta entrada é o lugar de reencontrar
+o assunto — e aí a duplicata desaparece sozinha, sem gate nenhum para remover.
+
+## D-033 — `RootCauseKey.from(Finding)` define a chave por camada; mensagem local fica em `friendlyMessage` (27/07/2026)
+`RootCauseKey.from(Finding)` centraliza a identidade de agrupamento sem casar texto: schema usa
+`kind + xsdCode + field`; rejeição prevista usa `kind + rejectionCode`; não avaliado por
+precondição compartilhada usa `kind + notEvaluatedCause`; e não avaliado por motivo específico
+acrescenta `ruleId`. Para `NotEvaluatedCause.RULE_SPECIFIC`, somente esse `ruleId` participa da
+chave; nas demais causas ele fica nulo para manter no mesmo balde as regras suprimidas pela mesma
+precondição. `SIGNATURE_MISSING` e `UNREADABLE` são identificados pelo próprio `kind`.
+
+Na camada de rejeição, `officialMessage` armazena somente o texto vindo da NT. Explicação,
+diagnóstico ou detalhe produzido localmente fica em `friendlyMessage`, que é também o primeiro
+fallback do agrupador para a explicação. Essa separação preserva a mensagem oficial e impede que
+texto local seja apresentado como se viesse do artefato fiscal.
+
+## D-032 — A cascata corta por fato observado, não pelo desfecho da regra-mãe (27/07/2026)
+O plano da Task 8 mandava interromper a avaliação do item quando a 1115 devolvesse `Rejeitado` **ou**
+`NaoAvaliado`. Está errado: a 1115 também devolve `NaoAvaliado` quando o **CRT do emitente** é
+ilegível ou não é um dos previstos na NT — e nesse caso o item pode ter invólucro, CST e
+classificação perfeitamente avaliáveis pelas outras dez regras. Cortar ali perderia rejeições reais
+por uma causa que nada tem a ver com elas.
+Decisão: o corte de nível 1 observa o **fato** `!item.hasIbsCbsGroup()`, que é o que a spec §4.4
+escreve ("grupo IBSCBS ausente"), e não o desfecho de ninguém.
+No mesmo movimento, acrescentei um corte que a spec **não** lista: `issueDate == null`. Não está na
+§4.4, mas o requisito de "no máximo um achado por causa-raiz por item" o exige — sem a data do fato
+gerador as onze regras devolvem `NaoAvaliado`, oito delas com a mesma frase, porque toda consulta à
+tabela é por vigência.
+Consequência: a supressão é declarativa (cada regra diz de que dado depende) e a invariante que a
+sustenta — regra suprimida nunca chega a veredito, nem `Rejeitado` nem `Conforme` — tem teste
+próprio que percorre os bindings, em vez de depender de leitura à mão.
+
+## D-031 — O motor devolve `RuleEvaluation`, não `List<Finding>` (27/07/2026)
+Contar achados não basta para o relatório dizer a verdade. O caso concreto é o da spec §4.5:
+documento de CRT=1 antes de 04/01/2027 produz **zero** achados porque a exigência ainda não vigora —
+e um relatório que só conta achados diria "tudo certo", que é exatamente a conclusão que faz o
+contador ser surpreendido em janeiro.
+Decisão: `RuleEngine.evaluate` devolve `RuleEvaluation(findings, itemCount, verifiedItemCount)`,
+onde `verifiedItemCount` conta os itens em que ao menos uma regra chegou a veredito (`Conforme` ou
+`Rejeitado`). As demais contagens a camada de relatório deriva dos próprios `Finding`, que carregam
+`itemNumber` e `kind` — com a ressalva da D-035.
+
+## D-030 — Compra governamental é gatilho, mas sua aritmética fica para depois (27/07/2026)
+O grupo `gCompraGov` é de **documento**, não de item: o XSD o declara em `infNFe/ide/gCompraGov`
+(`leiauteNFe_v4.00.xsd:499`) e a NT o lista com pai B01 (`ide`). Por isso ele entrou em
+`FiscalDocument` (via `XmlMetadataParser`), e não em `ItemTaxGroup`.
+Ele muda duas famílias de regra em direções opostas:
+1. **Regras de grupo (1033/1074/1079).** O gatilho literal da UB26-20 e irmãs é "se CST possui
+   `ind_gRed = 1`, **ou** foi informado o grupo de compras governamentais": sob compra governamental
+   o `gRed` é exigido mesmo com `ind_gRed = 0`. Implementado, respeitando a exceção também literal
+   de que a regra não se aplica a CST com `ind_gIBSCBS = 0`.
+2. **Regras de percentual (1034/1046/1063).** A NT observa que "no caso de Compra Governamental, o
+   grupo `gRed` deve ser informado e `pRedAliq` deve ser igual a zero, mesmo que o CST possua
+   indicador que veda o preenchimento". Ou seja, o percentual esperado passa a ser **zero**, não o
+   da tabela. Sem detectar `gCompraGov`, toda nota governamental legítima com `pRedAliq = 0` seria
+   comparada contra os 60% da tabela e acusada — falso positivo em escala.
+Decisão: item de documento com `gCompraGov` sai como `NaoAvaliado` nas regras de percentual, com o
+motivo dizendo que a aritmética de compra governamental (que envolve `gCompraGov/pRedutor`) não
+está coberta. O mesmo vale para o ramo `ind_gRed = 0` da UB27-10, que só é julgável com o
+`pRedutor` em mãos.
+**Implementação futura:** cobrir a aritmética de compra governamental junto com a camada de
+valores da v1 (`pAliqEfet = pAliq × (1 - pRedAliq/100) × (1 - pRedutor/100)`), que é onde o
+`pRedutor` passa a ser usado de fato.
+Consequência aceita: falso negativo declarado nas notas governamentais, em vez de falso positivo
+nelas — a direção que o projeto sempre escolhe.
+
+## D-029 — Exceção 2 da UB12-10 (combustível monofásico) sai como não avaliada (27/07/2026)
+A UB12-10 tem uma segunda exceção: a exigência do grupo IBS/CBS não se aplica quando o item
+informa `cProdANP` **e** o produto consta da Tabela de Combustíveis Sujeitos à Tributação
+Monofásica. A tabela é publicada no Portal Nacional da NF-e (aba "Documentos", opção "Diversos")
+e **não está embarcada** — nossa base oficial hoje é só a de CST × cClassTrib da SVRS.
+Sem a tabela não dá para saber se o produto está nela. Item com `cProdANP` informado sai como
+`NaoAvaliado`, com o motivo dizendo qual tabela falta. Nunca `Rejeitado`: base incompleta é
+limitação nossa, não defeito do emitente, e é exatamente para isso que existe o terceiro
+desfecho. **Implementação futura:** ingerir a Tabela de Combustíveis pelo mesmo caminho de
+`updateFiscalTables` e trocar o `NaoAvaliado` por julgamento real.
+Consequência aceita: falso negativo declarado. Um item de combustível que de fato deveria trazer
+o grupo e não traz não é acusado — mas aparece no relatório como não avaliado, com a razão, em
+vez de sumir em silêncio.
+
+## D-028 — Exceção 1 da UB12-10 decidida offline pelo `AAMM` da chave referenciada (27/07/2026)
+A UB12-10 não se aplica a NF-e de devolução (`finNFe=4`) ou complementar (`finNFe=2`) que
+referencia NF-e emitida antes de 2026. Sem isso, em agosto de 2026 **toda devolução de mercadoria
+vendida em 2025** — operação rotineira — sairia como rejeição 1115: falso positivo em escala na
+regra que motiva o bloco inteiro.
+A exceção é determinável sem rede: a chave de acesso referenciada carrega o `AAMM` da emissão nas
+posições 2-5 (documentado no próprio XSD, `leiauteNFe_v4.00.xsd` linha 322), e `refNF` traz um
+campo `AAMM` explícito. `XmlMetadataParser` passa a extrair `finNFe`, `tpNFDebito` e a lista de
+`NFref` (até 999 ocorrências, todas relevantes — basta uma anterior a 2026).
+Três leituras registradas, todas na direção que não acusa: (1) a oração "que referencia NFe com
+data de emissão anterior a 2026" é gramaticalmente ambígua entre qualificar só a complementar ou
+as duas finalidades — adotamos as duas, porque a leitura oposta reintroduz o falso positivo;
+(2) ao rigor da letra só `refNFe` e `refNFeSig` são "NFe", já que `refNF` e `refNFP` são documentos
+em papel — ainda assim **qualquer referência datável** anterior a 2026 aciona a exceção, e os dois
+usam o campo `AAMM` próprio que o XSD declara (linhas 341 e 393); (3) `refCTe` e `refECF` ficam
+como **referência não datável** e produzem `NaoAvaliado`, não acusação — a chave de CT-e até tem
+`AAMM` no mesmo deslocamento, mas é documento de transporte e alargar mais o escopo não compensa
+a margem. Documento com `finNFe` 2 ou 4 e **nenhuma** `NFref` segue o curso normal da regra: a
+exceção exige uma referência, e o autorizador vai aplicar exatamente esse teste.
+Consequência: `FiscalDocument` ganhou `finNFe`, `tpNFDebito` e `references` (cópia imutável e nunca
+nula), e o domínio ganhou o record `ReferencedNote`. Chave fora do formato, mês impossível
+(`AAMM=2599`) ou referência em papel sem o campo `AAMM` não viram data inventada — viram referência
+não datável, que a regra reporta como não avaliada em vez de acusar.
+
+## D-026 — Primeiro corte cobre onze rejeições da NT (28/07/2026)
+
+O primeiro recorte foi inicialmente recomendado com seis códigos. A leitura integral da NT e as
+correções aprovadas do Bloco 6 levaram-no a onze: **1115, 1021, 1022, 1024, 1025, 1033, 1074, 1079,
+1034, 1046 e 1063**. São os códigos que o motor atual prevê; os demais continuam explicitamente
+fora do corte.
+
+**Consequência:** documentação, validação diferencial e apresentação devem declarar esses onze
+códigos nominalmente, sem tratar as divergências de percentual como categoria sem código oficial.
+
+## D-025 — Tabela SVRS com ingestão manual, validação integral e manifesto separado (28/07/2026)
+
+A tabela CST × cClassTrib da SVRS é atualizada manualmente e revisada em PR. Antes de qualquer
+gravação, a ingestão valida integralmente o artefato que compõe o corte: estrutura, códigos,
+indicadores, vigências, percentuais e vínculos entre CST e classificações. Mudança de formato ou
+campo ausente encerra a atualização ruidosamente; não recebe valor padrão fiscal.
+
+O manifesto da tabela permanece separado do manifesto de schemas. Unificá-los exigiria migrar o
+contrato e os consumidores já existentes de schemas, sem reduzir o risco fiscal imediato desta
+camada.
+
+## D-027 — 1021 e 1022 observam o grupo interno `gIBSCBS`, não o invólucro `IBSCBS` (27/07/2026)
+`IBSCBS` e `gIBSCBS` são elementos diferentes e confundi-los custou uma rodada de revisão. No tipo
+`TTribNFe` do XSD oficial (`DFeTiposBasicos_v1.00.xsd:248`) o invólucro `IBSCBS` é
+`sequence[CST, cClassTrib, indDoacao?, choice minOccurs="0"{gIBSCBS | gIBSCBSMono | gTransfCred |
+gAjusteCompet}, …]`: ele **carrega o CST**, logo existe sempre que o item declara situação
+tributária. O `gIBSCBS` é uma das alternativas opcionais de dentro dele.
+A NT é literal sobre qual regra olha qual: a **UB12-10** cita `det/imposto/IBSCBS` (o invólucro) e
+a **UB13-20/UB13-30** citam `imposto/IBSCBS/gIBSCBS` (o grupo interno). Cada alternativa do
+`choice` tem indicador e par de regras próprios (`ind_gIBSCBSMono` → 1151/1116; `ind_gTransfCred`
+→ 1131/1132), o que confirma que "grupo informado" na 1021 é o `gIBSCBS` especificamente, nunca
+"alguma alternativa do choice".
+Decisão: a 1115 observa o invólucro; a 1021 e a 1022 observam o grupo interno. `ItemTaxGroup` tem
+dois campos distintos (`hasIbsCbsGroup` e `hasGIbsCbsGroup`) e o javadoc das três regras diz qual
+elemento cada uma observa.
+Motivo: a leitura anterior fazia todo item de isenção ou imunidade **corretamente emitido** virar
+acusação — 7 dos 18 CSTs (400, 410, 620, 800, 810, 811, 820), justamente os que proíbem o grupo
+detalhado. Consequência: item de CST proibitivo sem `gIBSCBS` sai `Conforme` (verificado e
+aprovado), e não `NaoAplicavel`.
+
 ## D-023 — Locale das mensagens de validação fixado em `Locale.ROOT` (26/07/2026)
 As mensagens do Xerces são **localizadas**: o JDK embarca `XMLSchemaMessages_de`, `_ja` e
 outras. Como a extração do campo (`field`) é feita por regex sobre esse texto, o motor herdava

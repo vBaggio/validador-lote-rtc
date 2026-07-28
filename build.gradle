@@ -17,6 +17,7 @@ repositories {
 
 dependencies {
     implementation 'com.formdev:flatlaf:3.6'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testImplementation 'org.assertj:assertj-core:3.26.3'
@@ -86,5 +87,213 @@ extractedAt=${new Date().format('yyyy-MM-dd')}
 sourceUrl=${downloadUrl}
 """
         logger.lifecycle('Schemas atualizados. CONFIRA engineVersion/baseVersion em schemas-version.properties (endpoint dados-abertos/versao).')
+    }
+}
+
+// Ingestão da tabela oficial CST x cClassTrib publicada pela SVRS. Uso manual quando a base
+// mudar. Rede APENAS aqui — build e CI nunca tocam a rede (mesma política de updateSchemas).
+tasks.register('updateFiscalTables') {
+    description = 'Atualiza src/main/resources/tables a partir do portal da SVRS.'
+    group = 'build setup'
+    doLast {
+        def url = 'https://dfe-portal.svrs.rs.gov.br/DFE/ClassificacaoTributaria'
+        logger.lifecycle("Baixando ${url} ...")
+        def html = new URL(url).getText('UTF-8')
+
+        def m = (html =~ /dadosOriginais\s*=\s*(\[.*?\]);/)
+        if (!m.find()) {
+            throw new GradleException(
+                'Não encontrei dadosOriginais na página da SVRS. O layout mudou — ' +
+                'a extração precisa ser revista antes de atualizar a base.')
+        }
+        def bruto = new groovy.json.JsonSlurper().parseText(m.group(1))
+
+        // Falha ruidosa: base vazia ou sem os indicadores é pior que base velha.
+        if (bruto.size() < 10) {
+            throw new GradleException("Esperava ao menos 10 CSTs, vieram ${bruto.size()}.")
+        }
+        def requiredBoolean = { map, field, context ->
+            if (!map.containsKey(field) || !(map[field] instanceof Boolean)) {
+                throw new GradleException(
+                        "Campo booleano '${field}' inválido em ${context}. Formato mudou.")
+            }
+        }
+        def requiredText = { map, field, context ->
+            if (!map.containsKey(field) || !(map[field] instanceof String)
+                    || map[field].trim().isEmpty()) {
+                throw new GradleException(
+                        "Campo textual '${field}' inválido em ${context}. Formato mudou.")
+            }
+        }
+        def validDate = { value, field, context, required ->
+            if (value == null && !required) return
+            if (!(value instanceof String) || value.length() < 10) {
+                throw new GradleException("Data '${field}' inválida em ${context}.")
+            }
+            try {
+                java.time.LocalDate.parse(value.substring(0, 10))
+            } catch (java.time.DateTimeException e) {
+                throw new GradleException("Data '${field}' inválida em ${context}.", e)
+            }
+        }
+
+        bruto.eachWithIndex { cst, cstIndex ->
+            def context = "CST na posição ${cstIndex}"
+            if (!(cst instanceof Map)) {
+                throw new GradleException("Registro inválido em ${context}. Formato mudou.")
+            }
+            requiredText(cst, 'Cst', context)
+            requiredText(cst, 'NomeCst', context)
+            requiredBoolean(cst, 'IndExigeTrib', context)
+            requiredBoolean(cst, 'IndReducaoAliq', context)
+            requiredBoolean(cst, 'IndDiferimento', context)
+            validDate(cst.DthIniVig, 'DthIniVig', context, true)
+            validDate(cst.DthFimVig, 'DthFimVig', context, false)
+            if (!(cst.ClassificacoesTributarias instanceof List)) {
+                throw new GradleException(
+                        "Coleção 'ClassificacoesTributarias' inválida em ${context}. Formato mudou.")
+            }
+
+            cst.ClassificacoesTributarias.eachWithIndex { ct, ctIndex ->
+                def ctContext = "classificação na posição ${ctIndex} de ${context}"
+                if (!(ct instanceof Map)) {
+                    throw new GradleException("Registro inválido em ${ctContext}. Formato mudou.")
+                }
+                requiredText(ct, 'CodClassTrib', ctContext)
+                requiredText(ct, 'Cst', ctContext)
+                requiredText(ct, 'NomeReduzido', ctContext)
+                requiredBoolean(ct, 'IndNfe', ctContext)
+                requiredBoolean(ct, 'IndNfce', ctContext)
+                validDate(ct.DthIniVig, 'DthIniVig', ctContext, true)
+                validDate(ct.DthFimVig, 'DthFimVig', ctContext, false)
+                ['PercRedIbs', 'PercRedCbs'].each { field ->
+                    if (ct[field] != null && !(ct[field] instanceof Number)) {
+                        throw new GradleException(
+                                "Percentual '${field}' inválido em ${ctContext}. Formato mudou.")
+                    }
+                }
+                if (ct.Cst != cst.Cst) {
+                    throw new GradleException("CST da ${ctContext} diverge de ${context}.")
+                }
+            }
+        }
+
+        def cstsDuplicados = bruto.collect { it.Cst }
+                .countBy { it }
+                .findAll { codigo, vezes -> vezes > 1 }
+                .keySet()
+        if (!cstsDuplicados.isEmpty()) {
+            throw new GradleException("CSTs duplicados: ${cstsDuplicados}.")
+        }
+
+        def destilado = bruto.collect { cst ->
+            [
+                cst              : cst.Cst,
+                nome             : cst.NomeCst,
+                exigeGrupo       : cst.IndExigeTrib,
+                exigeReducao     : cst.IndReducaoAliq,
+                permiteDiferimento: cst.IndDiferimento,
+                iniVig           : cst.DthIniVig,
+                fimVig           : cst.DthFimVig,
+                classificacoes   : (cst.ClassificacoesTributarias ?: []).collect { ct ->
+                    [
+                        codigo   : ct.CodClassTrib,
+                        nome     : ct.NomeReduzido,
+                        nfe      : ct.IndNfe,
+                        nfce     : ct.IndNfce,
+                        percRedIbs: ct.PercRedIbs,
+                        percRedCbs: ct.PercRedCbs,
+                        iniVig   : ct.DthIniVig,
+                        fimVig   : ct.DthFimVig
+                    ]
+                }
+            ]
+        }
+        def totalCt = destilado.sum { it.classificacoes.size() }
+
+        // Validação estrutural do resultado da destilação: pega qualquer campo renomeado no
+        // portal, não só os quatro nomes verificados acima. Um CST ou código de classificação
+        // nulo/vazio nunca colide sozinho — ele colide com todo o resto na mesma chave do mapa
+        // em FiscalTables, e a contagem de registros continua "normal".
+        destilado.each { cst ->
+            if (!cst.cst) {
+                throw new GradleException(
+                    'CST com código nulo ou vazio após a destilação — campo renomeado no portal?')
+            }
+        }
+        def todosCodigosCt = destilado.collectMany { it.classificacoes.collect { ct -> ct.codigo } }
+        def codigosInvalidos = todosCodigosCt.findAll { !it }
+        if (!codigosInvalidos.isEmpty()) {
+            throw new GradleException(
+                "${codigosInvalidos.size()} classificação(ões) com código nulo ou vazio após a " +
+                'destilação — campo renomeado no portal?')
+        }
+        def duplicados = todosCodigosCt.countBy { it }.findAll { codigo, vezes -> vezes > 1 }.keySet()
+        if (!duplicados.isEmpty()) {
+            throw new GradleException(
+                "Códigos de classificação duplicados após a destilação: ${duplicados}. " +
+                'Colisão de chave — provável campo renomeado no portal.')
+        }
+
+        def dir = file('src/main/resources/tables')
+        dir.mkdirs()
+        def arquivoAtual = new File(dir, 'cst-cclasstrib.json')
+
+        // Piso de quantidade: comparado com a base já embarcada quando ela existe, porque os
+        // números reais (18 CSTs / 164 classificações hoje) vão mudar quando a RFB publicar
+        // base nova, e um piso absoluto alto demais quebraria essa atualização por motivo
+        // errado. 80% da base anterior é sinal de captura parcial (rede cortada, paginação
+        // não seguida etc.), não de atualização legítima — atualizações legítimas adicionam
+        // ou removem poucos registros, não derrubam a base a menos de 4/5 do tamanho.
+        // Sem base anterior (primeira extração), cai num piso absoluto mais próximo da
+        // realidade (18/164) que os antigos 10/100, que deixavam passar captura truncada.
+        if (arquivoAtual.exists()) {
+            def anteriores = new groovy.json.JsonSlurper().parse(arquivoAtual)
+            def cstCountAnterior = anteriores.size()
+            def ctCountAnterior = anteriores.sum { it.classificacoes.size() }
+            def pisoCst = Math.ceil(cstCountAnterior * 0.8) as int
+            def pisoCt = Math.ceil(ctCountAnterior * 0.8) as int
+            if (destilado.size() < pisoCst) {
+                throw new GradleException(
+                    "Base embarcada tem ${cstCountAnterior} CSTs; a nova extração trouxe " +
+                    "${destilado.size()} (< 80%). Parece captura parcial — confira manualmente " +
+                    'antes de sobrescrever.')
+            }
+            if (totalCt < pisoCt) {
+                throw new GradleException(
+                    "Base embarcada tem ${ctCountAnterior} classificações; a nova extração " +
+                    "trouxe ${totalCt} (< 80%). Parece captura parcial — confira manualmente " +
+                    'antes de sobrescrever.')
+            }
+        } else {
+            if (destilado.size() < 15) {
+                throw new GradleException("Esperava ao menos 15 CSTs, vieram ${destilado.size()}.")
+            }
+            if (totalCt < 140) {
+                throw new GradleException("Esperava ao menos 140 classificações, vieram ${totalCt}.")
+            }
+        }
+
+        arquivoAtual.text = groovy.json.JsonOutput.prettyPrint(
+                groovy.json.JsonOutput.toJson(destilado)) + System.lineSeparator()
+
+        def props = new File(dir, 'manifest.properties')
+        def old = new Properties()
+        if (props.exists()) {
+            props.withInputStream { old.load(it) }
+        }
+        props.text = """# Proveniência dos artefatos oficiais embarcados.
+# Atualize com: ./gradlew updateSchemas updateFiscalTables
+tables.source=${url}
+tables.extractedAt=${new Date().format('yyyy-MM-dd')}
+tables.reference=Informe Técnico 2025.002
+tables.referenceVersion=${old.getProperty('tables.referenceVersion', 'ATUALIZAR-MANUALMENTE')}
+tables.referencePublishedAt=${old.getProperty('tables.referencePublishedAt', 'ATUALIZAR-MANUALMENTE')}
+tables.cstCount=${destilado.size()}
+tables.classTribCount=${totalCt}
+"""
+        logger.lifecycle("Gravados ${destilado.size()} CSTs e ${totalCt} classificações.")
+        logger.lifecycle(
+                'Tabela atualizada. CONFIRA tables.referenceVersion e tables.referencePublishedAt no manifesto.')
     }
 }

@@ -11,7 +11,7 @@ class FindingReclassifierTest {
 
     private Finding finding(FindingKind kind, Severity severity) {
         return new Finding(Path.of("a.xml"), null, null, kind, severity,
-                "Signature", "cvc-complex-type.2.4.b", "msg", null, 10, 5);
+                "Signature", "cvc-complex-type.2.4.b", "msg", null, 10, 5, null, null, null);
     }
 
     @Test

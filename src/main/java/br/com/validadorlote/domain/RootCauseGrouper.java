@@ -7,12 +7,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-/** Agrupa achados por causa-raiz (kind + código XSD + campo), determinístico, sem IA. */
+/**
+ * Agrupa achados pela chave própria de cada camada, determinístico, sem IA.
+ *
+ * <p>Schema usa código XSD e campo; rejeições usam o código da rejeição; não avaliados usam
+ * causa e, quando específica da regra, seu identificador.
+ */
 public final class RootCauseGrouper {
 
     public List<RootCause> group(List<Finding> findings, RootCauseTexts texts) {
         Map<RootCauseKey, List<Finding>> byKey = findings.stream().collect(Collectors.groupingBy(
-                f -> new RootCauseKey(f.kind(), f.xsdCode(), f.field()),
+                RootCauseKey::from,
                 LinkedHashMap::new, Collectors.toList()));
 
         return byKey.entrySet().stream()
@@ -25,7 +30,11 @@ public final class RootCauseGrouper {
     private RootCause toRootCause(RootCauseKey key, List<Finding> group, RootCauseTexts texts) {
         int affected = (int) group.stream().map(Finding::source).distinct().count();
         String explanation = texts.explanation(key).orElseGet(() -> group.stream()
-                .map(Finding::officialMessage).filter(Objects::nonNull).findFirst().orElse(""));
+                .map(f -> f.friendlyMessage() != null
+                        ? f.friendlyMessage() : f.officialMessage())
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(""));
         return new RootCause(key, explanation, texts.action(key).orElse(null),
                 group, affected);
     }

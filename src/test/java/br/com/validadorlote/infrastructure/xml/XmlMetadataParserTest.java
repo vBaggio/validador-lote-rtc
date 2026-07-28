@@ -1,5 +1,6 @@
 package br.com.validadorlote.infrastructure.xml;
 
+import br.com.validadorlote.domain.ReferencedNote;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -7,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.YearMonth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -210,5 +212,184 @@ class XmlMetadataParserTest {
         assertThatThrownBy(() -> parser.parse(write(dir, "other.xml", "<pedido><item/></pedido>")))
                 .isInstanceOf(UnreadableXmlException.class)
                 .hasMessageContaining("raiz");
+    }
+
+    // ---- finNFe, tpNFDebito e NFref: insumos das exceções da UB12-10 e da UB13-30 ----
+
+    /** NF-e com o `<ide>` parametrizável, para exercitar finalidade e notas referenciadas. */
+    private String nfeComIde(String miolo) {
+        return "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe"
+                + KEY + "\"><ide><cUF>35</cUF><mod>55</mod><nNF>15</nNF>"
+                + "<dhEmi>2026-08-05T10:00:00-03:00</dhEmi>" + miolo + "</ide>"
+                + "<emit><CNPJ>14200166000187</CNPJ><CRT>3</CRT></emit></infNFe></NFe>";
+    }
+
+    @Test
+    void extractsFinalidadeAndTipoDeNotaDeDebito(@TempDir Path dir) throws IOException {
+        var doc = parser.parse(write(dir, "fin.xml",
+                nfeComIde("<finNFe>4</finNFe><tpNFDebito>07</tpNFDebito>"))).document();
+
+        assertThat(doc.finNFe()).isEqualTo("4");
+        assertThat(doc.tpNFDebito()).isEqualTo("07");
+    }
+
+    @Test
+    void absentFinalidadeAndDebitoAreNull(@TempDir Path dir) throws IOException {
+        var doc = parser.parse(write(dir, "sem-fin.xml", nfeComIde(""))).document();
+
+        assertThat(doc.finNFe()).isNull();
+        assertThat(doc.tpNFDebito()).isNull();
+        assertThat(doc.references()).isEmpty();
+    }
+
+    // ---- gCompraGov: insumo das regras de redução de alíquota (UB26-20 e irmãs) ----
+
+    @Test
+    void governmentPurchaseGroupIsDetectedInIde(@TempDir Path dir) throws IOException {
+        // O XSD põe gCompraGov em infNFe/ide (leiauteNFe_v4.00.xsd:499), não no item.
+        var doc = parser.parse(write(dir, "compragov.xml", nfeComIde(
+                "<gCompraGov><tpEnteGov>2</tpEnteGov><pRedutor>20.00</pRedutor>"
+                + "<tpOperGov>1</tpOperGov></gCompraGov>"))).document();
+
+        assertThat(doc.hasCompraGov()).isTrue();
+    }
+
+    @Test
+    void withoutTheGroupTheDocumentIsNotAGovernmentPurchase(@TempDir Path dir) throws IOException {
+        // O par obrigatório: sem ele o indicador poderia estar sempre ligado, e as regras de
+        // percentual sairiam todas como não avaliadas sem ninguém notar.
+        assertThat(parser.parse(write(dir, "sem-compragov.xml", nfeComIde(""))).document()
+                .hasCompraGov()).isFalse();
+    }
+
+    @Test
+    void referencedNoteIsDatedByTheAammOfItsAccessKey(@TempDir Path dir) throws IOException {
+        // AAMM ocupa as posições 2-5 da chave: 35 | 2512 | ... => dezembro de 2025.
+        var doc = parser.parse(write(dir, "ref.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFe>35251214200166000187550010000000015123456789</refNFe></NFref>")))
+                .document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNFe");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2025, 12));
+            assertThat(ref.centuryAmbiguous()).isFalse();
+        });
+    }
+
+    @Test
+    void allReferencesAreKeptNotJustTheFirst(@TempDir Path dir) throws IOException {
+        // NFref aceita até 999 ocorrências, e basta uma anterior a 2026 para a exceção valer.
+        var doc = parser.parse(write(dir, "refs.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFe>35260714200166000187550010000000015123456789</refNFe></NFref>"
+                + "<NFref><refNFeSig>35251114200166000187550010000000015123456789</refNFeSig></NFref>")))
+                .document();
+
+        assertThat(doc.references()).extracting(ReferencedNote::issuedAt)
+                .containsExactly(YearMonth.of(2026, 7), YearMonth.of(2025, 11));
+    }
+
+    @Test
+    void paperNoteReferenceUsesItsOwnAammField(@TempDir Path dir) throws IOException {
+        var doc = parser.parse(write(dir, "refnf.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNF><cUF>35</cUF><AAMM>2508</AAMM><CNPJ>14200166000187</CNPJ>"
+                + "<mod>01</mod><serie>1</serie><nNF>7</nNF></refNF></NFref>"))).document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNF");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2025, 8));
+        });
+    }
+
+    @Test
+    void producerNoteReferenceUsesItsOwnAammField(@TempDir Path dir) throws IOException {
+        // O refNFP tem AAMM próprio e explícito no XSD (linha 393), com o mesmo pattern do
+        // refNF. Tratá-lo como não datável produziria um "não avaliado" que o contador
+        // investigaria à toa, tendo a data oficial ali no documento.
+        var doc = parser.parse(write(dir, "refnfp.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFP><cUF>35</cUF><AAMM>2507</AAMM><CNPJ>14200166000187</CNPJ>"
+                + "<IE>123456789012</IE><mod>04</mod><serie>1</serie><nNF>9</nNF></refNFP></NFref>")))
+                .document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNFP");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2025, 7));
+        });
+    }
+
+    @Test
+    void paperNoteAammDoesNotClaimAnAmbiguousCenturyAsCertain(@TempDir Path dir)
+            throws IOException {
+        var doc = parser.parse(write(dir, "refnf-9912.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNF><cUF>35</cUF><AAMM>9912</AAMM><CNPJ>14200166000187</CNPJ>"
+                + "<mod>01</mod><serie>1</serie><nNF>7</nNF></refNF></NFref>"))).document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNF");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2099, 12));
+            assertThat(ref.centuryAmbiguous()).isTrue();
+        });
+    }
+
+    @Test
+    void producerNoteAammDoesNotClaimAnAmbiguousCenturyAsCertain(@TempDir Path dir)
+            throws IOException {
+        var doc = parser.parse(write(dir, "refnfp-9912.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFP><cUF>35</cUF><AAMM>9912</AAMM><CNPJ>14200166000187</CNPJ>"
+                + "<IE>123456789012</IE><mod>04</mod><serie>1</serie><nNF>9</nNF></refNFP>"
+                + "</NFref>"))).document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNFP");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2099, 12));
+            assertThat(ref.centuryAmbiguous()).isTrue();
+        });
+    }
+
+    @Test
+    void paperReferenceWithoutAammIsStillRecorded(@TempDir Path dir) throws IOException {
+        // Sem o AAMM a referência não some: some-la faria a exceção da UB12-10 deixar de ser
+        // consultada e a devolução virar acusação por um campo que o XSD já reporta.
+        var doc = parser.parse(write(dir, "refnf-sem-aamm.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNF><cUF>35</cUF><CNPJ>14200166000187</CNPJ><mod>01</mod>"
+                + "<serie>1</serie><nNF>7</nNF></refNF></NFref>"))).document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNF");
+            assertThat(ref.issuedAt()).isNull();
+        });
+    }
+
+    @Test
+    void undatableReferenceIsRecordedWithoutADate(@TempDir Path dir) throws IOException {
+        // A referência existe e precisa aparecer: é o que faz a regra dizer "não avaliado"
+        // em vez de acusar por uma data que ela nunca teve.
+        var doc = parser.parse(write(dir, "refcte.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refCTe>35251214200166000187570010000000015123456789</refCTe></NFref>")))
+                .document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refCTe");
+            assertThat(ref.issuedAt()).isNull();
+        });
+    }
+
+    @Test
+    void malformedAccessKeyYieldsAnUndatableReference(@TempDir Path dir) throws IOException {
+        var doc = parser.parse(write(dir, "refruim.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFe>chave-invalida</refNFe></NFref>"))).document();
+
+        assertThat(doc.references()).singleElement()
+                .satisfies(ref -> assertThat(ref.issuedAt()).isNull());
+    }
+
+    @Test
+    void impossibleMonthInTheKeyIsNotInvented(@TempDir Path dir) throws IOException {
+        // AAMM "2599": mês 99 não existe. Melhor não datar do que datar errado.
+        var doc = parser.parse(write(dir, "refmes.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFe>35259914200166000187550010000000015123456789</refNFe></NFref>")))
+                .document();
+
+        assertThat(doc.references()).singleElement()
+                .satisfies(ref -> assertThat(ref.issuedAt()).isNull());
     }
 }
