@@ -69,6 +69,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | `r1022-grupo-obrigatorio-ausente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1022**, **1033**, **1074**, **1079**, 1119 | **1022 confirmado, mas há divergência:** a SVRS também acusa as três reduções, enquanto o motor local suprime essas regras quando falta `gIBSCBS`. |
 | `c1022-com-grupo-interno.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado para o conjunto:** não retornou 1022/1033/1074/1079. Os códigos IBS/CBS restantes são cálculos/totais fora do escopo. |
 | `r1024-classtrib-incompativel-cst.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1024**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1024 confirmado.** Os demais códigos IBS/CBS são cobertura futura; os códigos cadastrais/assinatura são ruído da fixture. |
+| `c1024-classtrib-compativel-cst.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1024. Os demais códigos são ruído ou cobertura futura. |
 
 #### Catálogo preliminar de códigos observados
 
