@@ -318,6 +318,7 @@ O projeto passa a ser trabalhado por Claude Code E Codex, UM DE CADA VEZ, no mes
 Spec: docs/superpowers/specs/2026-07-27-integracao-codex-design.md
 Método agora escrito em docs/workflow.md (fluxo de bloco, ledger, brief+adendo, conferir a fonte,
 verificação por mutação, handoff). CLAUDE.md e AGENTS.md são adaptadores finos apontando para docs/.
+
 Codex precisa de [features] multi_agent = true em ~/.codex/config.toml.
 NÃO versionamos .superpowers/ (opção descartada) — git clean -fdx ainda destrói este ledger.
 
@@ -339,3 +340,13 @@ aceite, não sugestão. Polimento vem depois da entrega, não no lugar dela.
 
 INFERÊNCIA NÃO MEDIDA: acreditamos que a 1115 domina os eventos reais de rejeição porque os 12 XMLs
 reais que temos não têm grupo IBS/CBS. Isso é UM emitente, não é medição. Não tratar como fato.
+
+### ADENDO — 28/07/2026 (reconciliação documental da Task 5 do fluxo de correção)
+
+Este adendo preserva as entradas históricas acima e corrige sua propriedade atual:
+
+- `.superpowers/sdd/progress.md` é versionado; briefs, relatórios e diffs permanecem scratch local.
+- A Task 9 permanece restrita a fixtures diferenciais. O agrupamento de causas e seus contadores
+  pertencem ao bloco seguinte, de integração/apresentação.
+- Os débitos de `itemNumber` não único, deduplicação de causas de documento e mensagens amigáveis
+  das rejeições pertencem ao mesmo bloco de integração/apresentação.

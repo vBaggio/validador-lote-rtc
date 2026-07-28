@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fazer o validador prever as rejeições da SEFAZ que a validação de schema não alcança, começando pelas seis que dominam a virada de 03/08/2026, com a corretude provada por comparação contra o validador oficial da SVRS.
+**Goal:** Fazer o validador prever as rejeições da SEFAZ que a validação de schema não alcança, começando pelas onze do primeiro corte da virada de 03/08/2026, com a corretude provada por comparação contra o validador oficial da SVRS.
 
 **Architecture:** Uma camada nova de regras entra depois da validação XSD, dirigida pelos metadados das tabelas oficiais em vez de regras transcritas em código. Duas regras são de documento (dependem de CRT e vigência); as demais derivam de indicadores publicados por CST e por classificação tributária. Toda verificação termina em um de três desfechos — conforme, rejeição prevista ou **não avaliado** —, e o terceiro existe para nunca acusar o usuário de uma limitação nossa.
 
@@ -1527,7 +1527,7 @@ public final class ReductionPercentageRule implements RejectionRule {
         };
     }
 
-    /** Transcrição literal da NT, sem o sufixo {@code [nItem: 999]} que o relatório já mostra. */
+    /** Transcrição literal da NT, com o sufixo {@code [nItem: 999]} representado por {@code Finding.itemNumber}. */
     private String mensagemOficial() {
         return switch (esfera) {
             case UF -> "Rejeição: Percentual de redução de alíquota da UF "
@@ -2003,7 +2003,8 @@ Camada de previsão de rejeição, conforme a spec
   nunca acusar o usuário de uma limitação da nossa base
 - Ingestão da tabela oficial CST × cClassTrib da SVRS, com falha ruidosa se o formato mudar
 - Consulta com vigência pela data do fato gerador, nunca pela data corrente
-- Seis rejeições: 1115, 1021, 1025, 1033, 1074, 1079, mais divergência de percentual
+- Onze rejeições: 1115, 1021, 1022, 1024, 1025, 1033, 1074, 1079, 1034, 1046 e 1063
+- O sufixo `[nItem: 999]` das mensagens da NT é representado estruturalmente por `Finding.itemNumber`
 - Motor com supressão em cascata: uma causa-raiz por item, não a árvore de sintomas
 
 ## Validação
@@ -2013,7 +2014,7 @@ Critério de aceite: nenhum documento aprovado pela SVRS é reprovado por nós.
 
 ## Escopo
 
-Cobre 6 dos 163 códigos de rejeição do grupo UB. A honestidade sobre isso é parte do produto:
+Cobre 11 dos 163 códigos de rejeição do grupo UB. A honestidade sobre isso é parte do produto:
 a exibição em camadas declara o que foi e o que não foi verificado.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

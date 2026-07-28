@@ -137,6 +137,5 @@ ali, a seguinte encontraria um estado que o ledger não descrevia.
     └── review-<base>..<head>.diff       pacote entregue ao revisor
 ```
 
-Tudo em `.superpowers/` é **gitignored**: local, não versionado, compartilhado entre agentes pelo
-sistema de arquivos. Isso significa que `git clean -fdx` destrói o ledger — se acontecer, reconstrua
-a partir do `git log`.
+`progress.md` é o único arquivo versionado de `.superpowers/sdd/`; briefs, relatórios e diffs
+continuam locais e descartáveis. `git clean -fdx` remove o scratch, mas preserva o ledger rastreado.

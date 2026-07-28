@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Rascunho para revisão |
+| **Status** | Aprovada — implementação em andamento |
 | **Data** | 27/07/2026 |
 | **Complementa** | [`2026-07-26-validador-lote-rtc-design.md`](./2026-07-26-validador-lote-rtc-design.md) |
 | **Motivação** | A validação de schema não prevê rejeição: o grupo IBS/CBS é `minOccurs="0"` no XSD |
@@ -115,6 +115,9 @@ avaliados conformes, com rejeição prevista, e **não avaliados** — este últ
 conformes.
 
 ### 4.2 Fluxo por documento
+
+O primeiro corte aprovado cobre as rejeições **1115, 1021, 1022, 1024, 1025, 1033, 1074, 1079,
+1034, 1046 e 1063**. A D-026 registra esse escopo; os demais códigos continuam fora do corte.
 
 ```
 1. Parse de metadados — AMPLIADO: o parser atual não extrai CRT nem os campos do
@@ -353,8 +356,6 @@ Além da estratégia leve e dirigida já vigente:
 | # | Decisão | Impacto |
 |---|---|---|
 | **D-012** | Fonte da Calculadora na v1: embutir × baixar no primeiro uso | Volta à pauta — a conferência de valores exige o motor rodando, e o pacote oficial não tem licença |
-| **D-025** | Ingestão da tabela CST × cClassTrib da SVRS pelo mesmo contrato dos demais artefatos oficiais | §5.1, §5.5 |
-| **D-026** | Quais rejeições entram no primeiro corte | Recomendação: 1115, 1021, 1025, 1033, 1074, 1079 |
 
 ---
 

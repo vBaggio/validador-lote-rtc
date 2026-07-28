@@ -24,16 +24,18 @@ de decisão sobreviver a `git clean`, viajar entre máquinas e ficar revisável.
 sobrescrever o `.gitignore` aninhado numa atualização do superpowers, a negação precisa ser
 recolocada.
 
-## D-035 — `itemNumber` nulável e não único é débito da agregação, não do motor (27/07/2026)
+## D-035 — `itemNumber` nulável e não único é débito da integração/apresentação, não do motor (27/07/2026)
 `TaxGroupExtractor` insere todo item com `nItem` ilegível com `itemNumber = null` (decisão certa:
 descartá-lo o faria sumir do relatório). Consequência que só aparece agora: num documento com
 **dois** itens sem `nItem`, um deles com achado, os achados não distinguem qual item é qual.
 O `RuleEngine` avalia cada item independentemente e não se confunde — o problema é de quem **agrupa
-por item** a partir da lista de `Finding`, que é a Task 9. Registrado como débito dela: ou a
-agregação assume o pior caso (todos os itens sem `nItem` viram um balde só, rotulado como tal), ou
-o `Finding` passa a carregar o índice posicional do item além do `nItem` declarado — o que exige
-decidir antes se o índice posicional é informação que o relatório pode exibir sem induzir a erro,
-já que o documento não o declarou.
+por item** a partir da lista de `Finding`.
+
+O débito pertence ao bloco seguinte, de integração/apresentação: ele deverá decidir se a agregação
+assume o pior caso (todos os itens sem `nItem` viram um balde só, rotulado como tal), ou se o
+`Finding` passa a carregar o índice posicional do item além do `nItem` declarado. A segunda opção
+exige decidir antes se esse índice é informação que o relatório pode exibir sem induzir a erro, já
+que o documento não o declarou. A Task 9 permanece restrita a fixtures diferenciais.
 
 ## D-034 — O gate de `gCompraGov` **não** entra no motor, e a razão é o risco futuro (27/07/2026)
 Documento com `gCompraGov` e `gRed` nas três esferas produz três achados "não avaliado" (1034, 1046
@@ -53,26 +55,18 @@ Consequência aceita: até a D-030 entrar, nota governamental com redução nas 
 "não avaliado" em vez de um. Quando a D-030 for implementada, esta entrada é o lugar de reencontrar
 o assunto — e aí a duplicata desaparece sozinha, sem gate nenhum para remover.
 
-## D-033 — Cada camada de achado tem chave de agrupamento não textual (27/07/2026)
-A camada de schema agrupa por `xsdCode` e a de rejeição por `rejectionCode`. A camada "não avaliado"
-nasceu (Task 1) só com texto livre, e o texto é variável por construção — traz o código do CST, da
-classificação, o motivo da regra. Sem chave, "não avaliei 380 itens" jamais viraria "300 por CST
-fora da base, 80 por classificação" sem casar substring.
-Decisão: `Finding` ganha `NotEvaluatedCause notEvaluatedCause`, e os achados dessa camada passam a
-preencher também o `ruleId` (antes nulo neles) com a regra que desistiu. A chave é a **precondição
-que faltou** quando o motor suprimiu o grupo; é `RULE_SPECIFIC` quando a regra declinou por motivo
-próprio, e aí o `ruleId` é que separa as causas.
-Limite conhecido e aceito: dentro de `RULE_SPECIFIC` o par (causa, regra) não separa os vários
-motivos de uma **mesma** regra — a UB12-10 declina por CRT ilegível, por data ausente e pela Exceção
-2 de combustível, e os três caem no mesmo balde. Separá-los exige que `RuleOutcome.NaoAvaliado`
-carregue a causa declarada pela própria regra, o que toca as sete classes de regra. Fica para quando
-a Task 9 mostrar que o balde grosso não basta.
-**Recusado no mesmo movimento:** o campo `detail` separado do `officialMessage` nas **rejeições**,
-sugerido na revisão da Task 7 porque a 1024 acrescenta detalhe explicativo ao texto da NT. Nada
-agrupa rejeição por mensagem: o motor deduplica por precondição faltante e o relatório (§7 da spec)
-agrupa por código de rejeição, que na 1024 é constante. Mexer no `Finding` por consumidor hipotético
-seria antecipar requisito; se a Task 9 vier a agrupar por texto, o custo de acrescentar é uma
-fábrica.
+## D-033 — `RootCauseKey.from(Finding)` define a chave por camada; mensagem local fica em `friendlyMessage` (27/07/2026)
+`RootCauseKey.from(Finding)` centraliza a identidade de agrupamento sem casar texto: schema usa
+`kind + xsdCode + field`; rejeição prevista usa `kind + rejectionCode`; não avaliado por
+precondição compartilhada usa `kind + notEvaluatedCause`; e não avaliado por motivo específico
+acrescenta `ruleId`. Para `NotEvaluatedCause.RULE_SPECIFIC`, somente esse `ruleId` participa da
+chave; nas demais causas ele fica nulo para manter no mesmo balde as regras suprimidas pela mesma
+precondição. `SIGNATURE_MISSING` e `UNREADABLE` são identificados pelo próprio `kind`.
+
+Na camada de rejeição, `officialMessage` armazena somente o texto vindo da NT. Explicação,
+diagnóstico ou detalhe produzido localmente fica em `friendlyMessage`, que é também o primeiro
+fallback do agrupador para a explicação. Essa separação preserva a mensagem oficial e impede que
+texto local seja apresentado como se viesse do artefato fiscal.
 
 ## D-032 — A cascata corta por fato observado, não pelo desfecho da regra-mãe (27/07/2026)
 O plano da Task 8 mandava interromper a avaliação do item quando a 1115 devolvesse `Rejeitado` **ou**
@@ -161,6 +155,27 @@ Consequência: `FiscalDocument` ganhou `finNFe`, `tpNFDebito` e `references` (c�
 nula), e o domínio ganhou o record `ReferencedNote`. Chave fora do formato, mês impossível
 (`AAMM=2599`) ou referência em papel sem o campo `AAMM` não viram data inventada — viram referência
 não datável, que a regra reporta como não avaliada em vez de acusar.
+
+## D-026 — Primeiro corte cobre onze rejeições da NT (28/07/2026)
+
+O primeiro recorte foi inicialmente recomendado com seis códigos. A leitura integral da NT e as
+correções aprovadas do Bloco 6 levaram-no a onze: **1115, 1021, 1022, 1024, 1025, 1033, 1074, 1079,
+1034, 1046 e 1063**. São os códigos que o motor atual prevê; os demais continuam explicitamente
+fora do corte.
+
+**Consequência:** documentação, validação diferencial e apresentação devem declarar esses onze
+códigos nominalmente, sem tratar as divergências de percentual como categoria sem código oficial.
+
+## D-025 — Tabela SVRS com ingestão manual, validação integral e manifesto separado (28/07/2026)
+
+A tabela CST × cClassTrib da SVRS é atualizada manualmente e revisada em PR. Antes de qualquer
+gravação, a ingestão valida integralmente o artefato que compõe o corte: estrutura, códigos,
+indicadores, vigências, percentuais e vínculos entre CST e classificações. Mudança de formato ou
+campo ausente encerra a atualização ruidosamente; não recebe valor padrão fiscal.
+
+O manifesto da tabela permanece separado do manifesto de schemas. Unificá-los exigiria migrar o
+contrato e os consumidores já existentes de schemas, sem reduzir o risco fiscal imediato desta
+camada.
 
 ## D-027 — 1021 e 1022 observam o grupo interno `gIBSCBS`, não o invólucro `IBSCBS` (27/07/2026)
 `IBSCBS` e `gIBSCBS` são elementos diferentes e confundi-los custou uma rodada de revisão. No tipo
