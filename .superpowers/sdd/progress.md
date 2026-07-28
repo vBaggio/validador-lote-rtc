@@ -491,3 +491,22 @@ PENDÊNCIAS ANTES DA TASK 11 (fechamento/push/PR), nenhuma bloqueadora para o me
 PRÓXIMO PASSO: Task 11 do plano (`docs/superpowers/plans/2026-07-27-camada-rejeicao.md:1980`) —
   suíte completa (feito acima), relatório do bloco ao dono do projeto, aguardar liberação explícita
   antes de qualquer `git push`/PR. Não fazer push nem abrir PR sem essa liberação.
+
+Task 11 (b6): Steps 1-3 completos, liberados pelo dono do projeto. Suíte verde (251 testes), push
+  para `origin/bloco/6-camada-rejeicao`, PR #4 aberto
+  (https://github.com/vBaggio/validador-lote-rtc/pull/4), CI (`build`) passou. Merge (Step 4) NÃO
+  executado — aguardando confirmação separada do dono do projeto.
+
+Reconciliação (b6): `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (commit f91e27a) — a pendência
+  registrada acima foi resolvida. As duas versões divergentes (a commitada nesta sessão anterior; a
+  do Codex, produzida durante a implementação dele e nunca commitada, untracked no worktree
+  principal) foram fundidas usando a NT e o código atual como critério de desempate. ACHADO NOVO,
+  fora do escopo de qualquer um dos dois documentos originais: `SchemaValidatorEngine.SCHEMA_DIR`
+  está fixo em `/schemas/nfe/` — todo documento, NF-e ou NFC-e, é validado contra o schema
+  permissivo da NF-e. O `nfce/grupo.xsd` que restringiria corretamente `TTribNFCe` (sem
+  `gCredPresOper`/`gCredPresIBSZFM`) existe no repositório e nunca é carregado. Isso invalidava a
+  alegação "XSD já cobre" que a versão commitada usava para descartar 1049/1138 — reabertas como
+  candidatas, junto com 1006/1165/708 (que só a versão do Codex tinha). Cópia divergente removida
+  do worktree principal (não versionada, sem perda: conteúdo já fundido).
+  DÉBITO NOVO, fora do bloco 6: o motor de schema (bloco 2) não diferencia modelo 55 de 65 em
+  nenhum ponto — pode afetar mais códigos além de 1049/1138. Reportado ao dono do projeto.
