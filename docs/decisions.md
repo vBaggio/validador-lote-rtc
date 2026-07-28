@@ -4,6 +4,23 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-044 — Cerimônia proporcional ao risco fiscal; harness seco (28/07/2026)
+O fluxo de bloco completo (brief, revisor relendo a fonte, sonda de mutação, ledger extenso) fica
+reservado para código de **julgamento fiscal** (regra de rejeição, tabela, indicador, mensagem
+oficial). Código de orquestração/plumbing (wiring, exportador, caso de uso que só invoca engines já
+vetadas) recebe revisão mais leve, sem reabrir NT/XSD; doc/config/refactor mecânico continua sem
+processo. O mesmo critério guia o modelo do implementador (caro para julgamento/ambiguidade,
+barato para padrão repetido). Tasks mecânicas da mesma natureza (ex.: N instâncias do mesmo
+mecanismo) se fundem em uma. Motivo: o processo pesava igual para todo código, e o custo real do
+projeto está concentrado na releitura de arquivos inteiros e na redescoberta de estado entre
+sessões, não na prosa da resposta do agente (avaliado e descartado: comprimir a prosa de saída,
+tipo "Caveman", não ataca esse custo). Harness também secado: `docs/superpowers/plans/done/`
+recebe planos/blocos já mergeados por inteiro (movidos, não apagados); `.superpowers/sdd/CURRENT.md`
+(agora versionado, com exceção no `.gitignore`) é o ponteiro rápido de bloco/task/branch/próximo
+passo, lido antes do ledger completo; o ledger teve os blocos 0-2 (fechados, sem judgment em aberto)
+compactados para um parágrafo cada, com achados que já viraram D-0XX citados por número em vez de
+repetidos. Registrado em `docs/workflow.md` §1.1 e §8.
+
 ## D-043 — `ValidateBatchUseCase` liga o `RuleEngine` ao lote sem gate por schema; `BatchReport` não ganha contador de desfecho ainda (28/07/2026)
 
 Bloco 3 (Task 19), plano escrito antes dos blocos 6/7 existirem — quando a única fonte de achado

@@ -34,6 +34,32 @@ commits de fix.
 
 **Decisão nova vai para `docs/decisions.md` no mesmo commit.** Decisão-chave: perguntar antes.
 
+### 1.1 Cerimônia proporcional ao risco
+
+Nem toda task carrega o mesmo risco, e o fluxo acima não precisa pesar igual em todas. O critério
+que separa os dois tipos é **julgamento fiscal**, não tamanho ou dificuldade técnica:
+
+- **Julgamento fiscal** — qualquer código que decide o que a NT/XSD/tabela oficial exige: regra de
+  rejeição, leitura de indicador (CST, cClassTrib, `ind_gIBSCBS`...), mapeamento de tabela, tradução
+  de mensagem oficial. Aqui o fluxo completo vale por inteiro: revisor relendo a fonte oficial
+  (§4), sonda de mutação (§5), ledger com o raciocínio por extenso. É o que pegou os dois erros do
+  bloco 6 (`refNFP`, `gCompraGov`) e o bug de concorrência do bloco 3 — não corte aqui.
+- **Orquestração/plumbing** — código que liga peças já vetadas sem introduzir julgamento novo
+  (exportador de CSV, caso de uso que só invoca engines existentes, wiring de UI). Revisão de
+  "chama certo, trata erro certo, não deixa achado morrer" já basta; não precisa reabrir NT/XSD.
+  Mutação só no caminho central, se houver um.
+- **Doc/config/refactor mecânico** — fazer e reportar curto, sem processo. (Já em prática antes
+  deste registro; formalizado aqui para não regredir.)
+
+O mesmo critério decide o **modelo do implementador**: julgamento fiscal e ambiguidade genuína
+merecem o modelo mais caro; orquestração/plumbing e padrão já visto (ex.: a 6ª instância de uma
+regra igual às 5 anteriores) rodam bem em modelo mais barato/rápido.
+
+**Tasks mecânicas da mesma natureza se fundem.** Quando o plano lista N tasks que são a mesma forma
+repetida sem julgamento novo entre elas (ex.: bloco 7, 16 regras de presença em 4 mecanismos), uma
+task cobre todas, com um brief e uma revisão — não N ciclos completos. O critério é "mesma
+natureza", não "mesmo arquivo": tasks que tocam código diferente mas repetem o mesmo padrão contam.
+
 ## 2. O ledger é a memória entre sessões
 
 `.superpowers/sdd/progress.md`. É o que sobrevive ao fim de uma sessão, à compactação de contexto e
@@ -118,9 +144,11 @@ coordenação.
 - o que está commitado e o que não está;
 - pendências e perguntas em aberto.
 
-**Ao começar**, leia nesta ordem: [`context.md`](./context.md) → este arquivo → o ledger. Depois
-**confira `git log` e `git status` contra o que o ledger afirma**. O ledger pode estar desatualizado;
-o git não.
+**Ao começar**, leia nesta ordem: [`context.md`](./context.md) → este arquivo →
+[`.superpowers/sdd/CURRENT.md`](../.superpowers/sdd/CURRENT.md) → o ledger completo só se precisar
+do histórico. `CURRENT.md` é o ponteiro rápido (bloco/task/branch/próximo passo); atualize-o a cada
+handoff, junto do `### PARADA`. Depois **confira `git log` e `git status` contra o que os dois
+afirmam**. Ambos podem estar desatualizados; o git não.
 
 **Regra de árvore limpa:** não encerre sessão com trabalho staged e não commitado. No bloco 6 um
 subagente caiu por limite de conta deixando uma task inteira staged — se a sessão tivesse fechado
@@ -137,5 +165,23 @@ ali, a seguinte encontraria um estado que o ledger não descrevia.
     └── review-<base>..<head>.diff       pacote entregue ao revisor
 ```
 
-`progress.md` é o único arquivo versionado de `.superpowers/sdd/`; briefs, relatórios e diffs
-continuam locais e descartáveis. `git clean -fdx` remove o scratch, mas preserva o ledger rastreado.
+`progress.md` e `CURRENT.md` são os dois arquivos versionados de `.superpowers/sdd/`; briefs,
+relatórios e diffs continuam locais e descartáveis. `git clean -fdx` remove o scratch, mas preserva
+os dois arquivos rastreados.
+
+## 8. Manutenção do harness
+
+Os arquivos de método e de plano crescem a cada bloco; sem poda, ler "o que fazer agora" fica mais
+caro do que fazer. Duas práticas, aplicadas ao fechar um bloco:
+
+- **Arquivar plano entregue.** Quando um bloco de `docs/superpowers/plans/<nome>.md` é mergeado por
+  inteiro, move-se o arquivo para `docs/superpowers/plans/done/`. Quando só parte de um plano fecha
+  (ex.: B0-B2 de um plano que também tem B3-B5 em aberto), extrai-se a parte fechada para
+  `done/<nome>-<blocos>.md` e o arquivo vigente fica só com o que falta + um parágrafo apontando
+  para o arquivo. Nunca apaga conteúdo — arquivar é mover, não descartar.
+- **Podar o ledger.** Bloco fechado e mergeado tem seu histórico tarefa-a-tarefa compactado para um
+  parágrafo por bloco: o que foi entregue, achados que viraram decisão (citando o D-0XX em vez de
+  repetir o texto), e as divergências julgadas que §2 exige preservar. O texto integral não some —
+  fica no histórico do git do próprio `progress.md` (`git log -p -- .superpowers/sdd/progress.md`).
+  Bloco em andamento não se poda: a densidade de detalhe só atrapalha depois que o julgamento já
+  foi validado por revisão e não precisa mais ser reconferido.

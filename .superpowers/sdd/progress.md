@@ -1,106 +1,34 @@
 # Progresso — SDD do v0 (plano 2026-07-26-v0-validador-lote-rtc.md)
 
-Modificação do usuário: relatório + validação manual ao fim de cada bloco, ANTES do PR.
+> Podado em 28/07/2026 para secar o harness (D-044). Blocos fechados e mergeados têm o histórico
+> tarefa-a-tarefa compactado aqui; achados que viraram decisão permanente estão em
+> `docs/decisions.md` pelo número D-0XX, não duplicados. Nada foi perdido: o texto completo
+> original está no histórico do git deste arquivo (`git log -p -- .superpowers/sdd/progress.md`).
 
-Task 1: complete (repo público criado + main publicada; branch bloco/0-harness)
-Task 2: complete (commit d898467, review clean — base Gradle 8.14.3)
-  Minor p/ revisão final: build.gradle copy{}/delete{} em doLast (plan-mandated, sem impacto — só relevante se configuration cache for adotado)
-Task 3: complete (commit amendado, review clean — 14 XSDs byte-idênticos ao JAR oficial verificado por hash)
-  Correções do controlador dobradas na task: *.xsd -text no .gitattributes (fidelidade byte-a-byte);
-  header de proveniência no properties + mesmo header no heredoc do updateSchemas (consistência).
-Task 4: complete (commit 6d759c8, review clean — 6 docs canônicos, links verificados, D-001..D-014)
-Task 5: complete (commit 1cf44d4, review clean — agente, CI, GPL-3.0 verificada por checksum, README inicial)
-Task 6: complete (PR #1 mergeado, CI verde) — BLOCO 0 FECHADO
-  Fix aplicado por decisão do usuário antes do PR: cache: 'gradle' no setup-java (amend em 1a309b5).
+## Bloco 0 (harness) — PR #1 mergeado
+6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
+agente + CI + GPL-3.0 + README.
 
-## Bloco 1 (branch bloco/1-dominio-scan, base 220e5d5)
+## Bloco 1 (domínio, varredura, parse) — PR #2 mergeado
+6 tasks (7-12). Domínio imutável (List.copyOf) + FindingReclassifier; RootCauseGrouper; ArchUnit
+(D-015: `allowEmptyShould` nas 2 regras vazias até `application`/`presentation` existirem);
+FolderScanner (symlink não pulado em silêncio, achado do /code-review pré-PR); XmlMetadataParser —
+ACHADO DE SEGURANÇA: `SUPPORT_DTD=false` do StAX não rejeita DOCTYPE sozinho, precisou de rejeição
+explícita do evento (D-017); enviNFe multi-nota zera 5 metadados (D-016); D-018 (XML minificado
+colapsa índice linha→item). Decisão de produto: arquivo não-NF-e só precisa ser "inválido", não
+classificado por família (pós-MVP). PENDÊNCIA UX bloco 4: mostrar a tela mestre-detalhe antes de
+construir.
 
-### PARADA — 2026-07-26 (fim de sessão)
-
-Estado: Bloco 0 COMPLETO e mergeado na main (PR #1, CI verde).
-Branch `bloco/1-dominio-scan` criada a partir da main, SEM commits ainda.
-
-Retomar em: Bloco 1, Task 7 (records do domínio + FindingReclassifier).
-Brief já gerado: .superpowers/sdd/task-7-brief.md
-
-Tasks do Bloco 1: 7 (domínio), 8 (RootCauseGrouper), 9 (ArchUnit), 10 (FolderScanner),
-11 (XmlMetadataParser — a mais delicada, despachar com Opus), 12 (relatório + validação + PR).
-
-Protocolo em vigor: 1 subagente por task + revisor independente por task;
-relatório e validação manual do usuário ao FIM do bloco, antes do PR.
-Task 7: complete (commit amendado, review clean após fix — modelo de domínio + FindingReclassifier)
-  Fix do controlador dobrado na task: construtor compacto com List.copyOf em RootCause e BatchReport
-  (achado Importante plan-mandated do revisor: listas expostas sem cópia defensiva) + DomainImmutabilityTest.
-  Menores aceitos sem ação: teste usa containsExactly em vez de isSameAs; comentário de roadmap em FindingKind.
-Task 8: complete (commit amendado, review clean — RootCauseGrouper)
-  Fix do controlador dobrado: 2 testes fechando lacunas apontadas pelo revisor (empate real em
-  affectedDocuments; explicação vazia sem tradução E sem mensagem oficial).
-Tasks 9+10: complete (consolidadas num ciclo por serem enxutas — decisão do usuário de reduzir cerimônia)
-  Commits 6909f3f (FolderScanner) + a507ae6 (ArchUnit). Re-review clean após 4 correções:
-  UncheckedIOException do walk lazy -> ScanException; teste de ordenação que de fato discrimina
-  (verificado por mutação); nova regra presentationDoesNotSeeInfrastructure; allowEmptyShould por
-  regra em vez de global (archunit.properties removido) + D-015 reescrita.
-  REJEITEI a sugestão do revisor de proibir presentation->domain: quebraria o B4, tipos de domínio
-  são o modelo compartilhado do MVP por design (spec).
-  PENDÊNCIA REGISTRADA (D-015): remover .allowEmptyShould(true) das 2 regras ao fim do Bloco 4.
-Task 11: complete (commit 49a5480, aprovada após 2 rodadas de correção — XmlMetadataParser)
-  ACHADO DE SEGURANÇA no plano: SUPPORT_DTD=false do StAX NÃO rejeita DOCTYPE (só deixa de processá-lo,
-  ainda emitindo o evento DTD). Parser passou a rejeitar o evento explicitamente. Revisor confirmou
-  independentemente com probe de 15 vetores; sem XXE/billion-laughs remanescente. Registrado em D-017.
-  Outras correções: exceções cruas -> null; elemento vazio virava "" e bloqueava o valor real;
-  índice ganhou faixas fechadas (antes, tudo após o último </det> herdava o item — e IBSCBSTot fica
-  em <total>, então erro de totais seria rotulado "item N"); enviNFe multi-nota -> 5 metadados nulos
-  (D-016); accessKey="" com Id="NFe"; <dest> no fixture armando o guard de contexto.
-  Limitação documentada: D-018 (XML minificado colapsa o índice linha->item).
-Task 12: complete (PR #2 mergeado, CI verde) — BLOCO 1 FECHADO
-  /code-review medium rodado antes do PR: 5 achados, 4 corrigidos (o mais grave: pastas via symlink
-  puladas em silêncio -> lote reportaria "sem problemas" para docs nunca lidos).
-  NÃO corrigido de propósito: raiz casada sem namespace — exigir namespace transformaria XML sem
-  namespace em "ilegível", quando o melhor é o XSD reprovar com mensagem oficial/linha/coluna.
-  Decisão de produto do usuário: arquivos não-NF-e (evento/inutilização/SOAP/outro DFe) por ora só
-  precisam ser informados como inválidos — comportamento atual já basta. Classificar a família do
-  arquivo fica para pós-MVP.
-  PENDÊNCIA DE UX para o Bloco 4: usuário imaginou grid de importados com ícone e botão "remover
-  inválidos"; a spec tem drop -> progresso -> tabela de causas. Mostrar a tela antes de construir.
-
-## Bloco 2 (branch bloco/2-motor-xsd, base b46f257)
-Task 13: complete (commit 2b3bddf, review clean após fix — XsdErrorTranslator)
-  ACHADO FISCAL do revisor: chave cvc-enumeration-valid.CST casava por nome de campo, mas CST existe
-  no IBS/CBS (pattern, nunca dispara enumeration) E no ICMS legado (enumeration inline) — a mensagem
-  só apareceria no caso em que está errada, mandando o contador à tabela errada. Chave removida.
-  Também: teste de acentuação (verificado por mutação p/ Properties.load(InputStream)); NPE como
-  controle de fluxo trocada por checagem explícita; cobertura de ação em branco após '|'.
-Task 14: complete (commit amendado, aprovada após 3 rodadas — SchemaValidatorEngine)
-  Rodada 1: assinatura por substring "Signature" era manipulável (SignatureXpto rebaixava REJECTION
-  a INFO); chaves de tradução mortas (cvc-pattern-valid não nomeia elemento) e achados duplicados;
-  OOM sem teto. Rodada 2: prefixo .2.4 ainda casava .2.4.a (que LISTA os esperados) — corrigido para
-  .2.4.b exato; locale da JVM quebrava a extração inteira (Locale.ENGLISH não funciona, só ROOT).
-  Rodada 3 (feita pelo controlador, limite de gasto): OOM por mensagem única gigante escapava do
-  catch (Error != Exception) -> recusa preventiva 32 MB + captura de OutOfMemoryError; injeção de
-  campo pelo valor -> padrões ancorados + última ocorrência (D-024).
-  Decisões: D-019 (resolver de includes), D-020 (assinatura), D-021 (fusão faceta+portador),
-  D-022 (tetos + OOM), D-023 (locale ROOT), D-024 (extração ancorada).
-Tasks 15+16: complete (commits 30d9517 + a57c4bf) — fixtures e smoke de performance
-  Fixtures derivadas dos XMLs REAIS que o usuário forneceu, anonimizadas (a chave de acesso embute
-  o CNPJ: precisou ser regerada com DV recalculado). 500 docs em 774 ms (critério: < 2 min).
-  VALIDAÇÃO CONTRA OS 13 XMLs REAIS: 12 documentos fiscais passam LIMPOS (zero falso positivo);
-  o retEnviNFe é corretamente recusado com o nome do arquivo na mensagem.
-  ACHADO DE PRODUTO CRÍTICO: IBSCBS e IBSCBSTot são minOccurs="0" no schema oficial. Uma NF-e de
-  CRT=3 SEM NENHUM grupo IBS/CBS passa limpa no XSD — e é exatamente ela que a SEFAZ rejeita a
-  partir de 03/08. O v0, como especificado (XSD puro), não cumpre a promessa central nesse caso.
-  Levar ao usuário antes do PR.
-Task 17: complete (PR #3 mergeado, CI verde) — BLOCO 2 FECHADO
-  Validado contra 13 XMLs reais do usuário: 12 documentos fiscais LIMPOS, resíduo SOAP recusado.
-MUDANÇA DE ROTEIRO (27/07): spec nova commitada (7367ba4) para a camada de previsão de rejeição.
-  Descoberta: XSD declara IBSCBS como minOccurs=0, então CRT=3 sem o grupo passa limpo — e é a
-  rejeição 1115/UB12-10 que liga em 03/08/2026. NT tem 277 regras (129 presença, 77 cálculo,
-  44 tabela). Estratégia aprovada pelo usuário: regras dirigidas pelas tabelas oficiais da
-  Calculadora (161 cClassTrib carregam possuiPercentualReducao, exigeGrupoDesoneracao,
-  tiposDfeClassificacao, percentuais) -> ~11 mecanismos em vez de 129 regras codificadas.
-  Escopo cortado: só IBS/CBS, modelos 55/65. IS e demais DFe fora.
-  LACUNA: tabela de CST da Calculadora não traz ind_gIBSCBS/ind_gRed (estão na planilha do portal).
-  PENDENTE: D-012 volta à pauta (valores exigem a Calculadora rodando, pacote sem licença).
-  Blocos 3-5 do plano original (use case/CSV, UI, release) precisam ser reordenados após esta spec.
+## Bloco 2 (motor XSD, tradutor, fixtures) — PR #3 mergeado
+5 tasks (13-17). XsdErrorTranslator (achado fiscal: chave `cvc-enumeration-valid.CST` casava com o
+CST errado — ICMS legado, não IBS/CBS — removida). SchemaValidatorEngine, 3 rodadas de revisão:
+assinatura por substring manipulável, chaves de tradução mortas, OOM sem teto, locale ROOT
+(D-019..D-024). Fixtures dos 13 XMLs reais do usuário: 12 limpos, 0 falso positivo.
+**ACHADO DE PRODUTO CRÍTICO que mudou o roteiro:** `IBSCBS`/`IBSCBSTot` são `minOccurs="0"` no XSD
+oficial — uma NF-e CRT=3 SEM NENHUM grupo IBS/CBS passa limpa no schema, e é exatamente essa a
+rejeição 1115/UB12-10 que a SEFAZ liga em 03/08/2026. XSD puro não cumpre a promessa central nesse
+caso. Isso motivou a spec nova de 27/07 (camada de previsão de rejeição, blocos 6/7) e reordenou os
+blocos 3-5 do plano original para depois dela.
 
 ## Bloco 6 (branch bloco/6-camada-rejeicao, base 7cfae91)
 Task 1 (b6): complete (commit f3a3998, review clean) — 74 testes. Domínio com 4 desfechos.
