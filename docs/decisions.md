@@ -4,6 +4,55 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-040 — Validado: o schema não é model-aware; `grupo.xsd` é scaffolding morta, não meio-caminho (28/07/2026)
+
+Achado da reconciliação de `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (D-039), aprofundado aqui
+por pedido explícito de validação. Registra o estado real, para não ser reaberto como surpresa numa
+sessão futura nem "corrigido" na direção errada.
+
+**O que está confirmado, lendo o código, não supondo:**
+
+1. `SchemaValidatorEngine.SCHEMA_DIR` (`SchemaValidatorEngine.java:46`) está fixo em
+   `"/schemas/nfe/"`. Todo documento — `mod=55` ou `mod=65` — é validado contra `nfe/nota.xsd`.
+   Não há nenhuma ramificação por modelo no motor de schema.
+2. `nfe/originais/` e `nfce/originais/` são **byte-idênticos** (`diff` vazio nos dois arquivos
+   grandes, `DFeTiposBasicos_v1.00.xsd` e `leiauteNFe_v4.00.xsd`) — são a mesma extração da
+   Calculadora, duplicada nas duas pastas, e o `IBSCBS` do item é sempre tipado como `TTribNFe`
+   (que permite `gTransfCred`, `gAjusteCompet`, `gEstornoCred`, `gCredPresOper`,
+   `gCredPresIBSZFM`) em ambas — nunca como `TTribNFCe` (que não permite nenhum desses grupos,
+   restando só `gIBSCBS`/`gIBSCBSMono`).
+3. **`grupo.xsd` não é meio-caminho de correção — é scaffolding morta do commit fundador**
+   (`e4c768a`, bloco 0, 26/07/2026). Existem duas cópias, `nfe/grupo.xsd` e `nfce/grupo.xsd`,
+   ambas com o comentário de autoria "Luis Augusto, 02/07/2025" (predata o projeto — veio junto da
+   extração de schemas, não foi escrito por um agente daqui). Nenhuma das duas é incluída por
+   nenhum `nota.xsd`; nenhuma é referenciada em `src/main/java`. E mesmo que fossem: cada
+   `grupo.xsd` declara um `infNFe` **parcial** — só `det`/`total` (e, na versão NF-e, um `ide` com
+   só `gCompraGov`) — sem `emit`, `dest`, nem o resto da nota. Usá-lo no lugar do `infNFe` completo
+   de `leiauteNFe_v4.00.xsd` derrubaria a validação de qualquer documento real, não a tornaria mais
+   estrita. Não é um fix quase pronto; é um experimento anterior à decisão de usar a extração oficial
+   completa (a mesma decisão que fundamenta D-005), abandonado sem limpeza.
+
+**Por que a correção não é "tornar o motor de schema model-aware".** Restringir corretamente
+`TTribNFCe` via XSD exigiria reescrever a árvore inteira de `infNFe` para o modelo 65 (XSD 1.0, sem
+`xs:redefine`/`xs:override` civilizados no caminho do Xerces já em uso) só para trocar um tipo
+aninhado várias camadas abaixo — alto custo, alto risco de divergir da extração oficial que D-005
+já garante correta. **A correção certa é a mais barata, e já está escolhida**: implementar as seis
+rejeições de "grupo proibido no modelo 65" na camada de regras — 1006, 1049, 1138, 1165, 708 e 1187,
+já priorizadas como mecanismo 5 em `candidatas-rejeicao-pos-b6.md` — em vez de mexer no motor XSD.
+O mecanismo (`DocumentRejectionRule`/`RejectionRule` + `model` já em `FiscalDocument`) já existe.
+
+**Consequência aceita, até essa implementação:** hoje, um documento `mod=65` com `gTransfCred`,
+`gAjusteCompet`, `gEstornoCred`, `gCredPresOper`, `gCredPresIBSZFM`, `gCompraGov` ou
+`DFeReferenciado` (elementos que a norma proíbe em NFC-e) **passa na validação estrutural** —
+falso negativo silencioso, não falso positivo: o validador não acusa nada, mas também não pega o
+erro que a SEFAZ pegaria. Não é urgente do jeito que o gap de XSD desatualizado (auditoria de
+28/07/2026, produção 03/08/2026) é — é lacuna de cobertura, não acusação indevida — mas é real e
+tem correção barata já mapeada.
+
+**Débito de limpeza, sem risco:** `grupo.xsd` (as duas cópias) pode ser removido do repositório
+sem afetar nada em runtime — nada o referencia. Não removido nesta sessão por não ser o pedido; fica
+registrado para quando alguém mexer nesta árvore de novo.
+
 ## D-039 — 1118/1119 introduzem `DocumentRejectionRule`, avaliada por documento, não por item (28/07/2026)
 
 Task fora do plano original, priorizada em `docs/pesquisa/candidatas-rejeicao-pos-b6.md` §"Lote 1"

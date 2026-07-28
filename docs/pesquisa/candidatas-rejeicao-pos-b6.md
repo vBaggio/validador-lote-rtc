@@ -42,19 +42,14 @@ A shortlist revisada reúne **19 rejeições em cinco mecanismos**.
 
 **🔧 Reconciliação — 1049/1138 não são cobertas pelo XSD, ao contrário do que a matriz abaixo
 originalmente afirmava.** A versão anterior deste documento classificava 1049 e 1138 como "não
-recomendar, o XSD já cobre", porque o tipo `TTribNFCe` (definido em `DFeTiposBasicos_v1.00.xsd:226`)
-de fato não declara `gCredPresOper` nem `gCredPresIBSZFM`, e existe até um `src/main/resources/
-schemas/nfce/grupo.xsd` que amarra `IBSCBS` a `TTribNFCe` corretamente. **O problema é que esse
-arquivo nunca é usado**: `SchemaValidatorEngine.SCHEMA_DIR` está fixo em `"/schemas/nfe/"`
-(`SchemaValidatorEngine.java:46`), e todo documento — NF-e ou NFC-e — é validado contra
-`nfe/nota.xsd`, que tipa `IBSCBS` como `TTribNFe` (o tipo permissivo da NF-e) para qualquer `mod`.
-Confirmado lendo o código nesta reconciliação, não apenas o achado do documento anterior: **hoje
-não existe nenhuma validação estrutural específica de NFC-e** além do que os dois leiautes já
-compartilham. A árvore `schemas/nfce/` (incluindo `grupo.xsd`, corretamente restritivo) é código
-morto. Isso reabre 1049 e 1138 como candidatas reais — o "XSD já cobre" era verdade só no papel — e
-sugere um achado maior, fora do escopo deste documento: **o motor de schema não diferencia modelo
-55 de 65 em nenhum ponto**, o que pode afetar mais códigos além destes dois. Vale um débito
-separado no bloco do motor XSD (bloco 2) para decidir se a validação passa a ser model-aware.
+recomendar, o XSD já cobre". Validado a fundo depois desta reconciliação (D-040, `docs/decisions.md`):
+`SchemaValidatorEngine` nunca diferencia NF-e de NFC-e (`SCHEMA_DIR` fixo em `nfe/`), e o único
+artefato que restringiria `IBSCBS` corretamente para NFC-e (`schemas/nfce/grupo.xsd`) é scaffolding
+morta do commit fundador do projeto — nunca foi incluída por nenhum `nota.xsd`, e nem poderia: seu
+`infNFe` é um fragmento parcial que derrubaria qualquer documento real. A correção certa **não** é
+tornar o motor de schema model-aware (custo alto, risco de divergir da extração oficial que D-005
+garante) — é implementar estas seis rejeições na camada de regras, como já priorizado aqui. Detalhe
+completo em D-040.
 
 As prioridades são independentes de volume de código. Se a promoção de um indicador da SVRS
 exigir alterar a ingestão, ela deve manter a proveniência, a vigência por data do fato gerador e as
