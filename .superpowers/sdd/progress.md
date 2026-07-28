@@ -398,3 +398,30 @@ HEAD: edd9c22 na branch bloco/6-camada-rejeicao. Árvore Git limpa, nada pushado
   docs/validacao/casos-diferenciais.md; conferir git status/log; começar pela divergência 1022,
   sem implementar candidatos 1026/1036/1041/1052/1064/1069/1076/1080/1084/1085/1091/1119 antes
   de decisão do dono do projeto. Task 10 não deve ser declarada "sem divergências".
+
+Task 10 (b6): complete — decisão do dono do projeto sobre a divergência de multiplicidade da 1022
+  registrada em D-037: mantém-se a causa-raiz única (política existente desde D-032/D-034), não se
+  reproduz a multiplicidade da SVRS. Critério de aceite do bloco ("SVRS aprova → não reprovamos")
+  segue satisfeito; nenhum código de produção mudou por causa desta task.
+
+  Nesta mesma sessão, uma segunda leitura independente da NT (docs/pesquisa/auditoria-regras-e-
+  leitura.md e docs/pesquisa/auditoria-artefatos-oficiais.md, commit e0fde5f) achou um defeito
+  funcional COM PRAZO, fora do escopo do gate SVRS: a Exceção 1 da 1115/UB12-10 (devolução de nota
+  anterior a 2026) para de funcionar em 01/09/2026, quando a NT v1.40 migra o referenciamento de
+  devolução para o grupo `DFeReferenciado` (item), que hoje não é lido. A partir dessa data,
+  devolução emitida CORRETAMENTE pela norma nova vira falso positivo na regra principal do bloco.
+  DECISÃO DO DONO DO PROJETO: corrigir agora, como task nova do bloco 6, antes do fechamento — não
+  vira débito para bloco futuro. Ver task-referenciamento-devolucao-brief.md.
+
+  A mesma auditoria também achou candidatos 1118/1119 (coerência entre item e total do grupo
+  IBS/CBS) como os únicos do catálogo pós-b6 que são presença pura, sem aritmética — e portanto
+  compatíveis com o escopo estrutural do v0.x. DECISÃO DO DONO DO PROJETO: incluir também como task
+  nova do bloco 6, com o pré-requisito descrito em auditoria-regras-e-leitura.md §4.2 (qualificar a
+  leitura do TaxGroupExtractor por contexto det/total antes de implementar, para não herdar a
+  colisão de nome `gCBS` entre item e total). Ver task-totais-ibscbs-brief.md.
+
+  DÉBITO REGISTRADO, NÃO RESOLVIDO NESTA SESSÃO: os XSDs embarcados (fonte: JAR da Calculadora RFB)
+  estão uma revisão atrás da NT — faltam campos da v1.40 (`gALCZFMCBS`, `cIndOp`, `refDFeAnt`,
+  `ISUFEmit`) que entram em produção em 03/08/2026, a 6 dias desta sessão. É falso positivo
+  estrutural iminente, mas é escopo do bloco 2 (motor XSD), não do bloco 6 — revisitar D-005.
+  Reportado ao dono do projeto; ação fica fora deste bloco por decisão dele.

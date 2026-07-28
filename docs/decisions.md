@@ -4,6 +4,29 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-037 — 1022 mantém causa-raiz única; a multiplicidade da SVRS não é reproduzida (28/07/2026)
+
+O gate humano da Task 10 (`docs/validacao/casos-diferenciais.md`) mediu, contra o validador
+oficial da SVRS, que um item sem `gIBSCBS` obrigatório dispara **quatro** códigos simultâneos —
+1022, 1033, 1074 e 1079 — enquanto o motor local, por design de causa-raiz única (D-032/D-034),
+reporta só o 1022 e suprime os três seguintes.
+
+Não é falso positivo: o controle equivalente (`c1022-com-grupo-interno.xml`, com o grupo presente)
+não dispara nenhum dos quatro nos dois lados, e o critério de aceite do bloco — "nenhum documento
+aprovado pela SVRS é reprovado por nós" — está preservado. É divergência de **multiplicidade**, não
+de veredito.
+
+**Decisão:** manter a causa-raiz única. Reproduzir a multiplicidade da SVRS exigiria reabrir o
+motor (Task 8) para emitir 1033/1074/1079 mesmo quando suprimidas pela ausência de `gIBSCBS` —
+indo contra a política já registrada em D-032 de que "no máximo um achado por causa-raiz por
+item" é o comportamento pretendido, não um efeito colateral a corrigir. A SVRS relatar mais
+códigos não torna a política errada: ela relata **sintomas** de uma causa que nós já identificamos
+e nomeamos.
+
+**Consequência aceita:** quem comparar o relatório local linha a linha com o retorno da SVRS para
+o mesmo documento vê menos códigos do nosso lado — é esperado, não é bug. Registrado aqui para que
+uma sessão futura não "corrija" a supressão achando que é uma lacuna de cobertura.
+
 ## D-036 — Ledger do SDD versionado; o resto de `.superpowers/` é scratch (27/07/2026)
 
 `.superpowers/` estava inteiramente no `.gitignore`. Não foi escolha do projeto: é a convenção do
