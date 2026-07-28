@@ -10,6 +10,15 @@ Achado da reconciliação de `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (D-03
 por pedido explícito de validação. Registra o estado real, para não ser reaberto como surpresa numa
 sessão futura nem "corrigido" na direção errada.
 
+**Confirmado empiricamente, não só por leitura de código.** O dono do projeto validou um XML
+sintético — NFC-e (`mod=65`) estruturalmente válido (`xmllint --schema nfe/nota.xsd`, sem erro),
+com `gCredPresOper` preenchido — direto no validador oficial da SVRS
+(<https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe>). Resultado: **"Schema XML: Nenhum erro
+encontrado"** e, na seção separada "Regras de Negócio", **1049 — "Não é permitido o uso de Crédito
+Presumido na NFC-e modelo 65 [nItem:1]"**. Prova direta de que a própria SEFAZ resolve isso na
+camada de regras de negócio, não na estrutural — a hipótese abaixo deixa de ser dedução e passa a
+ser fato observado.
+
 **O que está confirmado, lendo o código, não supondo:**
 
 1. `SchemaValidatorEngine.SCHEMA_DIR` (`SchemaValidatorEngine.java:46`) está fixo em

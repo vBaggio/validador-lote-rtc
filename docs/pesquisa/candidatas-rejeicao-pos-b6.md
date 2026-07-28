@@ -48,8 +48,9 @@ artefato que restringiria `IBSCBS` corretamente para NFC-e (`schemas/nfce/grupo.
 morta do commit fundador do projeto — nunca foi incluída por nenhum `nota.xsd`, e nem poderia: seu
 `infNFe` é um fragmento parcial que derrubaria qualquer documento real. A correção certa **não** é
 tornar o motor de schema model-aware (custo alto, risco de divergir da extração oficial que D-005
-garante) — é implementar estas seis rejeições na camada de regras, como já priorizado aqui. Detalhe
-completo em D-040.
+garante) — é implementar estas seis rejeições na camada de regras, como já priorizado aqui.
+**Confirmado empiricamente na SVRS**: NFC-e sintética com `gCredPresOper` passou o schema sem erro
+e recebeu 1049 em "Regras de Negócio" — não é mais hipótese. Detalhe completo em D-040.
 
 As prioridades são independentes de volume de código. Se a promoção de um indicador da SVRS
 exigir alterar a ingestão, ela deve manter a proveniência, a vigência por data do fato gerador e as
