@@ -12,6 +12,7 @@
 # Build
 /build/
 /.gradle/
+/.worktrees/
 
 # IDE
 /.idea/
