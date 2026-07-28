@@ -443,3 +443,26 @@ Task nova (b6): complete (commit 4f31297, revisão independente PASS/PASS) — 2
   Relacionado à divergência de conteúdo do próprio `candidatas-rejeicao-pos-b6.md` entre a versão
   commitada no bloco e uma versão mais extensa que ficou untracked no worktree principal — reportado
   ao dono do projeto, não reconciliado nesta sessão.
+
+Task nova (b6): complete (commit efe058a, revisão independente PASS/PASS) — 251 testes, 0 falhas.
+  ENTREGUE: 1118/W34-10 e 1119/W34-20 (coerência entre o invólucro `IBSCBS` do item e
+  `total/IBSCBSTot` do documento), texto oficial conferido linha a linha no PDF da NT por
+  implementador E revisor, independentemente. `hasIbsCbsTot` em `FiscalDocument`, no padrão de
+  `hasCompraGov`. Fix de contexto (`emDet`) no `TaxGroupExtractor`, pré-requisito do brief.
+  ARQUITETURA NOVA: `DocumentRejectionRule` — segunda família de regra, por documento, fora da
+  cascata de `Precondition` (que é toda sobre disponibilidade de dado por item). Achados carregam
+  `itemNumber = null` e não afetam `verifiedItemCount`. Revisor confirmou por leitura e mutação que
+  a separação não vaza para o contador de itens verificados.
+  DIVERGÊNCIA JULGADA E CONFIRMADA (não corrigida): tanto o implementador quanto o revisor,
+  independentemente, com sondas de mutação diferentes, confirmaram que o fix `emDet` do extractor é
+  hoje INERTE — o reset incondicional de estado na abertura de `det` já elimina qualquer vazamento
+  de `total/IBSCBSTot`, com ou sem a guarda. Mantido mesmo assim por ser defesa em profundidade
+  exigida pelo brief como pré-requisito obrigatório; registrado para que ninguém reabra a discussão
+  achando que há um bug não corrigido — não há, o fix é cinto e suspensório.
+  ACHADO MENOR (recorrente pela 2ª vez): brief, javadoc e D-039 citam
+  `docs/pesquisa/candidatas-rejeicao-pos-b6.md` "Lote 1" como origem de 1118/1119 — o arquivo
+  commitado (8fb24d7) não contém essa seção; a citação vem da versão mais extensa e não commitada.
+  Mesma causa-raiz da divergência já registrada na task anterior. Não é risco fiscal.
+  DÉBITO PARA O FECHAMENTO DO BLOCO: reconciliar as duas versões de `candidatas-rejeicao-pos-b6.md`
+  (ou substituir a commitada pela mais extensa, com decisão explícita) antes do PR, para que as
+  citações no código deixem de apontar para conteúdo que não existe na branch.
