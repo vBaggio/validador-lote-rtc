@@ -350,3 +350,22 @@ Este adendo preserva as entradas históricas acima e corrige sua propriedade atu
   pertencem ao bloco seguinte, de integração/apresentação.
 - Os débitos de `itemNumber` não único, deduplicação de causas de documento e mensagens amigáveis
   das rejeições pertencem ao mesmo bloco de integração/apresentação.
+
+Task 9 (b6): complete (commit 17c4c6d, revisão local limpa) — 228 testes, 0 falhas.
+  Entregue corpus diferencial XSD-válido: 11 positivos isolados (1115, 1021, 1022, 1024, 1025,
+  1033, 1074, 1079, 1034, 1046 e 1063), seus 11 controles limpos e roteiro em
+  docs/validacao/casos-diferenciais.md. O teste verifica XSD, entrada extraída, isolamento do
+  código e ausência de achados nos controles.
+  ACHADO: o controle inicial da 1022 ainda ficou em CST 000 e passava como limpo pelo motivo
+  errado; corrigido para 200/200030 com reduções e protegido por asserção das pré-condições do par.
+  DECISÃO: 1021 usa 410/410001 e reduções usam 200/200030 (60%); CST 400 e 011 do plano antigo
+  não isolam as regras nos modelos NF-e/NFC-e segundo a tabela oficial embarcada.
+  VERIFICAÇÃO: mutação de 59,99% para 60% no positivo da 1034 derruba a asserção de entrada e a
+  de rejeição; restauração volta a verde.
+  DÉBITO: Task 10 é gate humano — assinar equivalentes e confrontar a matriz com a SVRS antes de
+  fechar o bloco. Nada foi enviado ao remoto.
+
+### PARADA — 28/07/2026, após Task 9.
+
+HEAD: 17c4c6d na branch bloco/6-camada-rejeicao. Árvore limpa, 228 testes verdes, nada pushado.
+Próximo: Task 10, gate humano SVRS; aguardar o dono do projeto executar ou delegar a validação.
