@@ -25,6 +25,15 @@ public enum Esfera {
         };
     }
 
+    /** Se o item informou o grupo {@code gDif} desta esfera (bloco 7). */
+    boolean informouDiferimento(ItemTaxGroup item) {
+        return switch (this) {
+            case UF -> item.hasDifUf();
+            case MUNICIPIO -> item.hasDifMun();
+            case CBS -> item.hasDifCbs();
+        };
+    }
+
     /** {@code pRedAliq} declarado nesta esfera; null quando ilegível. */
     BigDecimal percentualDeclarado(ItemTaxGroup item) {
         return switch (this) {

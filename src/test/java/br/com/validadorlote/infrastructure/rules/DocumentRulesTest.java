@@ -49,7 +49,8 @@ class DocumentRulesTest {
             String cProdANP, ReferencedNote dfeReferenciado) {
         return new ItemTaxGroup(1, temInvolucro, temGrupoInterno, cst,
                 temInvolucro ? "000001" : null, cProdANP, false, false, false, null, null, null,
-                dfeReferenciado);
+                dfeReferenciado, false, false, false, false, false, false, false, false, false,
+                false);
     }
 
     private RuleOutcome mil115(FiscalDocument documento, ItemTaxGroup item) {

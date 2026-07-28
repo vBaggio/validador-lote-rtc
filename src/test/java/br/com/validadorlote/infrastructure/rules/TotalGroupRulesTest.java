@@ -28,7 +28,7 @@ class TotalGroupRulesTest {
     private ItemTaxGroup item(boolean hasIbsCbsGroup) {
         return new ItemTaxGroup(1, hasIbsCbsGroup, hasIbsCbsGroup, hasIbsCbsGroup ? "000" : null,
                 hasIbsCbsGroup ? "000001" : null, null, false, false, false, null, null, null,
-                null);
+                null, false, false, false, false, false, false, false, false, false, false);
     }
 
     // ---- 1118 (W34-10): total informado, nenhum item com o invólucro ----

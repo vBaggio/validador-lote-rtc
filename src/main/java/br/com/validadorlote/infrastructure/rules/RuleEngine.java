@@ -75,42 +75,103 @@ public final class RuleEngine {
 
     /**
      * Regras de nível <b>documento</b>, avaliadas uma vez por documento — não por item, como as
-     * onze de {@link #BINDINGS}. Hoje só 1118/1119 (W34-10/W34-20), que comparam a presença de
-     * {@code total/IBSCBSTot} contra a de {@code IBSCBS} em qualquer item (D-039). Sem cascata:
-     * são independentes uma da outra e não compartilham precondição com as regras de item.
+     * de {@link #BINDINGS}. 1118/1119 (W34-10/W34-20) comparam a presença de
+     * {@code total/IBSCBSTot} contra a de {@code IBSCBS} em qualquer item (D-039); 1006 (B31-10,
+     * bloco 7) veda {@code gCompraGov} em documento modelo 65 — presença e modelo já vêm prontos
+     * em {@code FiscalDocument} (D-030). As três são independentes entre si e não compartilham
+     * precondição com as regras de item.
      */
-    private static final List<DocumentRejectionRule> DOCUMENT_RULES =
-            List.of(new TotalGroupForbiddenRule(), new TotalGroupRequiredRule());
+    private static final List<DocumentRejectionRule> DOCUMENT_RULES = List.of(
+            new TotalGroupForbiddenRule(), new TotalGroupRequiredRule(),
+            new CompraGovForbiddenInNfceRule());
 
     /**
-     * As dez regras restantes, na ordem em que a NT as numera. A ordem também escolhe quem fala
+     * As sete rejeições de "grupo/tag informado indevidamente" sem indicador de CST nem exceção
+     * (mecanismos 3 e 5 do brief do bloco 7): 1111/1112 valem para 55 e 65 sem gatilho de modelo;
+     * as demais cinco são restritas ao modelo 65. Uma única classe genérica parametrizada, para
+     * não repetir a mesma forma sete vezes — ver {@link PresenceForbiddenRule}.
+     */
+    static final List<RejectionRule> PRESENCE_FORBIDDEN_RULES = List.of(
+            new PresenceForbiddenRule("1111", "UB24-10",
+                    "Rejeição: Grupo de Devolução do IBS da UF informado indevidamente",
+                    ItemTaxGroup::hasDevTribUf, null),
+            new PresenceForbiddenRule("1112", "UB43-10",
+                    "Rejeição: Grupo de Devolução do IBS do Município informado indevidamente",
+                    ItemTaxGroup::hasDevTribMun, null),
+            new PresenceForbiddenRule("1187", "UB62-10",
+                    "Rejeição: Grupo de Devolução da CBS informado indevidamente",
+                    ItemTaxGroup::hasDevTribCbs, "65"),
+            new PresenceForbiddenRule("1049", "UB120-10",
+                    "Rejeição: Não é permitido o uso de Crédito Presumido na NFC-e modelo 65",
+                    ItemTaxGroup::hasCredPresOper, "65"),
+            new PresenceForbiddenRule("1138", "UB131-10",
+                    "Rejeição: Não é permitido o uso de Crédito Presumido ZFM na NFC-e modelo 65",
+                    ItemTaxGroup::hasCredPresIbsZfm, "65"),
+            new PresenceForbiddenRule("1165", "I05k-10",
+                    "Rejeição: Não é permitido informar a classificação para subapuração do IBS "
+                            + "na ZFM na NFC-e modelo 65",
+                    ItemTaxGroup::hasTpCredPresIbsZfm, "65"),
+            new PresenceForbiddenRule("708", "VC02-04",
+                    "Rejeição: NFC-e não pode referenciar documento fiscal",
+                    item -> item.dfeReferenciado() != null, "65"));
+
+    /**
+     * Todas as regras de item, na ordem em que a NT as numera. A ordem também escolhe quem fala
      * por uma causa suprimida: dentro de um grupo suprimido, o primeiro que tem o que dizer diz,
      * e a mensagem continua sendo a da regra — o motor não escreve explicação fiscal.
      */
-    static final List<Binding> BINDINGS = List.of(
-            binding(new GroupForbiddenRule(),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
-            binding(new GroupRequiredByCstRule(),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
-            binding(new ClassTribCstRule(),
-                    Precondition.CST_PRESENT, Precondition.CLASS_TRIB_IN_TABLE),
-            binding(new ClassTribModelRule(),
-                    Precondition.CLASS_TRIB_IN_TABLE),
-            binding(new ReductionGroupRule(Esfera.UF),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
-            binding(new ReductionGroupRule(Esfera.MUNICIPIO),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
-            binding(new ReductionGroupRule(Esfera.CBS),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
-            binding(new ReductionPercentageRule(Esfera.UF),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
-                    Precondition.CLASS_TRIB_IN_TABLE),
-            binding(new ReductionPercentageRule(Esfera.MUNICIPIO),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
-                    Precondition.CLASS_TRIB_IN_TABLE),
-            binding(new ReductionPercentageRule(Esfera.CBS),
-                    Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
-                    Precondition.CLASS_TRIB_IN_TABLE));
+    static final List<Binding> BINDINGS = bindings();
+
+    private static List<Binding> bindings() {
+        List<Binding> bindings = new ArrayList<>(List.of(
+                binding(new GroupForbiddenRule(),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new GroupRequiredByCstRule(),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ClassTribCstRule(),
+                        Precondition.CST_PRESENT, Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ClassTribModelRule(),
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ReductionGroupRule(Esfera.UF),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ReductionGroupRule(Esfera.MUNICIPIO),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ReductionGroupRule(Esfera.CBS),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ReductionPercentageRule(Esfera.UF),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ReductionPercentageRule(Esfera.MUNICIPIO),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ReductionPercentageRule(Esfera.CBS),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                // Mecanismo 1 (bloco 7): diferimento por indicador de CST, seis regras
+                // espelhadas — mesma dependência de tabela que 1021/1022.
+                binding(new DiferimentoForbiddenRule(Esfera.UF),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new DiferimentoRequiredRule(Esfera.UF),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new DiferimentoForbiddenRule(Esfera.MUNICIPIO),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new DiferimentoRequiredRule(Esfera.MUNICIPIO),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new DiferimentoForbiddenRule(Esfera.CBS),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new DiferimentoRequiredRule(Esfera.CBS),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                // Mecanismo 4 (bloco 7): gTribCompraGov. 1141 consulta a tabela (exceção
+                // ind_gIBSCBS = 0); 1144 não.
+                binding(new ComprasGovComposicaoRequiredRule(),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ComprasGovComposicaoForbiddenRule())));
+        // Mecanismos 3 e 5 (bloco 7): nenhuma consulta à tabela oficial — sem precondição.
+        for (RejectionRule rule : PRESENCE_FORBIDDEN_RULES) {
+            bindings.add(binding(rule));
+        }
+        return List.copyOf(bindings);
+    }
 
     private static Binding binding(RejectionRule rule, Precondition... requires) {
         // noneOf + addAll, e não EnumSet.copyOf: isto roda na inicialização da classe, e copyOf de

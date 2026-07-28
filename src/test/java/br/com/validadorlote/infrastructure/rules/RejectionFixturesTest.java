@@ -42,7 +42,26 @@ class RejectionFixturesTest {
             new Case("r1046-percentual-municipio-invalido.xml", "1046"),
             new Case("r1063-percentual-cbs-invalido.xml", "1063"),
             new Case("r1118-total-sem-item.xml", "1118"),
-            new Case("r1119-item-sem-total.xml", "1119"));
+            new Case("r1119-item-sem-total.xml", "1119"),
+            // Bloco 7 -- mecanismo 1 (diferimento por indicador de CST, sem exceção)
+            new Case("r1029-diferimento-uf-indevido.xml", "1029"),
+            new Case("r1030-diferimento-uf-ausente.xml", "1030"),
+            new Case("r1044-diferimento-municipio-ausente.xml", "1044"),
+            new Case("r1061-diferimento-cbs-ausente.xml", "1061"),
+            new Case("r1083-diferimento-municipio-indevido.xml", "1083"),
+            new Case("r1090-diferimento-cbs-indevido.xml", "1090"),
+            // Bloco 7 -- mecanismo 3 (devolução de tributo proibida)
+            new Case("r1111-devolucao-uf-indevida.xml", "1111"),
+            new Case("r1112-devolucao-municipio-indevida.xml", "1112"),
+            new Case("r1187-devolucao-cbs-nfce.xml", "1187"),
+            // Bloco 7 -- mecanismo 5 (grupo proibido no modelo 65)
+            new Case("r1006-compragov-nfce.xml", "1006"),
+            new Case("r1049-credpresoper-nfce.xml", "1049"),
+            // 1138 e 1165 disparam sempre juntas: tpCredPresIBSZFM é obrigatório dentro de
+            // gCredPresIBSZFM (TCredPresIBSZFM), então nenhum XML XSD-válido isola uma da
+            // outra -- ver decisão do bloco 7.
+            new Case("r1138-credpresibszfm-nfce.xml", "1138", "1165"),
+            new Case("r708-dfereferenciado-nfce.xml", "708"));
     private static final List<String> CONTROL_CASES = List.of(
             "c1115-com-grupo.xml",
             "c1021-sem-grupo-interno.xml",
@@ -56,14 +75,31 @@ class RejectionFixturesTest {
             "c1046-percentual-municipio-correto.xml",
             "c1063-percentual-cbs-correto.xml",
             "c1118-total-com-item.xml",
-            "c1119-item-com-total.xml");
+            "c1119-item-com-total.xml",
+            "c1029-sem-diferimento-uf.xml",
+            "c1030-diferimento-uf-presente.xml",
+            "c1044-diferimento-municipio-presente.xml",
+            "c1061-diferimento-cbs-presente.xml",
+            "c1083-sem-diferimento-municipio.xml",
+            "c1090-sem-diferimento-cbs.xml",
+            "c1111-sem-devolucao-uf.xml",
+            "c1112-sem-devolucao-municipio.xml",
+            "c1187-sem-devolucao-cbs-nfce.xml",
+            "c1006-sem-compragov-nfce.xml",
+            "c1049-sem-credpresoper-nfce.xml",
+            "c1138-sem-credpresibszfm-nfce.xml",
+            "c708-sem-dfereferenciado-nfce.xml");
 
     private static final XmlMetadataParser parser = new XmlMetadataParser();
     private static final TaxGroupExtractor extractor = new TaxGroupExtractor();
     private static RuleEngine rules;
     private static SchemaValidatorEngine schema;
 
-    private record Case(String file, String rejectionCode) {}
+    private record Case(String file, List<String> rejectionCodes) {
+        Case(String file, String... rejectionCodes) {
+            this(file, List.of(rejectionCodes));
+        }
+    }
 
     @BeforeAll
     static void setup() {
@@ -166,7 +202,7 @@ class RejectionFixturesTest {
                     .extracting(Finding::kind).containsOnly(FindingKind.REJECTION_RULE);
             assertThat(rejectionCodes(testCase.file()))
                     .as("rejection codes of %s", testCase.file())
-                    .containsExactly(testCase.rejectionCode());
+                    .containsExactlyElementsOf(testCase.rejectionCodes());
         }
     }
 

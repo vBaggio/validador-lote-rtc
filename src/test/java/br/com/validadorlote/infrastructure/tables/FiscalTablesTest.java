@@ -19,7 +19,7 @@ class FiscalTablesTest {
               "nome": "Tributação integral",
               "exigeGrupo": true,
               "exigeReducao": false,
-              "permiteDiferimento": false,
+              "exigeDiferimento": false,
               "iniVig": "2025-05-05T00:00:00",
               "fimVig": null,
               "classificacoes": [{
@@ -61,6 +61,22 @@ class FiscalTablesTest {
                 .count();
 
         assertThat(comReducao).isEqualTo(3);
+    }
+
+    @Test
+    void onlyTwoCstsRequireTheDeferralGroup() {
+        // exigeDiferimento (ind_gDif) é o indicador que a Task do bloco 7 conferiu contra a NT:
+        // verdadeiro só nos dois CSTs de diferimento (510 e 515), nunca nos outros 16 — confirma
+        // que o campo já embarcado (ex-permiteDiferimento) foi mapeado com a semântica correta.
+        long comDiferimento = "000 010 011 200 220 221 222 400 410 510 515 550 620 800 810 811 820 830"
+                .lines().flatMap(s -> java.util.Arrays.stream(s.split(" ")))
+                .filter(c -> tables.cst(c, HOJE).map(CstEntry::exigeDiferimento).orElse(false))
+                .count();
+
+        assertThat(comDiferimento).isEqualTo(2);
+        assertThat(tables.cst("510", HOJE).map(CstEntry::exigeDiferimento)).contains(true);
+        assertThat(tables.cst("515", HOJE).map(CstEntry::exigeDiferimento)).contains(true);
+        assertThat(tables.cst("000", HOJE).map(CstEntry::exigeDiferimento)).contains(false);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package br.com.validadorlote.infrastructure.rules;
 
 import br.com.validadorlote.domain.FiscalDocument;
+import br.com.validadorlote.domain.ReferencedNote;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor.ItemTaxGroup;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,6 +48,17 @@ class TableRulesTest {
         private BigDecimal pUf;
         private BigDecimal pMun;
         private BigDecimal pCbs;
+        private boolean difUf;
+        private boolean difMun;
+        private boolean difCbs;
+        private boolean devTribUf;
+        private boolean devTribMun;
+        private boolean devTribCbs;
+        private boolean credPresOper;
+        private boolean credPresIbsZfm;
+        private boolean tpCredPresIbsZfm;
+        private boolean tribCompraGov;
+        private ReferencedNote dfeReferenciado;
 
         Item cst(String v) { this.cst = v; return this; }
 
@@ -62,13 +74,37 @@ class TableRulesTest {
 
         Item reducaoCbs(String perc) { this.redCbs = true; this.pCbs = decimal(perc); return this; }
 
+        Item difUf() { this.difUf = true; return this; }
+
+        Item difMun() { this.difMun = true; return this; }
+
+        Item difCbs() { this.difCbs = true; return this; }
+
+        Item devTribUf() { this.devTribUf = true; return this; }
+
+        Item devTribMun() { this.devTribMun = true; return this; }
+
+        Item devTribCbs() { this.devTribCbs = true; return this; }
+
+        Item credPresOper() { this.credPresOper = true; return this; }
+
+        Item credPresIbsZfm() { this.credPresIbsZfm = true; return this; }
+
+        Item tpCredPresIbsZfm() { this.tpCredPresIbsZfm = true; return this; }
+
+        Item tribCompraGov() { this.tribCompraGov = true; return this; }
+
+        Item dfeReferenciado(ReferencedNote v) { this.dfeReferenciado = v; return this; }
+
         private static BigDecimal decimal(String v) {
             return v == null ? null : new BigDecimal(v);
         }
 
         ItemTaxGroup build() {
             return new ItemTaxGroup(1, involucro, grupoInterno, cst, classTrib, null,
-                    redUf, redMun, redCbs, pUf, pMun, pCbs, null);
+                    redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado,
+                    difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
+                    credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov);
         }
     }
 
@@ -420,5 +456,133 @@ class TableRulesTest {
         assertThat(percentual(Esfera.UF,
                 ctx("55", null, false, item().cst("011").classTrib("011001").reducaoUf("60.0"))))
                 .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    // ---- 1141 (UB82a-10): gTribCompraGov exigido sob compra governamental ----
+
+    @Test
+    void tribCompraGovMissingUnderGovernmentPurchaseIsRejected() {
+        // CST 000 tem ind_gIBSCBS = 1 (exigeGrupo): a exceção da UB82a-10 não afasta a acusação.
+        var out = new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, true, item().cst("000").classTrib("000001")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.Rejeitado.class);
+        var rejeitado = (RuleOutcome.Rejeitado) out;
+        assertThat(rejeitado.rejectionCode()).isEqualTo("1141");
+        assertThat(rejeitado.ruleId()).isEqualTo("UB82a-10");
+        assertThat(rejeitado.officialMessage()).isEqualTo("Rejeição: Grupo de informações da "
+                + "composição do valor do IBS e da CBS em compras governamentais não informado");
+    }
+
+    @Test
+    void tribCompraGovPresentUnderGovernmentPurchaseIsConforme() {
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, true, item().cst("000").classTrib("000001").tribCompraGov())))
+                .isInstanceOf(RuleOutcome.Conforme.class);
+    }
+
+    @Test
+    void withoutGovernmentPurchase1141IsNotApplicable() {
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, false, item().cst("000").classTrib("000001"))))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void cstThatForbidsIbsCbsIsExemptFrom1141EvenUnderGovernmentPurchase() {
+        // Exceção literal da UB82a-10: CST 400 tem ind_gIBSCBS = 0.
+        var out = new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, true, item().cst("400").classTrib("400001")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAplicavel.class);
+        assertThat(((RuleOutcome.NaoAplicavel) out).motivo()).contains("ind_gIBSCBS");
+    }
+
+    @Test
+    void nfce1141IsNotApplicableRegardlessOfGovernmentPurchase() {
+        // UB82a-10 é exclusiva do modelo 55.
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("65", DATA, true, item().cst("000").classTrib("000001"))))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void missingModelIsNotEvaluatedBy1141() {
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx(null, DATA, true, item().cst("000").classTrib("000001"))))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void itemWithoutCstIsNotEvaluatedBy1141() {
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, true, item())))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void unknownCstIsNotEvaluatedBy1141() {
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, true, item().cst("999"))))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void itemWithoutTheWrapperBelongsTo1115NotTo1141() {
+        assertThat(new ComprasGovComposicaoRequiredRule().evaluate(
+                ctx("55", DATA, true, item().cst("000").classTrib("000001").semInvolucro())))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    // ---- 1144 (UB82a-30): gTribCompraGov vedado sem compra governamental ----
+
+    @Test
+    void tribCompraGovInformedWithoutGovernmentPurchaseIsRejected() {
+        var out = new ComprasGovComposicaoForbiddenRule().evaluate(
+                ctx("55", DATA, false, item().cst("000").classTrib("000001").tribCompraGov()));
+
+        assertThat(out).isInstanceOf(RuleOutcome.Rejeitado.class);
+        var rejeitado = (RuleOutcome.Rejeitado) out;
+        assertThat(rejeitado.rejectionCode()).isEqualTo("1144");
+        assertThat(rejeitado.ruleId()).isEqualTo("UB82a-30");
+        assertThat(rejeitado.officialMessage()).isEqualTo("Rejeição: Grupo de informações da "
+                + "composição do valor do IBS e da CBS em compras governamentais informado "
+                + "indevidamente");
+    }
+
+    @Test
+    void tribCompraGovAbsentWithoutGovernmentPurchaseIsConforme() {
+        assertThat(new ComprasGovComposicaoForbiddenRule().evaluate(
+                ctx("55", DATA, false, item().cst("000").classTrib("000001"))))
+                .isInstanceOf(RuleOutcome.Conforme.class);
+    }
+
+    @Test
+    void withGovernmentPurchase1144IsNotApplicable() {
+        // Mesmo com gTribCompraGov informado: sob compra governamental o caso é da 1141, não desta.
+        assertThat(new ComprasGovComposicaoForbiddenRule().evaluate(
+                ctx("55", DATA, true, item().cst("000").classTrib("000001").tribCompraGov())))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void nfce1144IsNotApplicable() {
+        assertThat(new ComprasGovComposicaoForbiddenRule().evaluate(
+                ctx("65", DATA, false, item().cst("000").classTrib("000001").tribCompraGov())))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void missingModelIsNotEvaluatedBy1144() {
+        assertThat(new ComprasGovComposicaoForbiddenRule().evaluate(
+                ctx(null, DATA, false, item().cst("000").classTrib("000001").tribCompraGov())))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void itemWithoutTheWrapperBelongsTo1115NotTo1144() {
+        assertThat(new ComprasGovComposicaoForbiddenRule().evaluate(
+                ctx("55", DATA, false, item().semInvolucro().tribCompraGov())))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
     }
 }

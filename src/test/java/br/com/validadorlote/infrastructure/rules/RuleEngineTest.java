@@ -4,6 +4,7 @@ import br.com.validadorlote.domain.Finding;
 import br.com.validadorlote.domain.FindingKind;
 import br.com.validadorlote.domain.FiscalDocument;
 import br.com.validadorlote.domain.NotEvaluatedCause;
+import br.com.validadorlote.domain.ReferencedNote;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor.ItemTaxGroup;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,6 +55,17 @@ class RuleEngineTest {
         private boolean redMun;
         private boolean redCbs;
         private BigDecimal perc;
+        private boolean difUf;
+        private boolean difMun;
+        private boolean difCbs;
+        private boolean devTribUf;
+        private boolean devTribMun;
+        private boolean devTribCbs;
+        private boolean credPresOper;
+        private boolean credPresIbsZfm;
+        private boolean tpCredPresIbsZfm;
+        private boolean tribCompraGov;
+        private ReferencedNote dfeReferenciado;
 
         Item numero(Integer v) { this.numero = v; return this; }
 
@@ -70,9 +82,33 @@ class RuleEngineTest {
             return this;
         }
 
+        Item difUf() { this.difUf = true; return this; }
+
+        Item difMun() { this.difMun = true; return this; }
+
+        Item difCbs() { this.difCbs = true; return this; }
+
+        Item devTribUf() { this.devTribUf = true; return this; }
+
+        Item devTribMun() { this.devTribMun = true; return this; }
+
+        Item devTribCbs() { this.devTribCbs = true; return this; }
+
+        Item credPresOper() { this.credPresOper = true; return this; }
+
+        Item credPresIbsZfm() { this.credPresIbsZfm = true; return this; }
+
+        Item tpCredPresIbsZfm() { this.tpCredPresIbsZfm = true; return this; }
+
+        Item tribCompraGov() { this.tribCompraGov = true; return this; }
+
+        Item dfeReferenciado(ReferencedNote v) { this.dfeReferenciado = v; return this; }
+
         ItemTaxGroup build() {
             return new ItemTaxGroup(numero, involucro, grupoInterno, cst, classTrib, null,
-                    redUf, redMun, redCbs, perc, perc, perc, null);
+                    redUf, redMun, redCbs, perc, perc, perc, dfeReferenciado,
+                    difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
+                    credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov);
         }
     }
 

@@ -41,12 +41,33 @@ public final class TaxGroupExtractor {
      *         VC02-14) é aqui, e não mais em {@code NFref}, que a devolução deve referenciar a
      *         nota original — ver D-038. {@code issuedAt} nulo dentro da referência significa
      *         grupo presente com chave não decodável, nunca ausência do grupo.
+     * @param hasDifUf presença de {@code gIBSUF/gDif}. @param hasDifMun presença de
+     *         {@code gIBSMun/gDif}. @param hasDifCbs presença de {@code gCBS/gDif}. Mesma forma de
+     *         captura de {@code gRed}, por esfera (bloco 7).
+     * @param hasDevTribUf presença de {@code gIBSUF/gDevTrib}. @param hasDevTribMun presença de
+     *         {@code gIBSMun/gDevTrib}. @param hasDevTribCbs presença de {@code gCBS/gDevTrib}
+     *         (bloco 7).
+     * @param hasCredPresOper presença de {@code IBSCBS/gCredPresOper} — filho direto do invólucro
+     *         {@code IBSCBS} (2º {@code choice} de {@code TTribNFe}), não de {@code gIBSCBS}
+     *         (bloco 7).
+     * @param hasCredPresIbsZfm presença de {@code IBSCBS/gCredPresIBSZFM}, mesma posição de
+     *         {@code hasCredPresOper} — as duas são alternativas do mesmo {@code choice} (bloco 7).
+     * @param hasTpCredPresIbsZfm presença de {@code gCredPresIBSZFM/tpCredPresIBSZFM}, capturada à
+     *         parte de {@link #hasCredPresIbsZfm}: são dois elementos distintos do XML, mesmo
+     *         sendo o segundo obrigatório dentro do primeiro — não presumir um a partir do outro
+     *         (bloco 7).
+     * @param hasTribCompraGov presença de {@code gIBSCBS/gTribCompraGov}, filho de {@code TCIBS}
+     *         — de dentro do grupo interno {@code gIBSCBS}, não do invólucro (bloco 7).
      */
     public record ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
             String cst, String cClassTrib, String cProdANP,
             boolean hasReducaoUf, boolean hasReducaoMun, boolean hasReducaoCbs,
             BigDecimal percReducaoUf, BigDecimal percReducaoMun, BigDecimal percReducaoCbs,
-            ReferencedNote dfeReferenciado) {}
+            ReferencedNote dfeReferenciado,
+            boolean hasDifUf, boolean hasDifMun, boolean hasDifCbs,
+            boolean hasDevTribUf, boolean hasDevTribMun, boolean hasDevTribCbs,
+            boolean hasCredPresOper, boolean hasCredPresIbsZfm, boolean hasTpCredPresIbsZfm,
+            boolean hasTribCompraGov) {}
 
     /** Esfera de tributação em que um subgrupo de redução pode aparecer. */
     private enum Esfera {
@@ -93,9 +114,17 @@ public final class TaxGroupExtractor {
         Integer nItem = null;
         boolean emIbsCbs = false, temGrupo = false, temGrupoInterno = false;
         boolean redUf = false, redMun = false, redCbs = false;
+        boolean difUf = false, difMun = false, difCbs = false;
+        boolean devTribUf = false, devTribMun = false, devTribCbs = false;
+        boolean credPresOper = false, credPresIbsZfm = false, tpCredPresIbsZfm = false;
+        boolean tribCompraGov = false;
         String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
         ReferencedNote dfeReferenciado = null;
+        // Escopos vivos de dentro do invólucro IBSCBS, para ler filhos que não são esfera-scoped
+        // (gCredPresIBSZFM/tpCredPresIBSZFM) ou que moram um nível abaixo dele (gTribCompraGov,
+        // filho de gIBSCBS/TCIBS, não do invólucro — brief do bloco 7).
+        boolean emGIbsCbs = false, emGCredPresIbsZfm = false;
         // DFeReferenciado é filho de det/prod, mas não tem o marcador de esfera das reduções:
         // precisa do próprio flag para chaveAcesso não ser lido fora do grupo.
         boolean emDFeReferenciado = false;
@@ -132,16 +161,31 @@ public final class TaxGroupExtractor {
                         nItem = parseItem(r.getAttributeValue(null, "nItem"));
                         emIbsCbs = temGrupo = temGrupoInterno = false;
                         redUf = redMun = redCbs = false;
+                        difUf = difMun = difCbs = false;
+                        devTribUf = devTribMun = devTribCbs = false;
+                        credPresOper = credPresIbsZfm = tpCredPresIbsZfm = false;
+                        tribCompraGov = false;
                         cst = classTrib = prodANP = null;
                         pUf = pMun = pCbs = null;
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
+                        emGIbsCbs = emGCredPresIbsZfm = false;
                         emDet = true;
                     }
                     case "IBSCBS" -> { emIbsCbs = true; temGrupo = true; }
                     // O grupo interno só conta dentro do invólucro do item corrente.
-                    case "gIBSCBS" -> { if (emIbsCbs) temGrupoInterno = true; }
+                    case "gIBSCBS" -> { if (emIbsCbs) { temGrupoInterno = true; emGIbsCbs = true; } }
+                    // Filhos diretos do invólucro (2º choice de TTribNFe), não de gIBSCBS.
+                    case "gCredPresOper" -> { if (emIbsCbs) credPresOper = true; }
+                    case "gCredPresIBSZFM" -> {
+                        if (emIbsCbs) { credPresIbsZfm = true; emGCredPresIbsZfm = true; }
+                    }
+                    // tpCredPresIBSZFM é obrigatório dentro de gCredPresIBSZFM, mas capturado à
+                    // parte por decisão do brief: não presumir um a partir do outro.
+                    case "tpCredPresIBSZFM" -> { if (emGCredPresIbsZfm) tpCredPresIbsZfm = true; }
+                    // Filho de gIBSCBS/TCIBS (não do invólucro) — precisa do escopo emGIbsCbs.
+                    case "gTribCompraGov" -> { if (emGIbsCbs) tribCompraGov = true; }
                     case "cProdANP" -> { if (prodANP == null) prodANP = texto(r); }
                     case "DFeReferenciado" -> emDFeReferenciado = true;
                     case "chaveAcesso" -> {
@@ -158,6 +202,16 @@ public final class TaxGroupExtractor {
                         else if (esfera == Esfera.MUN) redMun = true;
                         else if (esfera == Esfera.CBS) redCbs = true;
                     }
+                    case "gDif" -> {
+                        if (esfera == Esfera.UF) difUf = true;
+                        else if (esfera == Esfera.MUN) difMun = true;
+                        else if (esfera == Esfera.CBS) difCbs = true;
+                    }
+                    case "gDevTrib" -> {
+                        if (esfera == Esfera.UF) devTribUf = true;
+                        else if (esfera == Esfera.MUN) devTribMun = true;
+                        else if (esfera == Esfera.CBS) devTribCbs = true;
+                    }
                     case "CST" -> { if (emIbsCbs && cst == null) cst = texto(r); }
                     case "cClassTrib" -> { if (emIbsCbs && classTrib == null) classTrib = texto(r); }
                     case "pRedAliq" -> {
@@ -172,6 +226,8 @@ public final class TaxGroupExtractor {
                 String nome = r.getLocalName();
                 if (Esfera.of(nome) != null) esfera = null;
                 if ("IBSCBS".equals(nome)) emIbsCbs = false;
+                if ("gIBSCBS".equals(nome)) emGIbsCbs = false;
+                if ("gCredPresIBSZFM".equals(nome)) emGCredPresIbsZfm = false;
                 if ("DFeReferenciado".equals(nome)) {
                     if (dfeReferenciado == null) {
                         // O grupo abriu, mas chaveAcesso não veio (ausente, vazia ou conteúdo
@@ -186,7 +242,9 @@ public final class TaxGroupExtractor {
                     // O item entra mesmo com nItem ilegível: descartá-lo o faria sumir do
                     // relatório inteiro — nem conforme, nem rejeitado, nem não avaliado.
                     itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,
-                            prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado));
+                            prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado,
+                            difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
+                            credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov));
                     nItem = null;
                     emDet = false;
                 }
