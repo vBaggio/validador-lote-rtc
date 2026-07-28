@@ -37,6 +37,7 @@ public final class GroupRequiredRule implements RejectionRule {
 
     private static final DateTimeFormatter DATA_BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter COMPETENCIA_BR = DateTimeFormatter.ofPattern("MM/yyyy");
+    private static final DateTimeFormatter AAMM_BR = DateTimeFormatter.ofPattern("MM/yy");
 
     private static final String MENSAGEM_OFICIAL = "Rejeição: IBS/CBS não informado";
 
@@ -110,14 +111,24 @@ public final class GroupRequiredRule implements RejectionRule {
             return null;
         }
         Set<String> semData = new LinkedHashSet<>();
+        Set<String> seculoAmbiguo = new LinkedHashSet<>();
         for (ReferencedNote referencia : ctx.document().references()) {
             if (referencia.issuedAt() == null) {
                 semData.add(referencia.form());
+            } else if (ambiguidadeDeSeculoMudaAExcecao(referencia)) {
+                seculoAmbiguo.add(String.format("%s (AAMM %s)", referencia.form(),
+                        AAMM_BR.format(referencia.issuedAt())));
             } else if (referencia.issuedAt().isBefore(CORTE_EXCECAO_1)) {
                 return new RuleOutcome.NaoAplicavel(String.format(
                         "Exceção 1 da UB12-10: %s referencia nota emitida em %s, anterior a 2026.",
                         finalidade(finNFe), COMPETENCIA_BR.format(referencia.issuedAt())));
             }
+        }
+        if (!seculoAmbiguo.isEmpty()) {
+            return new RuleOutcome.NaoAvaliado(String.format(
+                    "Exceção 1 da UB12-10: %s referencia documento por %s, mas o AAMM em papel "
+                    + "não informa o século — não dá para saber se a nota referenciada é "
+                    + "anterior a 2026.", finalidade(finNFe), String.join(", ", seculoAmbiguo)));
         }
         if (!semData.isEmpty()) {
             return new RuleOutcome.NaoAvaliado(String.format(
@@ -126,6 +137,18 @@ public final class GroupRequiredRule implements RejectionRule {
                     + "a 2026.", finalidade(finNFe), String.join(", ", semData)));
         }
         return null;
+    }
+
+    /**
+     * O parser normaliza AAMM em 20xx. Para papel, 19xx é uma leitura igualmente possível; se as
+     * duas leituras ficam em lados opostos do corte, a regra não pode escolher uma delas.
+     */
+    private boolean ambiguidadeDeSeculoMudaAExcecao(ReferencedNote referencia) {
+        if (!referencia.centuryAmbiguous()) return false;
+        boolean normalizadaAntesDoCorte = referencia.issuedAt().isBefore(CORTE_EXCECAO_1);
+        boolean seculoAnteriorAntesDoCorte =
+                referencia.issuedAt().minusYears(100).isBefore(CORTE_EXCECAO_1);
+        return normalizadaAntesDoCorte != seculoAnteriorAntesDoCorte;
     }
 
     private String finalidade(String finNFe) {

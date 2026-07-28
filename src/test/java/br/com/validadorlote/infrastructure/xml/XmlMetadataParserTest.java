@@ -272,6 +272,7 @@ class XmlMetadataParserTest {
         assertThat(doc.references()).singleElement().satisfies(ref -> {
             assertThat(ref.form()).isEqualTo("refNFe");
             assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2025, 12));
+            assertThat(ref.centuryAmbiguous()).isFalse();
         });
     }
 
@@ -312,6 +313,35 @@ class XmlMetadataParserTest {
         assertThat(doc.references()).singleElement().satisfies(ref -> {
             assertThat(ref.form()).isEqualTo("refNFP");
             assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2025, 7));
+        });
+    }
+
+    @Test
+    void paperNoteAammDoesNotClaimAnAmbiguousCenturyAsCertain(@TempDir Path dir)
+            throws IOException {
+        var doc = parser.parse(write(dir, "refnf-9912.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNF><cUF>35</cUF><AAMM>9912</AAMM><CNPJ>14200166000187</CNPJ>"
+                + "<mod>01</mod><serie>1</serie><nNF>7</nNF></refNF></NFref>"))).document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNF");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2099, 12));
+            assertThat(ref.centuryAmbiguous()).isTrue();
+        });
+    }
+
+    @Test
+    void producerNoteAammDoesNotClaimAnAmbiguousCenturyAsCertain(@TempDir Path dir)
+            throws IOException {
+        var doc = parser.parse(write(dir, "refnfp-9912.xml", nfeComIde("<finNFe>4</finNFe>"
+                + "<NFref><refNFP><cUF>35</cUF><AAMM>9912</AAMM><CNPJ>14200166000187</CNPJ>"
+                + "<IE>123456789012</IE><mod>04</mod><serie>1</serie><nNF>9</nNF></refNFP>"
+                + "</NFref>"))).document();
+
+        assertThat(doc.references()).singleElement().satisfies(ref -> {
+            assertThat(ref.form()).isEqualTo("refNFP");
+            assertThat(ref.issuedAt()).isEqualTo(YearMonth.of(2099, 12));
+            assertThat(ref.centuryAmbiguous()).isTrue();
         });
     }
 

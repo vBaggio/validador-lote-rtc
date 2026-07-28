@@ -46,8 +46,12 @@ public final class XmlMetadataParser {
     private static final int KEY_AAMM_START = 2;
     private static final int KEY_AAMM_END = 6;
     private static final int AAMM_LENGTH = 4;
-    /** A chave de acesso traz o ano com dois dígitos; a NF-e existe desde 2006. */
-    private static final int CENTURY = 2000;
+    /**
+     * Século usado para normalizar o AAMM em {@link YearMonth}. Para chaves eletrônicas, ele é
+     * parte da política do formato; no AAMM avulso de papel, a ambiguidade fica explícita no
+     * {@link ReferencedNote} e não pode ser descartada por esta normalização técnica.
+     */
+    private static final int NORMALIZED_CENTURY = 2000;
 
     public ParsedMetadata parse(Path xml) {
         // XMLInputFactory não é thread-safe: uma por chamada (custo irrisório vs I/O).
@@ -171,11 +175,11 @@ public final class XmlMetadataParser {
                             case "refNFe", "refNFeSig" ->
                                     references.add(new ReferencedNote(capturing, monthOfKey(value)));
                             case "refNF/AAMM" -> {
-                                references.add(new ReferencedNote("refNF", monthOfAamm(value)));
+                                references.add(paperReference("refNF", value));
                                 pendingPaperRef = null;
                             }
                             case "refNFP/AAMM" -> {
-                                references.add(new ReferencedNote("refNFP", monthOfAamm(value)));
+                                references.add(paperReference("refNFP", value));
                                 pendingPaperRef = null;
                             }
                         }
@@ -239,11 +243,16 @@ public final class XmlMetadataParser {
         return monthOfAamm(key.substring(KEY_AAMM_START, KEY_AAMM_END));
     }
 
+    /** O campo AAMM de refNF/refNFP não informa o século; essa incerteza acompanha a referência. */
+    private ReferencedNote paperReference(String form, String aamm) {
+        return new ReferencedNote(form, monthOfAamm(aamm), true);
+    }
+
     private YearMonth monthOfAamm(String aamm) {
         if (aamm == null || aamm.length() != AAMM_LENGTH || !isDigits(aamm)) return null;
         int month = Integer.parseInt(aamm.substring(2));
         if (month < 1 || month > 12) return null;
-        return YearMonth.of(CENTURY + Integer.parseInt(aamm.substring(0, 2)), month);
+        return YearMonth.of(NORMALIZED_CENTURY + Integer.parseInt(aamm.substring(0, 2)), month);
     }
 
     private boolean isDigits(String value) {

@@ -176,11 +176,34 @@ class DocumentRulesTest {
     @Test
     void returnReferencingAPaperNoteFrom2025IsNotApplicable() {
         // Leitura ampla deliberada: ao rigor da letra só refNFe/refNFeSig são "NFe", mas
-        // qualquer referência datável e anterior a 2026 aciona a exceção — é a direção que
-        // não acusa (D-028).
+        // as leituras 1925 e 2025 são ambas anteriores ao corte. A ambiguidade de século não
+        // muda o desfecho conservador da exceção (D-028).
         assertThat(mil115(doc("3", VIGENTE, "4", null,
-                List.of(new ReferencedNote("refNFP", YearMonth.of(2025, 7)))), item(false, null)))
+                List.of(new ReferencedNote("refNFP", YearMonth.of(2025, 7), true))),
+                item(false, null)))
                 .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void returnReferencingRefNfWithAamm9912IsNotEvaluated() {
+        var out = mil115(doc("3", VIGENTE, "4", null,
+                List.of(new ReferencedNote("refNF", YearMonth.of(2099, 12), true))),
+                item(false, null));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAvaliado.class);
+        assertThat(((RuleOutcome.NaoAvaliado) out).motivo())
+                .contains("refNF", "século", "12/99");
+    }
+
+    @Test
+    void returnReferencingRefNfpWithAamm9912IsNotEvaluated() {
+        var out = mil115(doc("3", VIGENTE, "4", null,
+                List.of(new ReferencedNote("refNFP", YearMonth.of(2099, 12), true))),
+                item(false, null));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAvaliado.class);
+        assertThat(((RuleOutcome.NaoAvaliado) out).motivo())
+                .contains("refNFP", "século", "12/99");
     }
 
     @Test
