@@ -33,7 +33,7 @@ class PresenceForbiddenRulesTest {
 
     private FiscalDocument doc(String modelo) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, modelo, "NFe", "3", null, null, false, false, List.of());
+                DATA, modelo, "NFe", "3", null, null, false, null, false, List.of());
     }
 
     private ItemTaxGroup item(boolean devTribUf, boolean devTribMun, boolean devTribCbs,
@@ -204,7 +204,7 @@ class PresenceForbiddenRulesTest {
     @Test
     void compraGovInNfceIsRejected() {
         var documento = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "65", "NFe", "3", null, null, true, false, List.of());
+                DATA, "65", "NFe", "3", null, null, true, null, false, List.of());
         var out = new CompraGovForbiddenInNfceRule().evaluate(documento, List.of());
 
         assertThat(out).isInstanceOf(RuleOutcome.Rejeitado.class);
@@ -218,7 +218,7 @@ class PresenceForbiddenRulesTest {
     @Test
     void compraGovInNfeIsNotApplicable() {
         var documento = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "55", "NFe", "3", null, null, true, false, List.of());
+                DATA, "55", "NFe", "3", null, null, true, null, false, List.of());
         assertThat(new CompraGovForbiddenInNfceRule().evaluate(documento, List.of()))
                 .isInstanceOf(RuleOutcome.NaoAplicavel.class);
     }
@@ -226,7 +226,7 @@ class PresenceForbiddenRulesTest {
     @Test
     void nfceWithoutCompraGovIsConforme() {
         var documento = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "65", "NFe", "3", null, null, false, false, List.of());
+                DATA, "65", "NFe", "3", null, null, false, null, false, List.of());
         assertThat(new CompraGovForbiddenInNfceRule().evaluate(documento, List.of()))
                 .isInstanceOf(RuleOutcome.Conforme.class);
     }
@@ -234,7 +234,7 @@ class PresenceForbiddenRulesTest {
     @Test
     void missingModelIsNotEvaluatedFor1006() {
         var documento = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, null, "NFe", "3", null, null, true, false, List.of());
+                DATA, null, "NFe", "3", null, null, true, null, false, List.of());
         assertThat(new CompraGovForbiddenInNfceRule().evaluate(documento, List.of()))
                 .isInstanceOf(RuleOutcome.NaoAvaliado.class);
     }

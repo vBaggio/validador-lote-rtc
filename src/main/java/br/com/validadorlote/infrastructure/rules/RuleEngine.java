@@ -138,6 +138,14 @@ public final class RuleEngine {
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ReductionGroupRule(Esfera.CBS),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                // Mecanismo 2 (bloco 7): lado "informado indevidamente" das três acima, espelho
+                // direto delas — mesma precondição.
+                binding(new ReductionGroupForbiddenRule(Esfera.UF),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ReductionGroupForbiddenRule(Esfera.MUNICIPIO),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new ReductionGroupForbiddenRule(Esfera.CBS),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ReductionPercentageRule(Esfera.UF),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE,
                         Precondition.CLASS_TRIB_IN_TABLE),

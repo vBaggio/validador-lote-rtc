@@ -64,7 +64,7 @@ class DiferimentoRulesTest {
 
     private FiscalDocument doc(LocalDate data) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, "55", "NFe", "3", null, null, false, false, List.of());
+                data, "55", "NFe", "3", null, null, false, null, false, List.of());
     }
 
     private RuleContext ctx(Item item) {

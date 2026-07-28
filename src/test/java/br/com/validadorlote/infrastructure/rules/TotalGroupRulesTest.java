@@ -22,7 +22,7 @@ class TotalGroupRulesTest {
 
     private FiscalDocument doc(boolean hasIbsCbsTot) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "55", "NFe", "3", null, null, false, hasIbsCbsTot, List.of());
+                DATA, "55", "NFe", "3", null, null, false, null, hasIbsCbsTot, List.of());
     }
 
     private ItemTaxGroup item(boolean hasIbsCbsGroup) {

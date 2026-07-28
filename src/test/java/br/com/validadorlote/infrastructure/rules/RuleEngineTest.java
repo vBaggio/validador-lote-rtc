@@ -136,7 +136,7 @@ class RuleEngineTest {
     private FiscalDocument doc(String crt, LocalDate data, String modelo, boolean compraGov,
             boolean hasIbsCbsTot) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, modelo, "NFe", crt, null, null, compraGov, hasIbsCbsTot, List.of());
+                data, modelo, "NFe", crt, null, null, compraGov, null, hasIbsCbsTot, List.of());
     }
 
     /**
@@ -379,7 +379,7 @@ class RuleEngineTest {
         // doc("3") teria hasIbsCbsTot=true por padrão; aqui construímos explicitamente para não
         // depender do default do helper.
         var documento = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "55", "NFe", "1", null, null, false, true, List.of());
+                DATA, "55", "NFe", "1", null, null, false, null, true, List.of());
         // CRT=1 antes de 04/01/2027: a 1115 não dispara (item sem invólucro é NaoAplicavel aqui).
 
         assertThat(engine.evaluate(documento, List.of(item().semInvolucro().build())).findings())

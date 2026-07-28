@@ -113,8 +113,13 @@ class TableRulesTest {
     }
 
     private FiscalDocument doc(String modelo, LocalDate data, boolean compraGov) {
+        return doc(modelo, data, compraGov, null);
+    }
+
+    private FiscalDocument doc(String modelo, LocalDate data, boolean compraGov,
+            BigDecimal pRedutor) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, modelo, "NFe", "3", null, null, compraGov, false, List.of());
+                data, modelo, "NFe", "3", null, null, compraGov, pRedutor, false, List.of());
     }
 
     private RuleContext ctx(Item item) {
@@ -123,6 +128,11 @@ class TableRulesTest {
 
     private RuleContext ctx(String modelo, LocalDate data, boolean compraGov, Item item) {
         return new RuleContext(doc(modelo, data, compraGov), item.build(), tables, data);
+    }
+
+    private RuleContext ctx(String modelo, LocalDate data, boolean compraGov,
+            BigDecimal pRedutor, Item item) {
+        return new RuleContext(doc(modelo, data, compraGov, pRedutor), item.build(), tables, data);
     }
 
     // ---- 1024 (UB14-20): cClassTrib compatível com o CST ----
@@ -339,6 +349,133 @@ class TableRulesTest {
     @Test
     void missingIssueDateIsNotEvaluatedByTheReductionGroupRule() {
         assertThat(grupo(Esfera.UF, ctx("55", null, false, item().cst("011").classTrib("011001"))))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    // ---- 1032/1007/1028 (UB26-10/UB45-10/UB64-10): grupo de redução informado indevidamente ----
+
+    private RuleOutcome grupoIndevido(Esfera esfera, RuleContext ctx) {
+        return new ReductionGroupForbiddenRule(esfera).evaluate(ctx);
+    }
+
+    @Test
+    void cstForbiddingReductionWithTheGroupInformedIsRejected() {
+        // CST 000 tem ind_gRed = 0 (mesmo CST usado em cstThatForbidsReductionIsNot... acima).
+        var out = grupoIndevido(Esfera.UF,
+                ctx(item().cst("000").classTrib("000001").reducaoUf("10.0")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.Rejeitado.class);
+        var rejeitado = (RuleOutcome.Rejeitado) out;
+        assertThat(rejeitado.rejectionCode()).isEqualTo("1032");
+        assertThat(rejeitado.ruleId()).isEqualTo("UB26-10");
+        assertThat(rejeitado.officialMessage())
+                .isEqualTo("Rejeição: Grupo de redução de alíquota Estadual informado indevidamente");
+    }
+
+    @Test
+    void eachSphereHasItsOwnForbiddenRejectionCode() {
+        var comGrupo = item().cst("000").classTrib("000001")
+                .reducaoMun("10.0").reducaoCbs("10.0");
+
+        assertThat((RuleOutcome.Rejeitado) grupoIndevido(Esfera.MUNICIPIO, ctx(comGrupo)))
+                .extracting(RuleOutcome.Rejeitado::rejectionCode, RuleOutcome.Rejeitado::ruleId)
+                .containsExactly("1007", "UB45-10");
+        assertThat((RuleOutcome.Rejeitado) grupoIndevido(Esfera.CBS, ctx(comGrupo)))
+                .extracting(RuleOutcome.Rejeitado::rejectionCode, RuleOutcome.Rejeitado::ruleId)
+                .containsExactly("1028", "UB64-10");
+    }
+
+    @Test
+    void cstForbiddingReductionWithoutTheGroupIsConforme() {
+        // Ausência aqui é conformidade, não omissão — como GroupForbiddenRule e
+        // DiferimentoForbiddenRule fazem para os pares delas.
+        assertThat(grupoIndevido(Esfera.UF, ctx(item().cst("000").classTrib("000001"))))
+                .isInstanceOf(RuleOutcome.Conforme.class);
+    }
+
+    @Test
+    void cstRequiringReductionIsNotApplicableToTheForbiddenRule() {
+        // CST 011 tem ind_gRed = 1: a UB26-10 não tem gatilho aqui, mesmo com o grupo presente —
+        // esse é território da UB26-20 (1033), não desta.
+        assertThat(grupoIndevido(Esfera.UF,
+                ctx(item().cst("011").classTrib("011001").reducaoUf("60.0"))))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void governmentPurchaseWithZeroPercentageAndReadableRedutorIsTheExceptionConfirmed() {
+        // Os dois fatos literais da exceção: gCompraGov/pRedutor informado e pRedAliq = 0 nesta
+        // esfera. Par de controle desta e da próxima: sem gCompraGov, o mesmo pRedAliq=0 rejeita.
+        var out = grupoIndevido(Esfera.UF, ctx("55", DATA, true, new BigDecimal("20.00"),
+                item().cst("000").classTrib("000001").reducaoUf("0")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.Conforme.class);
+    }
+
+    @Test
+    void zeroPercentageAloneWithoutGovernmentPurchaseStillRejects() {
+        // Controle do teste acima: pRedAliq=0 sozinho, sem gCompraGov, não é a exceção.
+        var out = grupoIndevido(Esfera.UF,
+                ctx(item().cst("000").classTrib("000001").reducaoUf("0")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.Rejeitado.class);
+        assertThat(((RuleOutcome.Rejeitado) out).rejectionCode()).isEqualTo("1032");
+    }
+
+    @Test
+    void governmentPurchaseWithoutReadableRedutorIsNotEvaluated() {
+        // gCompraGov presente e pRedAliq=0 na esfera, mas pRedutor não legível: sem o primeiro
+        // fato da exceção não dá para confirmá-la — leitura conservadora, nunca Rejeitado.
+        var out = grupoIndevido(Esfera.UF, ctx("55", DATA, true, null,
+                item().cst("000").classTrib("000001").reducaoUf("0")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void governmentPurchaseWithNonZeroPercentageIsRejectedDespiteRedutor() {
+        // A exceção exige pRedAliq = 0 nesta esfera; qualquer outro valor não a satisfaz, mesmo
+        // com pRedutor informado — este é o caso que a sonda de mutação protege.
+        var out = grupoIndevido(Esfera.UF, ctx("55", DATA, true, new BigDecimal("20.00"),
+                item().cst("000").classTrib("000001").reducaoUf("10.0")));
+
+        assertThat(out).isInstanceOf(RuleOutcome.Rejeitado.class);
+        assertThat(((RuleOutcome.Rejeitado) out).rejectionCode()).isEqualTo("1032");
+    }
+
+    @Test
+    void governmentPurchaseWithUnreadablePercentageIsNotEvaluated() {
+        // gRed informado mas pRedAliq ilegível (conteúdo misto): sem o valor não dá para
+        // confirmar se a exceção se aplica — o XSD reporta o erro estrutural real.
+        var out = grupoIndevido(Esfera.UF, ctx("55", DATA, true, new BigDecimal("20.00"),
+                item().cst("000").classTrib("000001").reducaoUf(null)));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void itemWithoutTheWrapperBelongsTo1115NotToTheForbiddenReductionRule() {
+        assertThat(grupoIndevido(Esfera.UF,
+                ctx(item().cst("000").classTrib("000001").semInvolucro())))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void itemWithoutCstIsNotEvaluatedByTheForbiddenReductionRule() {
+        assertThat(grupoIndevido(Esfera.UF, ctx(item().classTrib("011001"))))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void unknownCstIsNotEvaluatedByTheForbiddenReductionRule() {
+        assertThat(grupoIndevido(Esfera.UF, ctx(item().cst("999").classTrib("000001"))))
+                .isInstanceOf(RuleOutcome.NaoAvaliado.class);
+    }
+
+    @Test
+    void missingIssueDateIsNotEvaluatedByTheForbiddenReductionRule() {
+        assertThat(grupoIndevido(Esfera.UF,
+                ctx("55", null, false, item().cst("000").classTrib("000001").reducaoUf("10.0"))))
                 .isInstanceOf(RuleOutcome.NaoAvaliado.class);
     }
 

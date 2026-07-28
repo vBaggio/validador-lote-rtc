@@ -16,7 +16,7 @@ class DomainImmutabilityTest {
 
     private FiscalDocument document(List<ReferencedNote> references) {
         return new FiscalDocument(Path.of("a.xml"), null, null, null, null, null, "NFe", "3",
-                "4", null, false, false, references);
+                "4", null, false, null, false, references);
     }
 
     private Finding finding() {
