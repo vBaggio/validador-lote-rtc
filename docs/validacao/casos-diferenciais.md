@@ -78,6 +78,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 | `c1074-reducao-municipio-presente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1074. Os códigos restantes são cálculo/total futuro ou ruído da fixture. |
 | `r1079-reducao-cbs-ausente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, **1079**, 1119, 1076, 1080, 1084, 1085, 1091 | **1079 confirmado.** Os demais códigos são cálculo/total futuro ou ruído da fixture. |
 | `c1079-reducao-cbs-presente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1079. Os códigos restantes são cálculo/total futuro ou ruído da fixture. |
+| `r1034-percentual-uf-invalido.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1034**, 1041, 1036, 1026, 1052, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **1034 confirmado.** `1041` e os demais códigos são cálculo/total futuro ou ruído da fixture. |
 
 #### Catálogo preliminar de códigos observados
 
