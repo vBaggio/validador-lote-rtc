@@ -86,6 +86,7 @@ aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído c
 
 | `r1063-percentual-cbs-invalido.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 210, 591, 437, 866, 233, 245, 1041, 1036, 1026, 1052, **1063**, **1064**, 1069, 1119, 1076, 1080, 1084, 1085, 1091 | **1063 confirmado.** `1064` é novo candidato de cálculo; os demais códigos já estão catalogados. |
 | `r1115-sem-grupo.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1115** | **1115 confirmado.** Os demais códigos são assinatura/cadastro/consistência geral e já estão classificados como ruído da fixture. |
+| `c1115-com-grupo.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **Controle aprovado:** não retornou 1115. Os códigos restantes são cálculo/total futuro ou ruído da fixture. |
 
 #### Catálogo preliminar de códigos observados
 
