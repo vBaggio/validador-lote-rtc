@@ -511,7 +511,7 @@ Reconciliação (b6): `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (commit f91e
   DÉBITO NOVO, fora do bloco 6: o motor de schema (bloco 2) não diferencia modelo 55 de 65 em
   nenhum ponto — pode afetar mais códigos além de 1049/1138. Reportado ao dono do projeto.
 
-Task nova (b7): complete (commit b6fef09, aguardando revisão independente) — 303 testes, 0 falhas.
+Task nova (b7): complete (commit b6fef09, revisão independente PASS/PASS) — 303 testes, 0 falhas.
   Bloco novo (`bloco/7-cobertura-adicional`), brief `task-presenca-indicador-modelo-brief.md`,
   16 códigos em 4 mecanismos: diferimento por indicador CST (1029/1030/1044/1061/1083/1090),
   devolução de tributo proibida (1111/1112/1187), gTribCompraGov (1141/1144) e grupo proibido no
@@ -533,5 +533,11 @@ Task nova (b7): complete (commit b6fef09, aguardando revisão independente) — 
   Seis sondas de mutação, todas capturadas (classe genérica `PresenceForbiddenRule`, leitura de
   `exigeDiferimento`, `DiferimentoRequiredRule`, `ComprasGovComposicaoRequiredRule`,
   `TaxGroupExtractor` captura de `gDif`, `CompraGovForbiddenInNfceRule`) — `git status` limpo após
-  cada uma. Revisor independente e sonda própria: próximo passo.
-  nenhum ponto — pode afetar mais códigos além de 1049/1138. Reportado ao dono do projeto.
+  cada uma.
+  REVISÃO INDEPENDENTE: PASS/PASS. Revisor conferiu na fonte (não aceitou o relato): `IndDiferimento`
+  bruto da SVRS batendo 1:1 com `exigeDiferimento` destilado (só CST 510/515); as 7 instâncias de
+  `PresenceForbiddenRule` com o modelo certo (55/65 sem restrição para 1111/1112, "65" para as
+  demais); `tpCredPresIBSZFM` obrigatório dentro de `gCredPresIBSZFM` no XSD, confirmando que 1138 e
+  1165 não isolam. Duas sondas próprias (exceção `ind_gIBSCBS=0` da 1141; roteamento de precondição
+  das regras de diferimento no `RuleEngine`), ambas capturadas. Achado Menor: linha órfã duplicada
+  neste ledger — corrigida no mesmo commit que registra esta entrada.
