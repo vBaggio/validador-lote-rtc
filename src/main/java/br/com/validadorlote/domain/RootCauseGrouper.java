@@ -12,7 +12,7 @@ public final class RootCauseGrouper {
 
     public List<RootCause> group(List<Finding> findings, RootCauseTexts texts) {
         Map<RootCauseKey, List<Finding>> byKey = findings.stream().collect(Collectors.groupingBy(
-                f -> new RootCauseKey(f.kind(), f.xsdCode(), f.field()),
+                RootCauseKey::from,
                 LinkedHashMap::new, Collectors.toList()));
 
         return byKey.entrySet().stream()
