@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -260,6 +261,37 @@ class XmlMetadataParserTest {
         // percentual sairiam todas como não avaliadas sem ninguém notar.
         assertThat(parser.parse(write(dir, "sem-compragov.xml", nfeComIde(""))).document()
                 .hasCompraGov()).isFalse();
+    }
+
+    // ---- pRedutor: insumo da exceção de compra governamental da 1032/1007/1028 (bloco 7) ----
+
+    @Test
+    void redutorPercentageIsCapturedFromGCompraGov(@TempDir Path dir) throws IOException {
+        // Filho direto de gCompraGov (DFeTiposBasicos_v1.00.xsd:1144-1163, tipo TCompraGov),
+        // sequence tpEnteGov, pRedutor, tpOperGov.
+        var doc = parser.parse(write(dir, "compragov-redutor.xml", nfeComIde(
+                "<gCompraGov><tpEnteGov>2</tpEnteGov><pRedutor>20.00</pRedutor>"
+                + "<tpOperGov>1</tpOperGov></gCompraGov>"))).document();
+
+        assertThat(doc.pRedutorCompraGov()).isEqualByComparingTo(new BigDecimal("20.00"));
+    }
+
+    @Test
+    void withoutGovernmentPurchaseThereIsNoRedutor(@TempDir Path dir) throws IOException {
+        assertThat(parser.parse(write(dir, "sem-compragov-redutor.xml", nfeComIde(""))).document()
+                .pRedutorCompraGov()).isNull();
+    }
+
+    @Test
+    void mixedContentRedutorIsNullNotAnException(@TempDir Path dir) throws IOException {
+        // Mesmo contrato do resto do parser: conteúdo misto vira campo ilegível, não exceção —
+        // quem reporta o erro estrutural com linha e coluna é o XSD.
+        var doc = parser.parse(write(dir, "compragov-redutor-misto.xml", nfeComIde(
+                "<gCompraGov><tpEnteGov>2</tpEnteGov><pRedutor>20<x/>.00</pRedutor>"
+                + "<tpOperGov>1</tpOperGov></gCompraGov>"))).document();
+
+        assertThat(doc.hasCompraGov()).isTrue();
+        assertThat(doc.pRedutorCompraGov()).isNull();
     }
 
     @Test

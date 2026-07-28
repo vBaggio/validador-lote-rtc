@@ -70,7 +70,7 @@ public final class FiscalTables {
             CstEntry entry = new CstEntry(cst, requiredText(cstNode, "nome", cstContext),
                     requiredBoolean(cstNode, "exigeGrupo", cstContext),
                     requiredBoolean(cstNode, "exigeReducao", cstContext),
-                    requiredBoolean(cstNode, "permiteDiferimento", cstContext),
+                    requiredBoolean(cstNode, "exigeDiferimento", cstContext),
                     requiredDate(cstNode, "iniVig", cstContext),
                     optionalDate(cstNode, "fimVig", cstContext));
             if (csts.putIfAbsent(cst, entry) != null) {

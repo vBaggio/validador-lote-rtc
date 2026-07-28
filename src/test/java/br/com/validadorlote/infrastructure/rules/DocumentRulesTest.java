@@ -32,7 +32,7 @@ class DocumentRulesTest {
     private FiscalDocument doc(String crt, LocalDate data, String finNFe, String tpNFDebito,
             List<ReferencedNote> referencias) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, "55", "NFe", crt, finNFe, tpNFDebito, false, false, referencias);
+                data, "55", "NFe", crt, finNFe, tpNFDebito, false, null, false, referencias);
     }
 
     /** Item cujo invólucro e cujo grupo interno andam juntos — o suficiente para a 1115. */
@@ -49,7 +49,8 @@ class DocumentRulesTest {
             String cProdANP, ReferencedNote dfeReferenciado) {
         return new ItemTaxGroup(1, temInvolucro, temGrupoInterno, cst,
                 temInvolucro ? "000001" : null, cProdANP, false, false, false, null, null, null,
-                dfeReferenciado);
+                dfeReferenciado, false, false, false, false, false, false, false, false, false,
+                false);
     }
 
     private RuleOutcome mil115(FiscalDocument documento, ItemTaxGroup item) {

@@ -4,7 +4,7 @@
     "nome": "Tributação integral",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -65,7 +65,7 @@
     "nome": "Tributação com alíquotas uniformes",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -96,7 +96,7 @@
     "nome": "Tributação com alíquotas uniformes reduzidas",
     "exigeGrupo": true,
     "exigeReducao": true,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -157,7 +157,7 @@
     "nome": "Alíquota reduzida",
     "exigeGrupo": true,
     "exigeReducao": true,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -708,7 +708,7 @@
     "nome": "Alíquota fixa",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -749,7 +749,7 @@
     "nome": "Alíquota fixa proporcional",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -800,7 +800,7 @@
     "nome": "Redução de Base de Cálculo",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-05T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -821,7 +821,7 @@
     "nome": "Isenção",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -852,7 +852,7 @@
     "nome": "Imunidade e não incidência",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1243,7 +1243,7 @@
     "nome": "Diferimento",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": true,
+    "exigeDiferimento": true,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1264,7 +1264,7 @@
     "nome": "Diferimento com redução de alíquota",
     "exigeGrupo": true,
     "exigeReducao": true,
-    "permiteDiferimento": true,
+    "exigeDiferimento": true,
     "iniVig": "2025-09-30T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1285,7 +1285,7 @@
     "nome": "Suspensão",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1546,7 +1546,7 @@
     "nome": "Tributação Monofásica",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1627,7 +1627,7 @@
     "nome": "Transferência de crédito",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1658,7 +1658,7 @@
     "nome": "Ajuste de IBS na ZFM",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1679,7 +1679,7 @@
     "nome": "Ajustes",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-09-30T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1720,7 +1720,7 @@
     "nome": "Tributação em documento específico",
     "exigeGrupo": false,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-01T00:00:00",
     "fimVig": null,
     "classificacoes": [
@@ -1821,7 +1821,7 @@
     "nome": "Exclusão da Base de Cálculo",
     "exigeGrupo": true,
     "exigeReducao": false,
-    "permiteDiferimento": false,
+    "exigeDiferimento": false,
     "iniVig": "2025-05-05T00:00:00",
     "fimVig": null,
     "classificacoes": [

@@ -510,3 +510,60 @@ Reconciliação (b6): `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (commit f91e
   do worktree principal (não versionada, sem perda: conteúdo já fundido).
   DÉBITO NOVO, fora do bloco 6: o motor de schema (bloco 2) não diferencia modelo 55 de 65 em
   nenhum ponto — pode afetar mais códigos além de 1049/1138. Reportado ao dono do projeto.
+
+Task nova (b7): complete (commit b6fef09, revisão independente PASS/PASS) — 303 testes, 0 falhas.
+  Bloco novo (`bloco/7-cobertura-adicional`), brief `task-presenca-indicador-modelo-brief.md`,
+  16 códigos em 4 mecanismos: diferimento por indicador CST (1029/1030/1044/1061/1083/1090),
+  devolução de tributo proibida (1111/1112/1187), gTribCompraGov (1141/1144) e grupo proibido no
+  modelo 65 (1006/1049/1138/1165/708, confirmado empiricamente por D-040). Decisão registrada:
+  D-041.
+  ACHADO: `permiteDiferimento` já estava mapeado corretamente (direto do `IndDiferimento` bruto da
+  SVRS, sem inversão — só 510/515 verdadeiro) — o nome que mentia, sugerindo facultatividade que o
+  indicador não tem. Renomeado para `exigeDiferimento`, sem mudar nenhum valor.
+  ACHADO: 1138 e 1165 disparam sempre juntas em qualquer XML XSD-válido — `tpCredPresIBSZFM` é
+  campo obrigatório dentro de `gCredPresIBSZFM`, não há como isolar. Uma fixture cobre as duas.
+  DÉBITO: 1141/1144 sem fixture de corpus — isolar exige CST com `ind_gIBSCBS=1` e
+  `gCompraGov=true` ao mesmo tempo, o que aciona o gatilho de compra governamental de
+  `ReductionGroupRule`/`ReductionPercentageRule` (D-030) e contamina o achado com 3 findings extras
+  em qualquer combinação XSD-válida. Cobertos só por unidade (`TableRulesTest`, 16 testes). Detalhe
+  completo em D-041.
+  DÉBITO: `docs/pesquisa/candidatas-rejeicao-pos-b6.md` não foi atualizado para mover os quatro
+  mecanismos de "candidata" para "entregue" — fora do escopo explícito do brief, fica para quem
+  mexer nesse documento de novo.
+  Seis sondas de mutação, todas capturadas (classe genérica `PresenceForbiddenRule`, leitura de
+  `exigeDiferimento`, `DiferimentoRequiredRule`, `ComprasGovComposicaoRequiredRule`,
+  `TaxGroupExtractor` captura de `gDif`, `CompraGovForbiddenInNfceRule`) — `git status` limpo após
+  cada uma.
+  REVISÃO INDEPENDENTE: PASS/PASS. Revisor conferiu na fonte (não aceitou o relato): `IndDiferimento`
+  bruto da SVRS batendo 1:1 com `exigeDiferimento` destilado (só CST 510/515); as 7 instâncias de
+  `PresenceForbiddenRule` com o modelo certo (55/65 sem restrição para 1111/1112, "65" para as
+  demais); `tpCredPresIBSZFM` obrigatório dentro de `gCredPresIBSZFM` no XSD, confirmando que 1138 e
+  1165 não isolam. Duas sondas próprias (exceção `ind_gIBSCBS=0` da 1141; roteamento de precondição
+  das regras de diferimento no `RuleEngine`), ambas capturadas. Achado Menor: linha órfã duplicada
+  neste ledger — corrigida no mesmo commit que registra esta entrada.
+
+Task nova (b7): complete (commit 6ff9811, revisão independente PASS/PASS) — 319 testes, 0 falhas.
+  ENTREGUE: 1032/UB26-10, 1007/UB45-10, 1028/UB64-10 ("gRed informado indevidamente", espelho do
+  lado ausente já implementado). `pRedutorCompraGov` capturado em `FiscalDocument` (documento,
+  filho de `gCompraGov`, confirmado no XSD). Decisão D-042.
+  DECISÃO JULGADA: quando a exceção de compra governamental se confirma (pRedutor legível e
+  pRedAliq=0 na esfera), o desfecho é `Conforme`, não `NaoAvaliado` — os dois fatos exigidos pela NT
+  estão confirmados, sem ambiguidade residual, mesmo padrão de `GroupForbiddenRule`. `NaoAvaliado`
+  fica só para quando falta um dos dois fatos.
+  ASSIMETRIA CONFIRMADA, NÃO CORRIGIDA: ao contrário da regra irmã (lado "ausente",
+  UB26-20/UB45-20/UB64-20, que tem exceção `ind_gIBSCBS=0`), o lado "indevido"
+  (UB26-10/UB45-10/UB64-10) desta task NÃO tem esse gate na NT — conferido literal por
+  implementador E revisor, independentemente, direto no texto das seis regras. Não é omissão.
+  Suíte completa reconfirmada verde (319 testes) após a revisão.
+
+### PARADA — 28/07/2026, fim do bloco 7 (implementação). Pronto para push/PR, aguardando decisão
+  de fechamento do dono do projeto (mesmo padrão do bloco 6: Task 11 — suíte, relatório, liberação).
+
+HEAD: 6ff9811 na branch bloco/7-cobertura-adicional (nascida de main pós-bloco-6, commit 7fa3a2c).
+  Árvore limpa, 319 testes verdes, nada pushado ainda. Duas tasks completas e revisadas
+  independentemente (PASS/PASS nas duas), 19 códigos de rejeição novos: 1029, 1030, 1044, 1061,
+  1083, 1090 (diferimento), 1111, 1112, 1187 (devolução de tributo proibida), 1141, 1144
+  (gTribCompraGov), 1006, 1049, 1138, 1165, 708 (grupo proibido no modelo 65), 1032, 1007, 1028
+  (gRed indevido). Débitos abertos, sem risco fiscal: `candidatas-rejeicao-pos-b6.md` não atualizado
+  para mover os mecanismos entregues; 1141/1144 sem fixture de corpus (cobertos por unidade, ver
+  D-041).

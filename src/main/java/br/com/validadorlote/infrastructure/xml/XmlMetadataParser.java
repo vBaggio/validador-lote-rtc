@@ -9,6 +9,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -74,8 +75,11 @@ public final class XmlMetadataParser {
         String root = null, accessKey = null, cnpj = null, nNF = null, mod = null, dhEmi = null,
                 crt = null, finNFe = null, tpNFDebito = null;
         // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
-        // (infNFe/ide), não do item — daí não caber no TaxGroupExtractor.
+        // (infNFe/ide), não do item — daí não caber no TaxGroupExtractor. pRedutor, ao contrário,
+        // é campo de texto direto do grupo (DFeTiposBasicos_v1.00.xsd:1144-1163, tipo
+        // TCompraGov), capturado aqui pela mesma razão: é filho de ide, não de item.
         boolean hasCompraGov = false;
+        String pRedutor = null;
         // IBSCBSTot é presença de grupo, mesmo raciocínio de gCompraGov: é filho de total, não de
         // item, e sustenta as rejeições 1118/1119 (docs/decisions.md D-039). Não cabe no
         // TaxGroupExtractor, que só existe para o conteúdo tributário por item.
@@ -166,6 +170,7 @@ public final class XmlMetadataParser {
                             case "CRT" -> { if (crt == null) crt = value; }
                             case "finNFe" -> { if (finNFe == null) finNFe = value; }
                             case "tpNFDebito" -> { if (tpNFDebito == null) tpNFDebito = value; }
+                            case "pRedutor" -> { if (pRedutor == null) pRedutor = value; }
                             // NFref aceita até 999 ocorrências: todas contam, nada de "primeira".
                             case "refNFe", "refNFeSig" -> references.add(
                                     new ReferencedNote(capturing, AccessKeyMonth.ofAccessKey(value)));
@@ -202,13 +207,24 @@ public final class XmlMetadataParser {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
                     new FiscalDocument(source, null, null, null, null, null, root, null,
-                            null, null, false, false, List.of()),
+                            null, null, false, null, false, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
                 new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root,
-                        crt, finNFe, tpNFDebito, hasCompraGov, hasIbsCbsTot, references),
+                        crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
+                        references),
                 ItemLineIndex.of(ranges));
+    }
+
+    /** Mesmo contrato de {@link #parseIssueDate}: valor ilegível vira {@code null}, nunca erro. */
+    private BigDecimal decimal(String v) {
+        if (v == null) return null;
+        try {
+            return new BigDecimal(v);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /** Nome do campo cujo texto deve ser capturado, ou null se o elemento não interessa. */
@@ -222,6 +238,9 @@ public final class XmlMetadataParser {
         if (isFirst(stack, "tpNFDebito", "ide")) return "tpNFDebito";
         if (isFirst(stack, "refNFe", "NFref")) return "refNFe";
         if (isFirst(stack, "refNFeSig", "NFref")) return "refNFeSig";
+        // Único pRedutor de infNFe/ide: o gTribCompraGov do item (TTribCompraGov) não tem campo
+        // de mesmo nome — conferido no XSD embarcado.
+        if (isFirst(stack, "pRedutor", "gCompraGov")) return "pRedutor";
         // refNF e refNFP trazem AAMM próprio e explícito no XSD (linhas 341 e 393).
         if (isFirst(stack, "AAMM", "refNF")) return "refNF/AAMM";
         if (isFirst(stack, "AAMM", "refNFP")) return "refNFP/AAMM";

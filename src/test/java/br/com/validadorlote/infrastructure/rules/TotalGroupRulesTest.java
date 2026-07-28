@@ -22,13 +22,13 @@ class TotalGroupRulesTest {
 
     private FiscalDocument doc(boolean hasIbsCbsTot) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "55", "NFe", "3", null, null, false, hasIbsCbsTot, List.of());
+                DATA, "55", "NFe", "3", null, null, false, null, hasIbsCbsTot, List.of());
     }
 
     private ItemTaxGroup item(boolean hasIbsCbsGroup) {
         return new ItemTaxGroup(1, hasIbsCbsGroup, hasIbsCbsGroup, hasIbsCbsGroup ? "000" : null,
                 hasIbsCbsGroup ? "000001" : null, null, false, false, false, null, null, null,
-                null);
+                null, false, false, false, false, false, false, false, false, false, false);
     }
 
     // ---- 1118 (W34-10): total informado, nenhum item com o invólucro ----

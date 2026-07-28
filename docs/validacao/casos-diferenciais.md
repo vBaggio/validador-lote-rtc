@@ -1,9 +1,11 @@
 # Validação diferencial contra o validador oficial
 
-Este corpus cobre as onze rejeições previstas no bloco 6. Cada caso positivo é uma NF-e ou
-NFC-e válida no XSD oficial e deve produzir **somente** o código indicado no motor local; seu
-controle imediato é XSD-válido e não produz achado local. A comparação com a SVRS continua sendo
-o gate humano da Task 10 — esta página registra a expectativa, não inventa uma confirmação.
+Este corpus cobre as onze rejeições previstas no bloco 6, mais as catorze do bloco 7 (dezesseis do
+brief `task-presenca-indicador-modelo`, menos 1141/1144 — ver D-041, sem fixture de corpus possível).
+Cada caso positivo é uma NF-e ou NFC-e válida no XSD oficial e deve produzir **somente** o(s)
+código(s) indicado(s) no motor local; seu controle imediato é XSD-válido e não produz achado local.
+A comparação com a SVRS continua sendo o gate humano — esta página registra a expectativa, não
+inventa uma confirmação.
 
 **Endereço do gate:** <https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe>
 
@@ -41,6 +43,37 @@ o gate humano da Task 10 — esta página registra a expectativa, não inventa u
 | 1046 controle | `c1046-percentual-municipio-correto.xml`: redução municipal = 60% | nenhum achado | sem 1046 | |
 | 1063 positivo | `r1063-percentual-cbs-invalido.xml`: redução CBS = 59,99%; demais = 60% | 1063 | 1063 | |
 | 1063 controle | `c1063-percentual-cbs-correto.xml`: redução CBS = 60% | nenhum achado | sem 1063 | |
+| 1029 positivo | `r1029-diferimento-uf-indevido.xml`: CST 000 (`ind_gDif=0`), `gIBSUF/gDif` informado | 1029 | 1029 | |
+| 1029 controle | `c1029-sem-diferimento-uf.xml`: mesmo CST, sem `gDif` | nenhum achado | sem 1029 | |
+| 1030 positivo | `r1030-diferimento-uf-ausente.xml`: CST 510 (`ind_gDif=1`), `gIBSUF/gDif` ausente (Mun/CBS presentes) | 1030 | 1030 | |
+| 1030 controle | `c1030-diferimento-uf-presente.xml`: mesmo CST, `gDif` nas três esferas | nenhum achado | sem 1030 | |
+| 1044 positivo | `r1044-diferimento-municipio-ausente.xml`: CST 510, `gIBSMun/gDif` ausente (UF/CBS presentes) | 1044 | 1044 | |
+| 1044 controle | `c1044-diferimento-municipio-presente.xml`: mesmo CST, `gDif` nas três esferas | nenhum achado | sem 1044 | |
+| 1061 positivo | `r1061-diferimento-cbs-ausente.xml`: CST 510, `gCBS/gDif` ausente (UF/Mun presentes) | 1061 | 1061 | |
+| 1061 controle | `c1061-diferimento-cbs-presente.xml`: mesmo CST, `gDif` nas três esferas | nenhum achado | sem 1061 | |
+| 1083 positivo | `r1083-diferimento-municipio-indevido.xml`: CST 000, `gIBSMun/gDif` informado | 1083 | 1083 | |
+| 1083 controle | `c1083-sem-diferimento-municipio.xml`: mesmo CST, sem `gDif` | nenhum achado | sem 1083 | |
+| 1090 positivo | `r1090-diferimento-cbs-indevido.xml`: CST 000, `gCBS/gDif` informado | 1090 | 1090 | |
+| 1090 controle | `c1090-sem-diferimento-cbs.xml`: mesmo CST, sem `gDif` | nenhum achado | sem 1090 | |
+| 1111 positivo | `r1111-devolucao-uf-indevida.xml`: `gIBSUF/gDevTrib` informado (NF-e) | 1111 | 1111 | |
+| 1111 controle | `c1111-sem-devolucao-uf.xml`: sem `gDevTrib` | nenhum achado | sem 1111 | |
+| 1112 positivo | `r1112-devolucao-municipio-indevida.xml`: `gIBSMun/gDevTrib` informado (NF-e) | 1112 | 1112 | |
+| 1112 controle | `c1112-sem-devolucao-municipio.xml`: sem `gDevTrib` | nenhum achado | sem 1112 | |
+| 1187 positivo | `r1187-devolucao-cbs-nfce.xml`: NFC-e 65, `gCBS/gDevTrib` informado | 1187 | 1187 | |
+| 1187 controle | `c1187-sem-devolucao-cbs-nfce.xml`: NFC-e 65, sem `gDevTrib` | nenhum achado | sem 1187 | |
+| 1006 positivo | `r1006-compragov-nfce.xml`: NFC-e 65, CST 410 (isento de `gIBSCBS`), `gCompraGov` informado | 1006 | 1006 | |
+| 1006 controle | `c1006-sem-compragov-nfce.xml`: mesmo cenário, sem `gCompraGov` | nenhum achado | sem 1006 | |
+| 1049 positivo | `r1049-credpresoper-nfce.xml`: NFC-e 65, `IBSCBS/gCredPresOper` informado | 1049 | 1049 | |
+| 1049 controle | `c1049-sem-credpresoper-nfce.xml`: NFC-e 65, sem `gCredPresOper` | nenhum achado | sem 1049 | |
+| 1138+1165 positivo | `r1138-credpresibszfm-nfce.xml`: NFC-e 65, `IBSCBS/gCredPresIBSZFM` informado — `tpCredPresIBSZFM` é campo obrigatório dentro do grupo, então as duas rejeições disparam sempre juntas (D-041) | 1138, 1165 | 1138, 1165 | |
+| 1138+1165 controle | `c1138-sem-credpresibszfm-nfce.xml`: NFC-e 65, sem `gCredPresIBSZFM` | nenhum achado | sem 1138/1165 | |
+| 708 positivo | `r708-dfereferenciado-nfce.xml`: NFC-e 65, item com `DFeReferenciado` | 708 | 708 | |
+| 708 controle | `c708-sem-dfereferenciado-nfce.xml`: NFC-e 65, sem `DFeReferenciado` | nenhum achado | sem 708 | |
+
+1141 e 1144 (`gTribCompraGov`, mecanismo 4) não têm par de fixtures aqui — D-041 explica por que
+nenhuma combinação XSD-válida os isola sem também acionar
+`ReductionGroupRule`/`ReductionPercentageRule` (gatilho de compra governamental, D-030). Cobertura
+só por unidade em `TableRulesTest`.
 
 As escolhas de tabela relevantes foram conferidas no artefato embarcado
 `src/main/resources/tables/cst-cclasstrib.json`: CST 410 não admite `gIBSCBS` e a classificação

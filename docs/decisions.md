@@ -4,6 +4,126 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-042 — `pRedutor` vira campo de documento; a exceção binária da 1032/1007/1028 é decidida sem aritmética (28/07/2026)
+
+Implementa o mecanismo 2 de `candidatas-rejeicao-pos-b6.md` (brief `task-gred-indevido`): as três
+rejeições "grupo de Redução de Alíquota informado indevidamente" (1032/UB26-10, 1007/UB45-10,
+1028/UB64-10) — o lado "informado" que espelha `ReductionGroupRule` (1033/1074/1079, lado
+"ausente"). Nova classe `ReductionGroupForbiddenRule`, três instâncias em `RuleEngine.BINDINGS`
+com a mesma precondição `CST_PRESENT`+`CST_IN_TABLE` das outras regras de `ind_gRed`.
+
+**1. `pRedutor` é campo de `FiscalDocument`, não de `ItemTaxGroup`.** Confirmado no XSD
+(`DFeTiposBasicos_v1.00.xsd:1144-1163`, tipo `TCompraGov`): filho direto de `gCompraGov`
+(sequence `tpEnteGov, pRedutor, tpOperGov`), que por sua vez é filho de `infNFe/ide`
+(`leiauteNFe_v4.00.xsd:499`) — mesmo nível de `hasCompraGov`, e não do item. `XmlMetadataParser`
+ganhou a captura (mesmo padrão de `finNFe`/`tpNFDebito`: `isFirst(stack, "pRedutor",
+"gCompraGov")`, convertido para `BigDecimal` com o mesmo contrato de "ilegível vira null" que
+`TaxGroupExtractor.decimal()` já usa). Conferido que "pRedutor" não colide com outro elemento: o
+`gTribCompraGov` do item (`TTribCompraGov`, `DFeTiposBasicos_v1.00.xsd:1097`) não tem campo de
+mesmo nome — só `pAliqIBSUF/pAliqIBSMun/pAliqCBS` e seus `vTrib*`. `FiscalDocument` ganhou
+`pRedutorCompraGov` (`BigDecimal`) ao lado de `hasCompraGov`.
+
+**2. A exceção é decidida com dois fatos brutos, sem aritmética.** Texto literal da NT (conferido
+em `tmp/NT_2025.002_v1.50_RTC_NF-e_IBS_CBS_IS.md`, item UB26-10 55/65, idêntico nas três esferas):
+"Exceção: Percentual de redução da alíquota em compra governamental (tag: `gCompraGov/pRedutor`)
+informado e `gIBSUF/gRed/pRedAliq` igual a zero." Os dois fatos — `pRedutor` legível e `pRedAliq`
+da esfera igual a zero — não envolvem comparação contra `cClassTrib` nem contra a fórmula de
+`pAliqEfet`; por isso a decisão fica inteira em `ReductionGroupForbiddenRule`, sem tocar
+`ReductionPercentageRule` nem abrir a aritmética completa de compra governamental (que continua
+fora do escopo, débito da D-030).
+
+**3. Leitura do caso intermediário: os dois fatos confirmados valem `Conforme`, não `NaoAvaliado`.**
+O brief citava a leitura conservadora de D-030 ("sem capturar `pRedutor`, o caso sai como
+`NaoAvaliado`") como piso, mas pedia para decidir agora que o dado é capturado. Com os dois fatos
+literais da exceção confirmados — `pRedutor` legível e `pRedAliq=0` na esfera —, não sobra
+ambiguidade: a NT descreve a exceção como presença/valor, não como cálculo, e não há dado faltando
+para hesitar. `GroupForbiddenRule` (1021) e `DiferimentoForbiddenRule` (1029/1083/1090) já
+resolvem seus pares "ausência aqui é conformidade, não omissão" da mesma forma — `Conforme`, não
+um terceiro estado por cautela extra. `NaoAvaliado` fica reservado para quando falta um dos dois
+fatos (pRedAliq ilegível, ou `gCompraGov` presente com `pRedutor` ilegível): nesses casos, sim, não
+dá para confirmar a exceção, e a leitura nunca vira `Rejeitado`.
+
+**4. Sem o gate de `ind_gIBSCBS=0` que `ReductionGroupRule` tem.** `ReductionGroupRule` isenta CST
+com `ind_gIBSCBS=0` por cláusula literal própria da UB26-20. O texto da UB26-10 (citado no brief)
+não traz essa cláusula, e o par estrutural mais próximo — `DiferimentoForbiddenRule`, mesma forma
+"forbidden" sobre indicador de CST — também não tem esse gate (confirmado: a NT não traz exceção
+alguma para 1029/1083/1090). Seguido o padrão do par mais próximo em vez de importar a exceção da
+`ReductionGroupRule` sem base textual.
+
+**5. Dado reaproveitável, não reimplementável, quando a aritmética de compra governamental
+entrar.** `pRedutorCompraGov` é o mesmo dado bruto que a família 1034/1046/1063
+(`ReductionPercentageRule`) já deixou como débito documentado (D-030: `pAliqEfet = pAliq ×
+(1 - pRedAliq/100) × (1 - pRedutor/100)`). Capturá-lo aqui não implementa essa fórmula — só a
+presença/valor bruto, para a pergunta binária desta task. Quando a aritmética entrar, o campo já
+existe em `FiscalDocument`; não precisa de nova extração.
+
+**Verificação por mutação** (sonda do brief: comentada a checagem de `pRedutor`/`pRedAliq=0`, suíte
+alvo `TableRulesTest` rodada, três testes caíram —
+`governmentPurchaseWithZeroPercentageAndReadableRedutorIsTheExceptionConfirmed`,
+`governmentPurchaseWithoutReadableRedutorIsNotEvaluated`,
+`governmentPurchaseWithUnreadablePercentageIsNotEvaluated` —, arquivo restaurado, `git status`
+limpo). Confirma que o teste positivo da exceção protege o caso de compra governamental legítima,
+não só o óbvio.
+
+## D-041 — Bloco 7: dezesseis rejeições de presença por indicador CST e por modelo (28/07/2026)
+
+Implementa os quatro mecanismos do brief `task-presenca-indicador-modelo` (mecanismos 1, 3, 4 e 5
+de `candidatas-rejeicao-pos-b6.md`): diferimento por indicador CST (1029/1030/1044/1061/1083/1090),
+devolução de tributo proibida (1111/1112/1187), `gTribCompraGov` (1141/1144) e grupo proibido no
+modelo 65 (1006/1049/1138/1165/708, confirmado empiricamente por D-040).
+
+**1. `permiteDiferimento` → `exigeDiferimento`: mapeamento já estava correto, só o nome mentia.**
+O brief pediu para conferir antes de usar. Conferido: `cst-cclasstrib.json` mapeia o campo
+diretamente do `IndDiferimento` bruto da SVRS (`docs/pesquisa/dados/cst-cclasstrib-svrs.json`),
+sem inversão — `true` só em 510 e 515 (os dois CSTs de "Diferimento"), exatamente onde `IndDiferimento`
+é `true` na fonte. O valor está certo; o nome sugeria "opcional quando true, ausente quando false",
+mas a NT lê o indicador nos dois sentidos (exige quando =1, veda quando =0) — a mesma forma binária
+de `exigeGrupo`/`exigeReducao`, que já usam o prefixo "exige". Renomeado para `exigeDiferimento`
+neste commit (`CstEntry`, `FiscalTables`, `cst-cclasstrib.json`, teste), sem mudar nenhum valor.
+Teste novo (`FiscalTablesTest#onlyTwoCstsRequireTheDeferralGroup`) afirma a contagem contra a base
+real, no mesmo espírito de `onlyThreeCstsRequireReductionGroup`.
+
+**2. Classe genérica cobre 7 das 8 instâncias do catálogo do brief, não 8.** `PresenceForbiddenRule`
+(presença de uma tag/grupo, opcionalmente restrita a um modelo) serve 1111, 1112, 1187, 1049, 1138,
+1165 e 708 — todas `RejectionRule` (item). 1006 segue a mesma forma mas é `DocumentRejectionRule`
+(`gCompraGov` é de `ide`, D-030): unificar as duas interfaces custaria mais em acoplamento do que
+economiza para uma única instância, e o próprio brief já resolvia isso no passo 6 ("1006 é de
+documento"). `CompraGovForbiddenInNfceRule` fica separada, mesma forma, interface diferente.
+
+**3. 1138 e 1165 disparam sempre juntas — não é redundância a evitar, é a estrutura do XSD.**
+`tpCredPresIBSZFM` é campo **obrigatório** dentro de `gCredPresIBSZFM` (`TCredPresIBSZFM`,
+`DFeTiposBasicos_v1.00.xsd:1274`, sem `minOccurs="0"`). Não existe XML XSD-válido com o grupo e sem
+o campo. As duas continuam capturadas por booleans independentes (`hasCredPresIbsZfm` e
+`hasTpCredPresIbsZfm`, por instrução direta do brief — "não reaproveite o boolean de 1138 por
+suposição"), e a fixture de corpus (`r1138-credpresibszfm-nfce.xml`) afirma as duas rejeições juntas
+em vez de fingir isolamento impossível.
+
+**4. 1141/1144 não entram no corpus de fixtures — cobertura só por unidade.** Isolar uma delas
+exige, ao mesmo tempo, um CST com `ind_gIBSCBS=1` (para a exceção da 1141 não afastar a acusação) e
+`gCompraGov=true` no documento. Mas `ReductionGroupRule` (D-030) já tem gatilho próprio: sob compra
+governamental, `gRed` passa a ser exigido mesmo com `ind_gRed=0`. Duas saídas, as duas ruins: omitir
+`gRed` dispara 1033/1074/1079 de verdade (não é o que a fixture quer isolar); incluir `gRed` faz
+`ReductionPercentageRule` devolver `NaoAvaliado` **incondicionalmente** nas três esferas (o cálculo
+sob compra governamental depende de `gCompraGov/pRedutor`, fora do escopo, D-030) — três achados
+extras em toda fixture de 1141/1144, positiva ou controle. Nenhuma combinação XSD-válida escapa
+disso. Ficam cobertas só em `TableRulesTest` (16 testes dirigidos, incluindo a exceção do
+`ind_gIBSCBS=0` e a fronteira 1141/1144), sem fixture de corpus — registrado aqui para não ser lido
+como esquecimento numa sessão futura.
+
+**5. Wiring no `RuleEngine`.** As seis regras de diferimento entram em `BINDINGS` com
+`CST_PRESENT`+`CST_IN_TABLE` (mesma precondição de `GroupForbiddenRule`/`GroupRequiredByCstRule`,
+cujo padrão seguem). As sete instâncias de `PresenceForbiddenRule` e `ComprasGovComposicaoForbiddenRule`
+entram sem precondição — nenhuma consulta à tabela oficial. `ComprasGovComposicaoRequiredRule` (1141)
+entra com `CST_PRESENT`+`CST_IN_TABLE`, pela exceção. `CompraGovForbiddenInNfceRule` (1006) entra em
+`DOCUMENT_RULES`, junto de 1118/1119.
+
+**Verificação por mutação** (seis sondas, todas capturadas — comentado, suíte alvo falhou, restaurado,
+`git status` limpo): decisão final de `PresenceForbiddenRule.evaluate` (10 testes caem); decisão
+final de `DiferimentoRequiredRule.evaluate` (3 testes); leitura de `exigeDiferimento` em
+`FiscalTables` (8 testes); decisão final de `ComprasGovComposicaoRequiredRule.evaluate` (1 teste);
+captura de `gDif` no `TaxGroupExtractor` (2 testes); decisão final de
+`CompraGovForbiddenInNfceRule.evaluate` (2 testes).
+
 ## D-040 — Validado: o schema não é model-aware; `grupo.xsd` é scaffolding morta, não meio-caminho (28/07/2026)
 
 Achado da reconciliação de `docs/pesquisa/candidatas-rejeicao-pos-b6.md` (D-039), aprofundado aqui
