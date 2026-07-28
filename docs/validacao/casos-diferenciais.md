@@ -57,4 +57,25 @@ qualquer divergência abaixo. A Task 10 só termina após essa conferência.
 
 ## Divergências encontradas
 
-_Nenhuma conferência humana registrada ainda._
+### Evidências já executadas
+
+As duas primeiras execuções foram feitas com as fixtures sintéticas. O parser e o schema foram
+aceitos pela SVRS; a assinatura inválida e os códigos cadastrais são ruído conhecido deste corpus.
+
+| Arquivo | Códigos retornados pela SVRS | Leitura para o bloco 6 |
+|---|---|---|
+| `c1021-sem-grupo-interno.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, 1119 | **Controle aprovado:** não retornou 1021. `1119` fica fora do escopo atual. |
+| `r1021-grupo-indevido.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1021**, 1036, 1026, 1119, 1076, 1080, 1084, 1085, 1091 | **1021 confirmado.** Os demais códigos são cobertura futura ou ruído. |
+| `r1022-grupo-obrigatorio-ausente.xml` | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245, **1022**, **1033**, **1074**, **1079**, 1119 | **1022 confirmado, mas há divergência:** a SVRS também acusa as três reduções, enquanto o motor local suprime essas regras quando falta `gIBSCBS`. |
+
+#### Catálogo preliminar de códigos observados
+
+| Categoria | Códigos | Tratamento neste gate |
+|---|---|---|
+| Implementados no bloco 6 | 1021, 1022, 1033, 1074, 1079 | Comparar individualmente com o resultado local; divergências são bloqueadoras. |
+| IBS/CBS fora do bloco atual | 1026, 1036, 1119, 1076, 1080, 1084, 1085, 1091 | Registrar como candidatos para estudo posterior; não implementar nesta task. |
+| Assinatura, cadastro e consistência geral | 297, 213, 598, 502, 703, 253, 207, 209, 208, 210, 591, 437, 866, 233, 245 | Ruído esperado das fixtures sintéticas; não comparar com a camada de rejeições IBS/CBS. |
+
+**Achado em aberto:** confirmar o controle `c1022-com-grupo-interno.xml`. Se ele não retornar
+1022/1033/1074/1079, a diferença de multiplicidade entre a SVRS e a política local de causa-raiz
+única fica comprovada e precisa de decisão antes do fechamento do bloco.
