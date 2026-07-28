@@ -55,6 +55,9 @@ public final class FiscalTables {
         if (root == null || !root.isArray()) {
             throw new IllegalStateException("A tabela fiscal deve ser uma lista JSON de CSTs");
         }
+        if (root.isEmpty()) {
+            throw new IllegalStateException("A tabela fiscal não pode ser uma lista vazia");
+        }
 
         Map<String, CstEntry> csts = new HashMap<>();
         Map<String, ClassTribEntry> classifications = new HashMap<>();

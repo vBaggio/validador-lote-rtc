@@ -128,6 +128,13 @@ class FiscalTablesTest {
     }
 
     @Test
+    void emptyRootIsNotAValidFiscalTable() {
+        assertThatThrownBy(() -> FiscalTables.load(json("[]")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("vazia");
+    }
+
+    @Test
     void malformedJsonIsReportedAsInvalidFiscalTable() {
         assertThatThrownBy(() -> FiscalTables.load(json("[{")))
                 .isInstanceOf(IllegalStateException.class)
