@@ -4,6 +4,48 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-038 — Exceção 1 da 1115 passa a ler `DFeReferenciado`, por item, além de `NFref` (28/07/2026)
+
+Achado de auditoria independente (`docs/pesquisa/auditoria-regras-e-leitura.md §2`), fora do plano
+original do bloco: a partir de 01/09/2026 a NT v1.40 muda **onde** a devolução referencia a nota
+original. A regra de validação VC02-14, Observação 1, é literal: *"Fica proibido o referenciamento
+da Nota na tag `refNFe` na devolução, devendo referenciar no grupo `DFeReferenciado`"* — produção
+própria, no cronograma da NT (p. 5), separada da vigência da própria 1115 (D-028).
+
+`DFeReferenciado` é **item**, não documento: confirmado no XSD embarcado,
+`leiauteNFe_v4.00.xsd:5285-5309`, dentro de `det/prod`, irmão de `vItem` — ao contrário de `NFref`,
+que fica em `ide`, no nível do documento. `chaveAcesso` usa o mesmo tipo `TChNFe` de `refNFe`
+(chave de 44 dígitos, mesmo deslocamento de `AAMM` nas posições 2-5), então a decodificação de
+competência é a mesma; para não duplicá-la entre `XmlMetadataParser` (documento) e
+`TaxGroupExtractor` (item), ela foi extraída para o utilitário compartilhado
+`AccessKeyMonth`.
+
+**Consequência sem a correção:** a partir de 01/09/2026, uma devolução emitida **corretamente** —
+referenciando só em `DFeReferenciado`, como a norma passa a exigir — chegaria à Exceção 1 com
+`document().references()` vazio (`NFref` não foi usado), a exceção não encontraria referência
+alguma, e a regra seguiria até `Rejeitado` 1115: falso positivo na regra que motiva o bloco
+inteiro, contra quem fez certo.
+
+**Decisão:** `ItemTaxGroup` ganhou o campo `dfeReferenciado` (um `ReferencedNote`, já que o XSD
+permite no máximo uma ocorrência por item); `GroupRequiredRule.excecaoDeDevolucaoOuComplementar`
+passou a avaliar a **união** das duas fontes (`NFref` do documento e `DFeReferenciado` do item),
+não uma substituindo a outra — a VC02-14 só proíbe `refNFe` **na devolução**; documentos que ainda
+usam `NFref` (complementar, ou devolução emitida antes da produção da VC02-14) continuam cobertos.
+Caso intermediário decidido na direção que não acusa (mesmo padrão de D-028/D-029): item com
+`DFeReferenciado` presente mas `chaveAcesso` não decodável (formato inesperado, ausente, vazia ou
+com conteúdo misto) produz uma referência **sem data**, que a exceção trata como `NaoAvaliado`,
+nunca `Rejeitado` — base incompleta é limitação nossa, não defeito do emitente. Documento sem
+nenhuma das duas fontes segue o curso normal da regra, comportamento existente que não regride.
+
+**Fora do escopo desta task**, catalogado em `docs/pesquisa/candidatas-rejeicao-pos-b6.md`: a
+VC02-05 (referenciamento simultâneo em nota e item) e a rejeição por devolução sem referência
+nenhuma. Esta entrada só evita o falso positivo; não adiciona rejeição nova.
+
+**Verificação por mutação:** o bloco que une as duas fontes em
+`GroupRequiredRule.referenciasDaExcecao` foi comentado (fixado em `ctx.document().references()`),
+e os três testes que exercitam `DFeReferenciado` (`DocumentRulesTest`) falharam isoladamente; os
+demais 235 continuaram verdes. Restaurado e reconfirmado verde.
+
 ## D-037 — 1022 mantém causa-raiz única; a multiplicidade da SVRS não é reproduzida (28/07/2026)
 
 O gate humano da Task 10 (`docs/validacao/casos-diferenciais.md`) mediu, contra o validador

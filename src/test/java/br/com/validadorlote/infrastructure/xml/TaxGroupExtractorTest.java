@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.YearMonth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -273,5 +274,92 @@ class TaxGroupExtractorTest {
         assertThat(itens.getFirst().cst()).isNull();
         assertThat(itens.getFirst().cClassTrib()).isEqualTo("000001");
         assertThat(itens.get(1).cst()).isEqualTo("200");
+    }
+
+    // ---- DFeReferenciado: NT v1.40 move o referenciamento de devolução para o item (D-038) ----
+
+    @Test
+    void itemWithoutDFeReferenciadoHasNullReference() {
+        var g = extractor.extract(fixture("nfe-valida.xml")).getFirst();
+        assertThat(g.dfeReferenciado()).isNull();
+    }
+
+    @Test
+    void readsDFeReferenciadoOfDevolutionItem(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("devolucao-dfe.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><cProd>1</cProd>
+                    <DFeReferenciado><chaveAcesso>35251214200166000187550010000000015123456789</chaveAcesso><nItem>1</nItem></DFeReferenciado>
+                  </prod><imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // AAMM 2512 nas posições 2-5 da chave: dezembro de 2025, mesma decodificação de refNFe.
+        var g = extractor.extract(xml).getFirst();
+
+        assertThat(g.dfeReferenciado()).isNotNull();
+        assertThat(g.dfeReferenciado().form()).isEqualTo("DFeReferenciado");
+        assertThat(g.dfeReferenciado().issuedAt()).isEqualTo(YearMonth.of(2025, 12));
+    }
+
+    @Test
+    void dfeReferenciadoWithUnreadableKeyIsPresentButUndated(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("devolucao-chave-invalida.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><cProd>1</cProd>
+                    <DFeReferenciado><chaveAcesso>chave-invalida</chaveAcesso></DFeReferenciado>
+                  </prod><imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // A referência existe (o item declarou o grupo) mas a chave não é decodável: presença
+        // sem data, nunca ausência — quem julga isso como Rejeitado ou não é a regra, não o
+        // parser (D-038).
+        var g = extractor.extract(xml).getFirst();
+
+        assertThat(g.dfeReferenciado()).isNotNull();
+        assertThat(g.dfeReferenciado().issuedAt()).isNull();
+    }
+
+    @Test
+    void dfeReferenciadoWithoutChaveAcessoIsPresentButUndated(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("dfe-sem-chave.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><cProd>1</cProd>
+                    <DFeReferenciado><nItem>1</nItem></DFeReferenciado>
+                  </prod><imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        // O XSD exige chaveAcesso dentro de DFeReferenciado, mas a extração de metadados é
+        // deliberadamente tolerante a XML estruturalmente inválido (quem reporta o erro
+        // estrutural é o XSD): o grupo em si está presente, então a referência não pode sumir.
+        var g = extractor.extract(xml).getFirst();
+
+        assertThat(g.dfeReferenciado()).isNotNull();
+        assertThat(g.dfeReferenciado().issuedAt()).isNull();
+    }
+
+    @Test
+    void dfeReferenciadoDoesNotLeakToOtherItems(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("dois-itens-dfe.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><cProd>1</cProd>
+                    <DFeReferenciado><chaveAcesso>35251214200166000187550010000000015123456789</chaveAcesso></DFeReferenciado>
+                  </prod><imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det>
+                  <det nItem="2"><prod><cProd>2</cProd></prod>
+                    <imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        var itens = extractor.extract(xml);
+
+        assertThat(itens).hasSize(2);
+        assertThat(itens.getFirst().dfeReferenciado()).isNotNull();
+        assertThat(itens.get(1).dfeReferenciado()).isNull();
     }
 }

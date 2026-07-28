@@ -32,8 +32,9 @@ class TableRulesTest {
     }
 
     /**
-     * Construtor nomeado de {@link ItemTaxGroup}: são 12 campos posicionais e a ordem já mudou
-     * uma vez (Task 6). Construção posicional errada compila e mente.
+     * Construtor nomeado de {@link ItemTaxGroup}: são 13 campos posicionais e a ordem já mudou
+     * mais de uma vez (Task 6, e o brief de DFeReferenciado). Construção posicional errada
+     * compila e mente.
      */
     private static final class Item {
         private boolean involucro = true;
@@ -67,7 +68,7 @@ class TableRulesTest {
 
         ItemTaxGroup build() {
             return new ItemTaxGroup(1, involucro, grupoInterno, cst, classTrib, null,
-                    redUf, redMun, redCbs, pUf, pMun, pCbs);
+                    redUf, redMun, redCbs, pUf, pMun, pCbs, null);
         }
     }
 

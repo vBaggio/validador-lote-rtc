@@ -1,5 +1,7 @@
 package br.com.validadorlote.infrastructure.xml;
 
+import br.com.validadorlote.domain.ReferencedNote;
+
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -33,11 +35,18 @@ public final class TaxGroupExtractor {
      * situação tributária. {@code hasGIbsCbsGroup} é o {@code <gIBSCBS>} de dentro dele, uma das
      * alternativas opcionais do {@code choice} do tipo {@code TTribNFe}. Confundir os dois faz
      * item de isenção corretamente emitido virar acusação — ver D-027.
+     *
+     * @param dfeReferenciado referência de {@code det/prod/DFeReferenciado} deste item, ou
+     *         {@code null} quando o grupo não existe. A partir da NT v1.40 (produção 01/09/2026,
+     *         VC02-14) é aqui, e não mais em {@code NFref}, que a devolução deve referenciar a
+     *         nota original — ver D-038. {@code issuedAt} nulo dentro da referência significa
+     *         grupo presente com chave não decodável, nunca ausência do grupo.
      */
     public record ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
             String cst, String cClassTrib, String cProdANP,
             boolean hasReducaoUf, boolean hasReducaoMun, boolean hasReducaoCbs,
-            BigDecimal percReducaoUf, BigDecimal percReducaoMun, BigDecimal percReducaoCbs) {}
+            BigDecimal percReducaoUf, BigDecimal percReducaoMun, BigDecimal percReducaoCbs,
+            ReferencedNote dfeReferenciado) {}
 
     /** Esfera de tributação em que um subgrupo de redução pode aparecer. */
     private enum Esfera {
@@ -86,6 +95,10 @@ public final class TaxGroupExtractor {
         boolean redUf = false, redMun = false, redCbs = false;
         String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
+        ReferencedNote dfeReferenciado = null;
+        // DFeReferenciado é filho de det/prod, mas não tem o marcador de esfera das reduções:
+        // precisa do próprio flag para chaveAcesso não ser lido fora do grupo.
+        boolean emDFeReferenciado = false;
         // Esfera atualmente aberta. Precisa ser zerada no fechamento da esfera e na abertura de
         // cada det: um gRed fora de esfera não pode herdar a última esfera vista, sob pena de
         // acusar redução onde não há.
@@ -113,12 +126,24 @@ public final class TaxGroupExtractor {
                         redUf = redMun = redCbs = false;
                         cst = classTrib = prodANP = null;
                         pUf = pMun = pCbs = null;
+                        dfeReferenciado = null;
+                        emDFeReferenciado = false;
                         esfera = null;
                     }
                     case "IBSCBS" -> { emIbsCbs = true; temGrupo = true; }
                     // O grupo interno só conta dentro do invólucro do item corrente.
                     case "gIBSCBS" -> { if (emIbsCbs) temGrupoInterno = true; }
                     case "cProdANP" -> { if (prodANP == null) prodANP = texto(r); }
+                    case "DFeReferenciado" -> emDFeReferenciado = true;
+                    case "chaveAcesso" -> {
+                        // NT v1.40 (VC02-14): a partir de 01/09/2026 é aqui, por item, que a
+                        // devolução referencia a nota original — não mais em NFref (D-038).
+                        // Mesma decodificação de AAMM que refNFe já usa.
+                        if (emDFeReferenciado && dfeReferenciado == null) {
+                            dfeReferenciado = new ReferencedNote("DFeReferenciado",
+                                    AccessKeyMonth.ofAccessKey(texto(r)));
+                        }
+                    }
                     case "gRed" -> {
                         if (esfera == Esfera.UF) redUf = true;
                         else if (esfera == Esfera.MUN) redMun = true;
@@ -138,11 +163,21 @@ public final class TaxGroupExtractor {
                 String nome = r.getLocalName();
                 if (Esfera.of(nome) != null) esfera = null;
                 if ("IBSCBS".equals(nome)) emIbsCbs = false;
+                if ("DFeReferenciado".equals(nome)) {
+                    if (dfeReferenciado == null) {
+                        // O grupo abriu, mas chaveAcesso não veio (ausente, vazia ou conteúdo
+                        // misto): a referência existe e não sabemos datá-la — nunca tratada como
+                        // grupo ausente, sob pena de a Exceção 1 da 1115 acusar quem informou o
+                        // grupo mas com um valor que o parser não leu.
+                        dfeReferenciado = new ReferencedNote("DFeReferenciado", null);
+                    }
+                    emDFeReferenciado = false;
+                }
                 if ("det".equals(nome)) {
                     // O item entra mesmo com nItem ilegível: descartá-lo o faria sumir do
                     // relatório inteiro — nem conforme, nem rejeitado, nem não avaliado.
                     itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,
-                            prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs));
+                            prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado));
                     nItem = null;
                 }
             }

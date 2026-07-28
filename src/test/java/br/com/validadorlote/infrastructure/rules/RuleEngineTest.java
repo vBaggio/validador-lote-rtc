@@ -41,8 +41,8 @@ class RuleEngineTest {
     }
 
     /**
-     * Construtor nomeado de {@link ItemTaxGroup}: são 12 campos posicionais e a ordem já mudou
-     * uma vez. Construção posicional errada compila e mente.
+     * Construtor nomeado de {@link ItemTaxGroup}: são 13 campos posicionais e a ordem já mudou
+     * mais de uma vez. Construção posicional errada compila e mente.
      */
     private static final class Item {
         private Integer numero = 1;
@@ -72,7 +72,7 @@ class RuleEngineTest {
 
         ItemTaxGroup build() {
             return new ItemTaxGroup(numero, involucro, grupoInterno, cst, classTrib, null,
-                    redUf, redMun, redCbs, perc, perc, perc);
+                    redUf, redMun, redCbs, perc, perc, perc, null);
         }
     }
 

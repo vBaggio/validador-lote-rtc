@@ -12,7 +12,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -41,17 +40,6 @@ public final class XmlMetadataParser {
     private static final Set<String> UNDATABLE_REFERENCES = Set.of("refCTe", "refECF");
     /** Referências em papel: a data vem de um campo {@code AAMM} próprio, não de chave. */
     private static final Set<String> PAPER_REFERENCES = Set.of("refNF", "refNFP");
-    private static final int ACCESS_KEY_LENGTH = 44;
-    /** Posições do {@code AAMM} na chave de acesso, conforme a documentação do XSD (linha 322). */
-    private static final int KEY_AAMM_START = 2;
-    private static final int KEY_AAMM_END = 6;
-    private static final int AAMM_LENGTH = 4;
-    /**
-     * Século usado para normalizar o AAMM em {@link YearMonth}. Para chaves eletrônicas, ele é
-     * parte da política do formato; no AAMM avulso de papel, a ambiguidade fica explícita no
-     * {@link ReferencedNote} e não pode ser descartada por esta normalização técnica.
-     */
-    private static final int NORMALIZED_CENTURY = 2000;
 
     public ParsedMetadata parse(Path xml) {
         // XMLInputFactory não é thread-safe: uma por chamada (custo irrisório vs I/O).
@@ -172,8 +160,8 @@ public final class XmlMetadataParser {
                             case "finNFe" -> { if (finNFe == null) finNFe = value; }
                             case "tpNFDebito" -> { if (tpNFDebito == null) tpNFDebito = value; }
                             // NFref aceita até 999 ocorrências: todas contam, nada de "primeira".
-                            case "refNFe", "refNFeSig" ->
-                                    references.add(new ReferencedNote(capturing, monthOfKey(value)));
+                            case "refNFe", "refNFeSig" -> references.add(
+                                    new ReferencedNote(capturing, AccessKeyMonth.ofAccessKey(value)));
                             case "refNF/AAMM" -> {
                                 references.add(paperReference("refNF", value));
                                 pendingPaperRef = null;
@@ -233,30 +221,9 @@ public final class XmlMetadataParser {
         return null;
     }
 
-    /**
-     * Competência de emissão codificada na chave de acesso referenciada: o {@code AAMM} ocupa as
-     * posições 2-5, conforme a documentação do próprio XSD. Chave fora do formato devolve
-     * {@code null} — referência que não sabemos datar, e não uma data inventada.
-     */
-    private YearMonth monthOfKey(String key) {
-        if (key == null || key.length() != ACCESS_KEY_LENGTH || !isDigits(key)) return null;
-        return monthOfAamm(key.substring(KEY_AAMM_START, KEY_AAMM_END));
-    }
-
     /** O campo AAMM de refNF/refNFP não informa o século; essa incerteza acompanha a referência. */
     private ReferencedNote paperReference(String form, String aamm) {
-        return new ReferencedNote(form, monthOfAamm(aamm), true);
-    }
-
-    private YearMonth monthOfAamm(String aamm) {
-        if (aamm == null || aamm.length() != AAMM_LENGTH || !isDigits(aamm)) return null;
-        int month = Integer.parseInt(aamm.substring(2));
-        if (month < 1 || month > 12) return null;
-        return YearMonth.of(NORMALIZED_CENTURY + Integer.parseInt(aamm.substring(0, 2)), month);
-    }
-
-    private boolean isDigits(String value) {
-        return value.chars().allMatch(Character::isDigit);
+        return new ReferencedNote(form, AccessKeyMonth.ofAamm(aamm), true);
     }
 
     private boolean isFirst(Deque<String> stack, String element, String parent) {

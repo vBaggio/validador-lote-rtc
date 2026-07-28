@@ -5,7 +5,9 @@ import br.com.validadorlote.domain.ReferencedNote;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -19,7 +21,8 @@ import java.util.Set;
  *
  * <p>As duas exceções da NT são consultadas só quando a regra está prestes a acusar: a Exceção 1
  * (devolução/complementar de nota anterior a 2026) é decidida offline pelo {@code AAMM} da chave
- * referenciada; a Exceção 2 (combustível monofásico) depende de tabela que não temos e por isso
+ * referenciada — em {@code NFref} (documento) ou {@code DFeReferenciado} (item, a partir da NT
+ * v1.40, D-038); a Exceção 2 (combustível monofásico) depende de tabela que não temos e por isso
  * vira não avaliado (D-028, D-029).
  */
 public final class GroupRequiredRule implements RejectionRule {
@@ -101,9 +104,16 @@ public final class GroupRequiredRule implements RejectionRule {
      *   projeto de que falso negativo é declarado e falso positivo não se admite.</li>
      * </ol>
      *
+     * <p><b>D-038:</b> a partir da NT v1.40 (produção 01/09/2026, VC02-14) a devolução deixa de
+     * poder referenciar pelo {@code refNFe} do documento e passa a usar exclusivamente o grupo
+     * {@code DFeReferenciado}, do item. As duas fontes são independentes e ambas contam: uma
+     * substituindo a outra faria a exceção parar de reconhecer documentos emitidos corretamente
+     * sob a regra antiga ou a nova.
+     *
      * @return o desfecho quando a exceção resolve o caso, ou {@code null} para a regra seguir o
-     *         curso normal — inclusive quando não há {@code NFref} alguma, porque aí falta à
-     *         exceção a referência que ela própria exige.
+     *         curso normal — inclusive quando não há referência alguma (nem {@code NFref}, nem
+     *         {@code DFeReferenciado}), porque aí falta à exceção a referência que ela própria
+     *         exige.
      */
     private RuleOutcome excecaoDeDevolucaoOuComplementar(RuleContext ctx) {
         String finNFe = normalizado(ctx.document().finNFe());
@@ -112,7 +122,7 @@ public final class GroupRequiredRule implements RejectionRule {
         }
         Set<String> semData = new LinkedHashSet<>();
         Set<String> seculoAmbiguo = new LinkedHashSet<>();
-        for (ReferencedNote referencia : ctx.document().references()) {
+        for (ReferencedNote referencia : referenciasDaExcecao(ctx)) {
             if (referencia.issuedAt() == null) {
                 semData.add(referencia.form());
             } else if (ambiguidadeDeSeculoMudaAExcecao(referencia)) {
@@ -137,6 +147,21 @@ public final class GroupRequiredRule implements RejectionRule {
                     + "a 2026.", finalidade(finNFe), String.join(", ", semData)));
         }
         return null;
+    }
+
+    /**
+     * Une as duas fontes de referência da Exceção 1 (D-038): {@code NFref}, do documento, e
+     * {@code DFeReferenciado}, do item corrente. São grupos independentes desde a NT v1.40 — o
+     * código aceita qualquer um dos dois, nunca migra a leitura de um para dentro do outro.
+     */
+    private List<ReferencedNote> referenciasDaExcecao(RuleContext ctx) {
+        ReferencedNote doItem = ctx.item().dfeReferenciado();
+        if (doItem == null) {
+            return ctx.document().references();
+        }
+        List<ReferencedNote> todas = new ArrayList<>(ctx.document().references());
+        todas.add(doItem);
+        return todas;
     }
 
     /**

@@ -42,8 +42,14 @@ class DocumentRulesTest {
 
     private ItemTaxGroup item(boolean temInvolucro, boolean temGrupoInterno, String cst,
             String cProdANP) {
+        return item(temInvolucro, temGrupoInterno, cst, cProdANP, null);
+    }
+
+    private ItemTaxGroup item(boolean temInvolucro, boolean temGrupoInterno, String cst,
+            String cProdANP, ReferencedNote dfeReferenciado) {
         return new ItemTaxGroup(1, temInvolucro, temGrupoInterno, cst,
-                temInvolucro ? "000001" : null, cProdANP, false, false, false, null, null, null);
+                temInvolucro ? "000001" : null, cProdANP, false, false, false, null, null, null,
+                dfeReferenciado);
     }
 
     private RuleOutcome mil115(FiscalDocument documento, ItemTaxGroup item) {
@@ -228,6 +234,62 @@ class DocumentRulesTest {
                 new ReferencedNote("refNFe", YearMonth.of(2026, 7)),
                 new ReferencedNote("refNFe", YearMonth.of(2025, 11)))), item(false, null)))
                 .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    // ---- 1115, Exceção 1: DFeReferenciado por item (NT v1.40, produção 01/09/2026, D-038) ----
+
+    @Test
+    void returnReferencingA2025NoteViaDFeReferenciadoIsNotApplicable() {
+        // A partir de 01/09/2026 (VC02-14) o referenciamento de devolução migra exclusivamente
+        // para este grupo, no nível do item. Sem lê-lo, uma devolução emitida corretamente —
+        // só com DFeReferenciado, como a norma passa a exigir — viraria falso positivo.
+        var out = mil115(doc("3", VIGENTE, "4", null, List.of()),
+                item(false, false, null, null,
+                        new ReferencedNote("DFeReferenciado", YearMonth.of(2025, 12))));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAplicavel.class);
+        assertThat(((RuleOutcome.NaoAplicavel) out).motivo()).contains("Exceção 1");
+    }
+
+    @Test
+    void returnReferencingA2026NoteViaDFeReferenciadoIsStillRejected() {
+        assertThat(mil115(doc("3", VIGENTE, "4", null, List.of()),
+                item(false, false, null, null,
+                        new ReferencedNote("DFeReferenciado", YearMonth.of(2026, 1)))))
+                .isInstanceOf(RuleOutcome.Rejeitado.class);
+    }
+
+    @Test
+    void dfeReferenciadoWithUndecodableKeyIsNotEvaluatedNeverRejected() {
+        // Chave fora do formato (não 44 dígitos, ou ausente): base incompleta é limitação
+        // nossa, não defeito do emitente — nunca Rejeitado (mesmo padrão de D-028/D-029).
+        var out = mil115(doc("3", VIGENTE, "4", null, List.of()),
+                item(false, false, null, null, new ReferencedNote("DFeReferenciado", null)));
+
+        assertThat(out).isInstanceOf(RuleOutcome.NaoAvaliado.class);
+        assertThat(((RuleOutcome.NaoAvaliado) out).motivo()).contains("DFeReferenciado");
+    }
+
+    @Test
+    void nFrefAndDFeReferenciadoAreBothConsideredNotOneReplacingTheOther() {
+        // NFref continua sendo lido: a VC02-14 só proíbe refNFe na devolução, e este brief só
+        // acrescenta a segunda fonte. Aqui o NFref do documento é recente (não excusa sozinho) e
+        // o DFeReferenciado do item é antigo — a exceção só se aplica se as duas fontes forem
+        // consideradas juntas.
+        assertThat(mil115(doc("3", VIGENTE, "4", null,
+                List.of(new ReferencedNote("refNFe", YearMonth.of(2026, 7)))),
+                item(false, false, null, null,
+                        new ReferencedNote("DFeReferenciado", YearMonth.of(2025, 11)))))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+    }
+
+    @Test
+    void returnWithNeitherNFrefNorDFeReferenciadoFollowsTheNormalCourse() {
+        // Nenhuma das duas fontes presente: a exceção exige uma referência, e sem ela o curso
+        // normal decide — comportamento existente que não pode regredir com a nova fonte.
+        assertThat(mil115(doc("3", VIGENTE, "4", null, List.of()),
+                item(false, false, null, null, null)))
+                .isInstanceOf(RuleOutcome.Rejeitado.class);
     }
 
     // ---- 1115, Exceção 2: combustível monofásico ----
