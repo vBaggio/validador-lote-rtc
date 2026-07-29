@@ -32,6 +32,12 @@ perfil 010e ativo do Portal, baixa ZIP confinado e agenda atualização após a 
 oficial `v.1.02` não era reconhecida e intervalo 24h era só memória; normalização canônica e estado
 persistente corrigem ambos. ZIP com atributo symlink também é rejeitado/testado. Próximo: UI/ACBr.
 
+Task 35 (b6): complete (commit 19649b1, revisão transversal PASS após fix loop) — B6 fechado
+localmente. Verificação final: `clean test` 376/0, `jpackageImage` e `git diff --check` verdes.
+ACHADOS de fechamento: docs de privacidade omitiram consulta automática e a UI offline omitira
+proveniência embarcada; corrigidos. Pesquisa marcou 010e_v1.01 como superada e harness foi
+reconciliado com os commits amendados. Próximo: validação do dono e PR, sem push.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.

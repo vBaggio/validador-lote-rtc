@@ -16,8 +16,9 @@
   revisada** em `068c868`: aquisição Portal segura, ZIP confinado, estado de consulta persistente
   e agendamento pós-boot. **Task 34 concluída** em `16080b3`: diálogo de Fontes externas,
   consulta manual sem duplicação, atualização válida no próximo boot, política ACBr sem fallback
-  automático e tasks Gradle históricas bloqueadas. Próximo: Task 35, revisão/fechamento do bloco. A
-  pesquisa provisória
+  automático e tasks Gradle históricas bloqueadas. **B6 fechado localmente** em `19649b1`: revisão
+  transversal PASS após fix loop, `./gradlew clean test` com 376 testes e `jpackageImage` verdes.
+  Próximo passo: validação do dono e abertura/publicação do PR; não houve push. A pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre
