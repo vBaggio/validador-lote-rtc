@@ -2,7 +2,7 @@
 
 ## O que é
 
-**Validador de Lote RTC** — ferramenta desktop, offline e independente (sem vínculo com
+**Validador de Lote RTC** — ferramenta desktop, local e independente (sem vínculo com
 RFB/SEFAZ) que valida em lote XMLs de NF-e (modelo 55) e NFC-e (modelo 65) contra os
 schemas XSD oficiais da Reforma Tributária do Consumo e agrupa os achados por causa-raiz.
 O exportador CSV permanece no núcleo, mas sua ação está temporariamente suspensa na interface
@@ -14,7 +14,9 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 
 ## Princípios
 
-1. **Nenhum dado sai da máquina por padrão** — sem telemetria, sem rede em runtime no v0.
+1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após o
+   boot, no máximo uma vez a cada 24 horas, o canal B6 pode consultar metadados e artefatos
+   normativos nas fontes oficiais; a validação do lote continua local.
 2. **A ferramenta nunca decide tributo** — julgamento vem de artefato oficial (schemas; na v1, motor `regime-geral`).
 3. **Zero pré-requisitos** — instalador nativo com runtime embarcado.
 4. **Vida útil curta declarada** — simplicidade > extensibilidade.

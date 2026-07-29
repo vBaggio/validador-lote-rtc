@@ -30,10 +30,13 @@ reforça a necessidade de um adaptador com detecção explícita de mudança de 
 
 O [Portal Nacional — Esquemas XML](https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?AspxAutoDetectCookieSupport=1&tipoConteudo=BMPFMBoln3w%3D)
 publica as versões oficiais em uso. Na consulta de 29/07/2026, a página lista, entre outras,
-`010e_v1.01` (NT 2025.002 v1.40, NT 2026.002 e NT 2026.003) e `010d_v1.02` (CNPJ alfanumérico).
+`010e_v1.02` (NT 2025.002 v1.40, NT 2026.002 e NT 2026.003) e `010d_v1.02` (CNPJ alfanumérico).
 São perfis paralelos; não é seguro escolher apenas pelo maior nome, letra ou data. O selecionador
 deve reconhecer a seção "VERSÕES OFICIAIS (em uso)", identificar o perfil compatível e confirmar a
 closure dos roots suportados.
+
+O registro preliminar `010e_v1.01` foi superado durante a conferência da closure e não deve ser
+tratado como a base embarcada: o perfil ativo documentado no B6 é `010e_v1.02`.
 
 A [Receita Federal](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/perguntas-frequentes/sped/dere/dere/7-vigencia-transicao-e-documentacao-de-suporte/7-2-onde-obter-os)
 informa que esquemas e documentação técnica estão disponíveis exclusivamente nos portais oficiais
@@ -146,3 +149,15 @@ release/MSI.
   Portal ainda não confirmou.
 - Retenção: recomendação é manter a base ativa e a anterior, removendo versões antigas apenas após
   limite explícito e nunca durante validação.
+
+## Fechamento B6 (29/07/2026)
+
+A política aprovada foi implementada sem ampliar a confiança do runtime: Portal Nacional é a
+autoridade; ACBr permanece espelho técnico de disponibilidade/inspeção e não é fallback automático
+quando o Portal diverge ou está indisponível. Não há transporte SVN silencioso no aplicativo.
+
+O usuário consulta a proveniência local pela tela **Fontes externas** e pode solicitar uma
+verificação manual. A consulta não carrega dados de lote, não bloqueia a interface e instala
+candidatas apenas para o próximo boot. A Calculadora permanece inventariada para a v1, sem download
+nem execução no v0. As antigas tasks Gradle de atualização direta de resources foram bloqueadas:
+uma alteração embarcada exige staging, validação e revisão humana do diff como manutenção de release.

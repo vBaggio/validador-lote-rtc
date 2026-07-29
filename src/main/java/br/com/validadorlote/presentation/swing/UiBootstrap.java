@@ -1,6 +1,7 @@
 package br.com.validadorlote.presentation.swing;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.presentation.MainPresenter;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.fonts.roboto.FlatRobotoFont;
@@ -21,6 +22,12 @@ public final class UiBootstrap {
 
     /** O callback roda após a janela visível; trabalho de rede deve apenas agendar executor próprio. */
     public static void launch(ValidateBatchUseCase useCase, String schemasVersion, Runnable afterVisible) {
+        launch(useCase, schemasVersion, null, afterVisible);
+    }
+
+    /** O callback roda após a janela visível; trabalho de rede deve apenas agendar executor próprio. */
+    public static void launch(ValidateBatchUseCase useCase, String schemasVersion,
+            ExternalSourcesUseCase externalSources, Runnable afterVisible) {
         SwingUtilities.invokeLater(() -> {
             FlatRobotoFont.install();
             FlatDarkLaf.setup();
@@ -33,7 +40,7 @@ public final class UiBootstrap {
                         Thread thread = new Thread(r, "batch-runner");
                         thread.setDaemon(true);
                         return thread;
-                    }));
+                    }), externalSources);
             MainFrame frame = new MainFrame(presenter, schemasVersion);
             presenter.attach(frame);
             frame.setVisible(true);

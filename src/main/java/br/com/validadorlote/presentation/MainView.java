@@ -1,5 +1,7 @@
 package br.com.validadorlote.presentation;
 
+import br.com.validadorlote.application.ExternalSourceStatus;
+
 import java.nio.file.Path;
 import java.util.List;
 
@@ -12,5 +14,7 @@ public interface MainView {
     void showInvalidFiles(List<Path> files);
 
     void showError(String message);
+
+    void showExternalSources(List<ExternalSourceStatus> sources, boolean checking);
 
 }

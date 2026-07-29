@@ -35,7 +35,8 @@ public final class FiscalTables {
         try (InputStream in = FiscalTables.class.getResourceAsStream("/tables/cst-cclasstrib.json")) {
             if (in == null) {
                 throw new IllegalStateException(
-                        "Tabelas ausentes no classpath — rode ./gradlew updateFiscalTables");
+                        "Tabelas ausentes no classpath — reinstale o aplicativo; para suporte, "
+                                + "a base embarcada só muda por manutenção de release revisada");
             }
             return load(in);
         } catch (IOException e) {

@@ -50,11 +50,18 @@ tasks.register('slowTest', Test) {
     classpath = sourceSets.test.runtimeClasspath
 }
 
-// Baixa o pacote oficial da Calculadora e re-extrai os XSDs para resources.
-// Uso manual quando a RFB atualizar a base. Rede APENAS aqui — nunca no build.
+// Legado deliberadamente bloqueado (B6): a Calculadora não é fonte de schemas NF-e/NFC-e.
+// A manutenção de release usa o Portal Nacional, staging e revisão humana do diff antes de tocar
+// resources. Esta task permanece apenas para falhar com orientação inequívoca em automações antigas.
 tasks.register('updateSchemas') {
-    description = 'Atualiza src/main/resources/schemas a partir do JAR oficial da Calculadora.'
+    description = 'DESATIVADA: não sobrescreve schemas via Calculadora; consulte docs do canal B6.'
     group = 'build setup'
+    doFirst {
+        throw new GradleException(
+                'updateSchemas está desativada: a Calculadora não é autoridade dos schemas NF-e/NFC-e. ' +
+                'Use o canal B6 em runtime ou faça manutenção de release pelo Portal Nacional, em staging, ' +
+                'revise o diff e só então altere src/main/resources.')
+    }
     doLast {
         def endpoint = 'https://piloto-cbs.tributos.gov.br/servico/calculadora-consumo/api/calculadora/download/url?platform=default'
         def downloadUrl = new groovy.json.JsonSlurper().parse(new URL(endpoint)).downloadUrl
@@ -91,11 +98,17 @@ sourceUrl=${downloadUrl}
     }
 }
 
-// Ingestão da tabela oficial CST x cClassTrib publicada pela SVRS. Uso manual quando a base
-// mudar. Rede APENAS aqui — build e CI nunca tocam a rede (mesma política de updateSchemas).
+// Legado deliberadamente bloqueado (B6): a atualização do usuário é o canal runtime transacional.
+// Resources só mudam por manutenção de release, com candidata em staging e revisão explícita do diff.
 tasks.register('updateFiscalTables') {
-    description = 'Atualiza src/main/resources/tables a partir do portal da SVRS.'
+    description = 'DESATIVADA: não sobrescreve tabelas sem staging e revisão de release.'
     group = 'build setup'
+    doFirst {
+        throw new GradleException(
+                'updateFiscalTables está desativada para evitar sobrescrita de resources. A fonte continua a SVRS, ' +
+                'mas use o canal B6 em runtime ou uma manutenção de release com candidata em staging, diff revisado ' +
+                'e atualização manual do manifesto.')
+    }
     doLast {
         def url = 'https://dfe-portal.svrs.rs.gov.br/DFE/TabelaClassificacaoTributaria'
         logger.lifecycle("Baixando ${url} ...")

@@ -4,6 +4,25 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-048 — Atualização externa é consultiva no lote; Portal é autoridade e ACBr não faz fallback automático (29/07/2026)
+
+O rodapé abre a tela discreta **Fontes externas**, que mostra somente metadados locais de schemas,
+tabelas e da Calculadora futura: versão/snapshot ativo, origem, hash abreviado, datas de atualização
+e consulta e resultado recuperável. A ação manual força a mesma rotina de background do boot, mas
+o coordenador aceita somente uma execução por vez. Ela não mostra nem transmite XML, chave, CNPJ
+ou conteúdo da área de trabalho; falha é estado consultável, nunca modal que interrompe o lote.
+
+Uma candidata que passa o canal B6 é instalada para uso no **próximo boot**. O lote atual conserva
+os engines que foram montados no bootstrap, impedindo que documentos de uma mesma sessão recebam
+bases diferentes. O Portal Nacional continua a única autoridade de vigência dos schemas. O ACBr
+serve para disponibilidade e inspeção de espelho, mas divergência/indisponibilidade do Portal não
+autoriza fallback automático, transporte SVN silencioso ou ativação local.
+
+As tasks Gradle históricas de sobrescrever resources ficaram bloqueadas de propósito. Elas não são
+um caminho de atualização do usuário: qualquer nova base embarcada é manutenção de release, feita
+em staging, validada e revisada por diff antes de alterar `src/main/resources`. A Calculadora é
+apenas inventário para a v1 no catálogo; não é baixada, executada nem fonte de schemas no v0.
+
 ## D-047 — Portal Nacional determina vigência; ACBr transporta a closure 010e_v1.02 identificada por hash (29/07/2026)
 
 O Portal Nacional lista `010e_v1.02` (NT 2025.002 v1.40, NT 2026.002/003), publicado em

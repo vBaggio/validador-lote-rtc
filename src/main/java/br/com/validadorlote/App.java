@@ -1,6 +1,7 @@
 package br.com.validadorlote;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.domain.RootCauseGrouper;
 import br.com.validadorlote.infrastructure.csv.CsvExporter;
 import br.com.validadorlote.infrastructure.fs.FolderScanner;
@@ -46,7 +47,10 @@ public final class App {
                 new TaxGroupExtractor(), schemaEngine,
                 new RuleEngine(fiscalTables(tableStore)),
                 new RootCauseGrouper(), translator, new CsvExporter(), schemasVersion);
-        UiBootstrap.launch(useCase, schemasVersion, updateCoordinator(schemaStore, tableStore)::checkAfterBoot);
+        var updateState = ArtifactUpdateStateStore.forCurrentUser();
+        var coordinator = updateCoordinator(schemaStore, tableStore, updateState);
+        var externalSources = new ExternalSourcesUseCase(coordinator, schemaStore, tableStore, updateState);
+        UiBootstrap.launch(useCase, schemasVersion, externalSources, coordinator::checkAfterBoot);
     }
 
     /** Seleciona a base local já verificada, sem comprometer o boot offline. */
@@ -62,7 +66,7 @@ public final class App {
     }
 
     private static ArtifactUpdateCoordinator updateCoordinator(SchemaArtifactStore schemaStore,
-            FiscalTableArtifactStore tableStore) {
+            FiscalTableArtifactStore tableStore, ArtifactUpdateStateStore updateState) {
         var schemas = new PortalSchemaUpdater(SafeHttpsClient.forNationalPortal(),
                 new PortalSchemaCatalogParser(), new SchemaZipExtractor(), schemaStore);
         var tables = new SvrsTableUpdater(SafeHttpsClient.forSvrs(), new SvrsTableExtractor(),
@@ -75,7 +79,7 @@ public final class App {
         return new ArtifactUpdateCoordinator(List.of(action(ArtifactId.NFE_SCHEMAS, schemas::updateIfNew),
                 action(ArtifactId.FISCAL_TABLES, tables::updateIfNew)),
                 ArtifactUpdateCoordinator.DEFAULT_INTERVAL, Clock.systemUTC(), executor, event -> { },
-                ArtifactUpdateStateStore.forCurrentUser());
+                updateState);
     }
 
     private static ArtifactUpdateAction action(ArtifactId artifact, java.util.function.BooleanSupplier update) {

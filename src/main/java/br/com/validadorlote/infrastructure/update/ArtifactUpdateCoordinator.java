@@ -7,6 +7,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /** Coordena consultas fora da EDT e deixa bases já montadas intactas até o próximo boot. */
@@ -19,6 +21,9 @@ public final class ArtifactUpdateCoordinator {
     private final Executor background;
     private final Consumer<ArtifactUpdateEvent> events;
     private final ArtifactUpdateStateStore state;
+    private final List<Consumer<ArtifactUpdateEvent>> listeners = new CopyOnWriteArrayList<>();
+    private final List<Runnable> completionListeners = new CopyOnWriteArrayList<>();
+    private final AtomicBoolean running = new AtomicBoolean();
 
     public ArtifactUpdateCoordinator(List<ArtifactUpdateAction> actions, Duration interval, Clock clock,
             Executor background, Consumer<ArtifactUpdateEvent> events, ArtifactUpdateStateStore state) {
@@ -33,18 +38,47 @@ public final class ArtifactUpdateCoordinator {
 
     /** Só agenda: a chamada é segura imediatamente após a janela Swing tornar-se visível. */
     public void checkAfterBoot() {
-        background.execute(this::runDue);
+        schedule(false);
     }
 
-    /** Público para o futuro botão "verificar agora"; nunca executa aquisição na thread chamadora. */
-    public void checkNow() {
-        background.execute(this::runDue);
+    /**
+     * Agenda uma nova consulta sem esperar o intervalo normal. Retorna falso se outra consulta já
+     * está em curso; assim uma ação repetida da interface não duplica downloads.
+     */
+    public boolean checkNow() {
+        return schedule(true);
     }
 
-    private void runDue() {
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    /** Adiciona um observador operacional; o evento não carrega dados de lote. */
+    public void addListener(Consumer<ArtifactUpdateEvent> listener) {
+        listeners.add(listener);
+    }
+
+    public void addCompletionListener(Runnable listener) {
+        completionListeners.add(listener);
+    }
+
+    private boolean schedule(boolean force) {
+        if (!running.compareAndSet(false, true)) return false;
+        background.execute(() -> {
+            try {
+                runDue(force);
+            } finally {
+                running.set(false);
+                completionListeners.forEach(Runnable::run);
+            }
+        });
+        return true;
+    }
+
+    private void runDue(boolean force) {
         for (ArtifactUpdateAction action : actions) {
             Instant now = clock.instant();
-            if (!isDue(action.artifact(), now)) continue;
+            if (!force && !isDue(action.artifact(), now)) continue;
             publish(action.artifact(), ArtifactUpdateEvent.Status.STARTED, now, null);
             try {
                 boolean updated = action.updateIfNew();
@@ -65,13 +99,18 @@ public final class ArtifactUpdateCoordinator {
 
     private void publish(ArtifactId artifact, ArtifactUpdateEvent.Status status, Instant at,
             String detail) {
-        events.accept(new ArtifactUpdateEvent(artifact, status, at, detail));
+        notify(new ArtifactUpdateEvent(artifact, status, at, detail));
     }
 
     private void publishAndPersist(ArtifactId artifact, ArtifactUpdateEvent.Status status, Instant at,
             String detail) {
         ArtifactUpdateEvent event = new ArtifactUpdateEvent(artifact, status, at, detail);
         state.write(event);
+        notify(event);
+    }
+
+    private void notify(ArtifactUpdateEvent event) {
         events.accept(event);
+        listeners.forEach(listener -> listener.accept(event));
     }
 }

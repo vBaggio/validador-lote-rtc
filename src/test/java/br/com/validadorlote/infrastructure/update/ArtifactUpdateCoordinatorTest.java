@@ -22,7 +22,7 @@ class ArtifactUpdateCoordinatorTest {
     @TempDir Path temp;
 
     @Test
-    void runsAfterBootOutsideTheCallerThreadPublishesNeutralEventsAndRespectsInterval() throws Exception {
+    void runsAfterBootOutsideTheCallerThreadAndManualCheckForcesANewConsultation() throws Exception {
         List<ArtifactUpdateEvent> events = new ArrayList<>();
         AtomicInteger calls = new AtomicInteger();
         AtomicReference<String> worker = new AtomicReference<>();
@@ -45,13 +45,15 @@ class ArtifactUpdateCoordinatorTest {
 
             coordinator.checkAfterBoot();
             assertThat(completed.await(2, TimeUnit.SECONDS)).isTrue();
+            executor.submit(() -> { }).get(2, TimeUnit.SECONDS);
             coordinator.checkNow();
             executor.submit(() -> { }).get(2, TimeUnit.SECONDS);
 
             assertThat(worker.get()).isEqualTo("artifact-test");
-            assertThat(calls).hasValue(1);
+            assertThat(calls).hasValue(2);
             assertThat(events).extracting(ArtifactUpdateEvent::status)
-                    .containsExactly(ArtifactUpdateEvent.Status.STARTED, ArtifactUpdateEvent.Status.UPDATED);
+                    .containsExactly(ArtifactUpdateEvent.Status.STARTED, ArtifactUpdateEvent.Status.UPDATED,
+                            ArtifactUpdateEvent.Status.STARTED, ArtifactUpdateEvent.Status.UPDATED);
         } finally {
             executor.shutdownNow();
         }
@@ -92,7 +94,7 @@ class ArtifactUpdateCoordinatorTest {
         List<ArtifactUpdateEvent> beforeLimit = new ArrayList<>();
         var restartedBeforeLimit = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),
                 Clock.fixed(start.plusSeconds(60), ZoneOffset.UTC), Runnable::run, beforeLimit::add, state);
-        restartedBeforeLimit.checkNow();
+        restartedBeforeLimit.checkAfterBoot();
         assertThat(calls).hasValue(1);
         assertThat(beforeLimit).isEmpty();
 
@@ -100,12 +102,32 @@ class ArtifactUpdateCoordinatorTest {
         var restartedAfterLimit = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),
                 Clock.fixed(start.plus(java.time.Duration.ofHours(24)), ZoneOffset.UTC), Runnable::run,
                 afterLimit::add, state);
-        restartedAfterLimit.checkNow();
+        restartedAfterLimit.checkAfterBoot();
 
         assertThat(calls).hasValue(2);
         assertThat(afterLimit).extracting(ArtifactUpdateEvent::status)
                 .containsExactly(ArtifactUpdateEvent.Status.STARTED, ArtifactUpdateEvent.Status.UNCHANGED);
         assertThat(state.read(ArtifactId.NFE_SCHEMAS).result())
                 .isEqualTo(ArtifactUpdateEvent.Status.UNCHANGED);
+    }
+
+    @Test
+    void rejectsRepeatedManualCheckWhileTheFirstOneIsQueued() {
+        AtomicInteger calls = new AtomicInteger();
+        List<Runnable> queued = new ArrayList<>();
+        ArtifactUpdateAction action = new ArtifactUpdateAction() {
+            @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
+            @Override public boolean updateIfNew() { calls.incrementAndGet(); return false; }
+        };
+        var coordinator = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),
+                Clock.systemUTC(), queued::add, event -> { }, new ArtifactUpdateStateStore(temp));
+
+        assertThat(coordinator.checkNow()).isTrue();
+        assertThat(coordinator.checkNow()).isFalse();
+        assertThat(queued).hasSize(1);
+        queued.getFirst().run();
+
+        assertThat(calls).hasValue(1);
+        assertThat(coordinator.isRunning()).isFalse();
     }
 }

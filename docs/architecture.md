@@ -57,3 +57,10 @@ Bases atualizadas ficam em `~/.validador-lote-rtc/artifacts/`, nunca junto da in
 referência local só é usada após hash/estrutura/compilação; falha abre com a base embarcada. Esse
 controle detecta corrupção operacional, mas não autentica alterações feitas por outro processo sob
 a mesma conta — ver D-046.
+
+O coordenador consulta schemas e tabelas fora da EDT, uma vez após o boot e depois no intervalo
+operacional. `ExternalSourcesUseCase` só expõe manifestos e estado local ao presenter; não recebe
+XMLs, chaves ou CNPJ. A tela **Fontes externas** pode forçar uma consulta, mas o gate do
+coordenador recusa duplicação enquanto há uma em curso. Candidatas instaladas permanecem para o
+próximo boot: os engines do lote são montados uma vez no bootstrap e nunca trocados em memória.
+O catálogo também inventaria a Calculadora para v1, sem download/execução no v0.

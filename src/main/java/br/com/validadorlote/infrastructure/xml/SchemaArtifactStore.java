@@ -71,6 +71,17 @@ public final class SchemaArtifactStore {
         }
     }
 
+    /** Manifesto da base local íntegra, para auditoria de apresentação sem expor o payload. */
+    public ArtifactManifest activeManifestOrNull() {
+        Path active = activePathOrNull();
+        if (active == null) return null;
+        try {
+            return readManifest(active);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     private Path activePathOrNull() {
         try {
             Path current = root.resolve("current");

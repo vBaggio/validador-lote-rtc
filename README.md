@@ -10,8 +10,10 @@ quanto à estrutura exigida para os grupos IBS/CBS da Reforma Tributária do Con
 ## Privacidade
 
 A análise acontece localmente, no computador em que o aplicativo está aberto. Não há cadastro,
-telemetria, envio de XMLs ou consulta à internet durante o uso normal. Os documentos permanecem
-na sua máquina.
+telemetria ou envio de XMLs. Após o boot, e no máximo uma vez a cada 24 horas, o aplicativo pode
+consultar metadados e artefatos normativos nas fontes oficiais; **Fontes externas** também permite
+pedir essa verificação manualmente. A rotina nunca envia documentos, chaves, CNPJ ou conteúdo do
+lote. Os documentos permanecem na sua máquina.
 
 ## O que o aplicativo faz
 
@@ -21,8 +23,10 @@ na sua máquina.
 - Reúne os problemas do documento selecionado em uma grade de detalhe.
 - Permite manter apenas os documentos que ainda precisam de atenção com **Remover válidos**.
 
-Os XMLs são verificados contra os schemas XSD oficiais embarcados para NF-e/NFC-e. A base de
-schemas usada aparece discretamente no rodapé da aplicação.
+Os XMLs são verificados contra os schemas XSD oficiais embarcados para NF-e/NFC-e. O rodapé abre
+**Fontes externas**, onde é possível conferir origem, versão/snapshot, hash abreviado, últimas
+atualização e verificação, além de solicitar uma nova consulta sem interromper o lote. Uma base
+obtida nessa consulta só é usada no próximo boot, para que o lote atual não misture versões.
 
 ## O que o aplicativo não faz
 
@@ -88,9 +92,14 @@ no Windows, o resultado é um instalador MSI. Os artefatos são criados em `buil
 
 O Portal Nacional da NF-e é a autoridade da base vigente. A base atualmente embarcada é o perfil
 `010e_v1.02`; seu payload foi transportado do espelho ACBr SVN r47146 e identificado por hashes
-registrados no aplicativo. O canal B6 conserva a proveniência e só ativa atualização após validação
-local. A antiga task `updateSchemas` da Calculadora não atualiza a base vigente e não deve ser usada
-para esse fim.
+registrados no aplicativo. O ACBr é somente espelho técnico para inspeção/disponibilidade: não há
+fallback automático quando diverge ou quando o Portal está indisponível. O canal B6 conserva a
+proveniência e só ativa atualização após validação local, no boot seguinte.
+
+As tasks Gradle históricas `updateSchemas` e `updateFiscalTables` estão intencionalmente bloqueadas:
+elas não são a atualização do usuário final e não podem sobrescrever `src/main/resources`. Uma
+alteração de base embarcada é manutenção de release: obter candidata do Portal/SVRS em staging,
+validar, revisar o diff e atualizar manifesto/proveniência no mesmo change.
 
 Os detalhes de arquitetura, decisões e proveniência dos artefatos estão em
 [`docs/`](./docs/). Para a estrutura do projeto, consulte também

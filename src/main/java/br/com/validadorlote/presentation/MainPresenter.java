@@ -2,6 +2,7 @@ package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.CancellationToken;
 import br.com.validadorlote.application.DocumentValidationResult;
+import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.application.ImportedBatch;
 import br.com.validadorlote.application.ValidateBatchUseCase;
 
@@ -17,6 +18,7 @@ public final class MainPresenter {
     private final ValidateBatchUseCase useCase;
     private final UiThread uiThread;
     private final Executor background;
+    private final ExternalSourcesUseCase externalSources;
     private final Object workspaceLock = new Object();
     private final List<WorkspaceDocument> workspace = new ArrayList<>();
 
@@ -28,15 +30,25 @@ public final class MainPresenter {
     private long workspaceGeneration;
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
+        this(useCase, uiThread, background, null);
+    }
+
+    public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background,
+            ExternalSourcesUseCase externalSources) {
         this.useCase = Objects.requireNonNull(useCase);
         this.uiThread = Objects.requireNonNull(uiThread);
         this.background = Objects.requireNonNull(background);
+        this.externalSources = externalSources;
     }
 
     /** Liga a view e a coloca no estado inicial. */
     public void attach(MainView view) {
         this.view = Objects.requireNonNull(view);
         view.showIdle();
+        if (externalSources != null) {
+            externalSources.observe(event -> uiThread.execute(this::publishExternalSources));
+            externalSources.observeCompletion(() -> uiThread.execute(this::publishExternalSources));
+        }
     }
 
     /** Importa metadados seguros para a grade, sem executar validação fiscal ou schema. */
@@ -107,6 +119,18 @@ public final class MainPresenter {
     /** Mantém a ação existente como atalho semântico para limpar o lote. */
     public void newAnalysisRequested() {
         clearRequested();
+    }
+
+    /** Abre/atualiza a visão consultiva de fontes, sem afetar a área de trabalho atual. */
+    public void externalSourcesRequested() {
+        if (externalSources != null) publishExternalSources();
+    }
+
+    /** Ação manual não bloqueante; se já houver consulta, a view conserva o progresso em curso. */
+    public void checkExternalSourcesRequested() {
+        if (externalSources == null) return;
+        externalSources.checkNow();
+        publishExternalSources();
     }
 
     private void importInput(Path input, long generation) {
@@ -214,6 +238,12 @@ public final class MainPresenter {
             snapshot = List.copyOf(workspace);
         }
         requireView().showWorkspace(snapshot, validating, processed, total);
+    }
+
+    private void publishExternalSources() {
+        if (view != null && externalSources != null) {
+            requireView().showExternalSources(externalSources.status(), externalSources.isChecking());
+        }
     }
 
     private MainView requireView() {

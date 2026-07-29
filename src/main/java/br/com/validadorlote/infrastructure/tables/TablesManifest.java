@@ -14,10 +14,13 @@ public final class TablesManifest {
 
     private final Properties props = new Properties();
 
-    TablesManifest() {
+    /** Proveniência da base embarcada, para bootstrap e transparência local. */
+    public TablesManifest() {
         try (InputStream in = TablesManifest.class.getResourceAsStream("/tables/manifest.properties")) {
             if (in == null) {
-                throw new IllegalStateException("manifest.properties ausente — rode ./gradlew updateFiscalTables");
+                throw new IllegalStateException(
+                        "Manifesto de tabelas ausente — reinstale o aplicativo; para suporte, "
+                                + "a base embarcada só muda por manutenção de release revisada");
             }
             props.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         } catch (IOException e) {
@@ -30,6 +33,11 @@ public final class TablesManifest {
     public LocalDate extractedAt() {
         String v = props.getProperty("tables.extractedAt");
         return v == null ? null : LocalDate.parse(v);
+    }
+
+    public LocalDate lastCheckedAt() {
+        String value = props.getProperty("tables.lastCheckedAt");
+        return value == null ? null : LocalDate.parse(value);
     }
 
     public String reference() { return props.getProperty("tables.reference"); }

@@ -670,3 +670,16 @@ Task 28 (b5): complete — autorização do dono recebida; branch publicada, PR 
 check `build` verde e mergeado em `main` no commit `96f501f`. `main` local foi sincronizado com
 `origin/main`. Task 29 permanece o único gate: tag/release pública e smoke de MSI em Windows real;
 não iniciada sem confirmação explícita para publicar a versão.
+
+Task 34 (b6): complete (commit `f4027fd`, revisão pendente da Task 35) — 375 testes.
+  ENTREGUE: rodapé abre diálogo não modal **Fontes externas**, com estado por artefato, origem,
+  versão/snapshot, hash abreviado, atualização, consulta e aviso recuperável. “Verificar agora”
+  usa o mesmo coordenador em background, força uma consulta mas é protegido por gate atômico:
+  cliques repetidos durante a execução não geram download duplicado. Os engines usados pelo lote
+  não mudam em memória; candidata instalada só vale no próximo boot. D-048 fixa Portal como
+  autoridade e ACBr somente como espelho de inspeção/disponibilidade, sem fallback automático ou
+  SVN silencioso. `updateSchemas`/`updateFiscalTables` foram bloqueadas antes de rede/escrita;
+  base embarcada só muda por manutenção de release em staging e diff revisado.
+  Sonda de mutação: removido o gate `compareAndSet`; o teste de clique duplicado caiu sozinho;
+  restauração e `./gradlew clean test --console=plain` (375) verdes. DÉBITO: retenção/poda de
+  versões e telemetria local de espelho ACBr permanecem fora do escopo, sem autorizar ativação.

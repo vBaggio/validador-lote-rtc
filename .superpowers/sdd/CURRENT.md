@@ -9,12 +9,14 @@
   em `974817d`: catálogo local de artefatos e
   `SchemaArtifactStore` transacional, carregamento de filesystem confinado e fallback embarcado.
   D-046 limita hash local a integridade operacional, não autenticidade contra escrita da mesma
-  conta. **Task 31 concluída e revisada** em `0edce89`: closure mínima atualizada para 010e_v1.02,
+  conta. **Task 31 concluída e revisada** em `ebfb4ae`: closure mínima atualizada para 010e_v1.02,
   Portal Nacional como autoridade, ACBr r47146 como transporte identificado e hash canônico da
-  closure. **Task 32 concluída e revisada** em `c8047b6`: atualização SVRS com HTTPS restrito,
+  closure. **Task 32 concluída e revisada** em `1d0a12c`: atualização SVRS com HTTPS restrito,
   staging/rollback, continuidade de identidades e fallback embarcado. **Task 33 concluída e
-  revisada** em `7f731fe`: aquisição Portal segura, ZIP confinado, estado de consulta persistente
-  e agendamento pós-boot. Próximo: Task 34, status do usuário, política ACBr e manutenção. A
+  revisada** em `068c868`: aquisição Portal segura, ZIP confinado, estado de consulta persistente
+  e agendamento pós-boot. **Task 34 concluída** em `f4027fd`: diálogo de Fontes externas,
+  consulta manual sem duplicação, atualização válida no próximo boot, política ACBr sem fallback
+  automático e tasks Gradle históricas bloqueadas. Próximo: Task 35, revisão/fechamento do bloco. A
   pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das

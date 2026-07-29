@@ -1,6 +1,8 @@
 package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.ExternalSourcesUseCase;
+import br.com.validadorlote.application.ExternalSourceStatus;
 import br.com.validadorlote.domain.RootCauseGrouper;
 import br.com.validadorlote.infrastructure.csv.CsvExporter;
 import br.com.validadorlote.infrastructure.fs.FolderScanner;
@@ -10,6 +12,12 @@ import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor;
 import br.com.validadorlote.infrastructure.xml.XmlMetadataParser;
 import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
+import br.com.validadorlote.infrastructure.xml.ArtifactId;
+import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
+import br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -50,6 +58,11 @@ class MainPresenterTest {
         @Override
         public void showError(String message) {
             calls.add("error: " + message);
+        }
+
+        @Override
+        public void showExternalSources(List<ExternalSourceStatus> sources, boolean checking) {
+            calls.add("sources " + sources.size() + " " + checking);
         }
 
     };
@@ -152,6 +165,27 @@ class MainPresenterTest {
 
         assertThat(lastWorkspace).hasSize(1);
         assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
+    }
+
+    @Test
+    void externalSourcesAreShownAndManualCheckReportsProgressWithoutAnErrorModal(@TempDir Path dir) {
+        ArtifactUpdateAction action = new ArtifactUpdateAction() {
+            @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
+            @Override public boolean updateIfNew() { return false; }
+        };
+        var state = new ArtifactUpdateStateStore(dir);
+        var coordinator = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),
+                java.time.Clock.systemUTC(), Runnable::run, event -> { }, state);
+        var sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(dir),
+                new FiscalTableArtifactStore(dir), state);
+        var sourcePresenter = new MainPresenter(useCase(), Runnable::run, Runnable::run, sources);
+        sourcePresenter.attach(fakeView);
+
+        sourcePresenter.externalSourcesRequested();
+        sourcePresenter.checkExternalSourcesRequested();
+
+        assertThat(calls).contains("sources 3 false", "sources 3 true");
+        assertThat(calls).noneMatch(call -> call.startsWith("error:"));
     }
 
     private static ValidateBatchUseCase useCase() {
