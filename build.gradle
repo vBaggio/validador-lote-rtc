@@ -97,7 +97,7 @@ tasks.register('updateFiscalTables') {
     description = 'Atualiza src/main/resources/tables a partir do portal da SVRS.'
     group = 'build setup'
     doLast {
-        def url = 'https://dfe-portal.svrs.rs.gov.br/DFE/ClassificacaoTributaria'
+        def url = 'https://dfe-portal.svrs.rs.gov.br/DFE/TabelaClassificacaoTributaria'
         logger.lifecycle("Baixando ${url} ...")
         def html = new URL(url).getText('UTF-8')
 
@@ -193,7 +193,7 @@ tasks.register('updateFiscalTables') {
                 nome             : cst.NomeCst,
                 exigeGrupo       : cst.IndExigeTrib,
                 exigeReducao     : cst.IndReducaoAliq,
-                permiteDiferimento: cst.IndDiferimento,
+                exigeDiferimento : cst.IndDiferimento,
                 iniVig           : cst.DthIniVig,
                 fimVig           : cst.DthFimVig,
                 classificacoes   : (cst.ClassificacoesTributarias ?: []).collect { ct ->
@@ -287,6 +287,7 @@ tasks.register('updateFiscalTables') {
 # Atualize com: ./gradlew updateSchemas updateFiscalTables
 tables.source=${url}
 tables.extractedAt=${new Date().format('yyyy-MM-dd')}
+tables.lastCheckedAt=${new Date().format('yyyy-MM-dd')}
 tables.reference=Informe Técnico 2025.002
 tables.referenceVersion=${old.getProperty('tables.referenceVersion', 'ATUALIZAR-MANUALMENTE')}
 tables.referencePublishedAt=${old.getProperty('tables.referencePublishedAt', 'ATUALIZAR-MANUALMENTE')}

@@ -132,7 +132,7 @@ class FiscalTablesTest {
     @Test
     void provenanceNamesSourceAndDate() {
         assertThat(tables.provenance())
-                .contains("https://dfe-portal.svrs.rs.gov.br/DFE/ClassificacaoTributaria")
+                .contains("https://dfe-portal.svrs.rs.gov.br/DFE/TabelaClassificacaoTributaria")
                 .contains("extraídas em 2026-07-27");
     }
 

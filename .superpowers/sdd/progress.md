@@ -21,6 +21,12 @@ testado contra os bytes embarcados. ACHADO: README ainda apontava a Calculadora 
 identificava a closure completa; ambos corrigidos. DÉBITO/Task 32: tabelas SVRS cuja URL antiga já
 retorna 404 precisam do mesmo armazenamento transacional.
 
+Task 32 (b6): complete (commit c8047b6, revisão independente PASS após fix loop) — normaliza a
+página atual SVRS, atualiza tabelas em staging via HTTPS allowlist/limites e carrega a última tabela
+íntegra com fallback. ACHADO: cobertura por cardinalidade aceitava troca de códigos; corrigida para
+interseção >=80% de CST e cClassTrib, com mutação. Manifesto/Gradle apontam para a rota vigente e
+separam última consulta de extração. Próximo: rotina de atualização e UI.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.

@@ -5,6 +5,7 @@ import br.com.validadorlote.domain.RootCauseGrouper;
 import br.com.validadorlote.infrastructure.csv.CsvExporter;
 import br.com.validadorlote.infrastructure.fs.FolderScanner;
 import br.com.validadorlote.infrastructure.rules.RuleEngine;
+import br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
 import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
@@ -27,8 +28,8 @@ public final class App {
         var schemaEngine = schemaEngine(translator, SchemaArtifactStore.forCurrentUser());
         var useCase = new ValidateBatchUseCase(new FolderScanner(), new XmlMetadataParser(),
                 new TaxGroupExtractor(), schemaEngine,
-                new RuleEngine(FiscalTables.load()), new RootCauseGrouper(), translator,
-                new CsvExporter(), schemasVersion);
+                new RuleEngine(fiscalTables(FiscalTableArtifactStore.forCurrentUser())),
+                new RootCauseGrouper(), translator, new CsvExporter(), schemasVersion);
         UiBootstrap.launch(useCase, schemasVersion);
     }
 
@@ -36,5 +37,11 @@ public final class App {
     public static SchemaValidatorEngine schemaEngine(XsdErrorTranslator translator, SchemaArtifactStore store) {
         SchemaValidatorEngine local = store.activeEngineOrNull(translator);
         return local == null ? new SchemaValidatorEngine(translator) : local;
+    }
+
+    /** Uma tabela local corrompida nunca impede o boot nem substitui a versão embarcada. */
+    public static FiscalTables fiscalTables(FiscalTableArtifactStore store) {
+        FiscalTables local = store.activeOrNull();
+        return local == null ? FiscalTables.load() : local;
     }
 }

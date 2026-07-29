@@ -13,6 +13,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Consulta às tabelas oficiais embarcadas. Toda busca é por código <b>e data do fato gerador</b>:
@@ -174,5 +175,22 @@ public final class FiscalTables {
 
     public String provenance() {
         return manifest.describe();
+    }
+
+    /** Contagens estruturais expostas para o diagnóstico de uma base instalada. */
+    public int cstCount() {
+        return csts.size();
+    }
+
+    public int classTribCount() {
+        return classificacoes.size();
+    }
+
+    Set<String> cstCodes() {
+        return Set.copyOf(csts.keySet());
+    }
+
+    Set<String> classTribCodes() {
+        return Set.copyOf(classificacoes.keySet());
     }
 }
