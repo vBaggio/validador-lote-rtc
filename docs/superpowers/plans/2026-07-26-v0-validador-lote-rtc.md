@@ -618,6 +618,14 @@ git checkout main && git pull
 
 ## Bloco B4 — Interface Swing (branch `bloco/4-ui`)
 
+**✅ Encerrado em 29/07/2026, com adendo de produto D-045.** As Tasks 21–23 foram entregues e
+revisadas; a validação visual do dono levou a uma revisão deliberada do fluxo, incorporada antes do
+merge local. Onde este plano descrever validação imediata, visão primária por causa, toggle
+pré-emissão ou exportação na tela, prevalece D-045: o usuário compõe o lote antes de validar, a
+grade principal é de documentos e CSV fica temporariamente sem ação de UI. Detalhes e evidência no
+ledger. O ícone SVG de runtime também cria requisito para a Task 25: fornecer ícone nativo ao
+`jpackage`, sobretudo `.ico` no Windows.
+
 Antes da primeira task: `git checkout main && git pull && git checkout -b bloco/4-ui`
 
 ### Task 21: MainPresenter + contratos de view (MVP)
@@ -1394,7 +1402,10 @@ Em `MainFrame.java`: remova o campo `resultsPlaceholder` e o import de `JLabel`;
 - [ ] **Step 4: Compilar, testar e verificar manualmente**
 
 Run: `./gradlew test --console=plain` — Expected: verde.
-Manual (sessão gráfica): `./gradlew run` → analisar uma pasta com `nfe-minima-invalida.xml` copiado 3× → causas agrupadas com contadores; selecionar causa mostra achados; toggle re-renderiza; exportar grava 2 CSVs que abrem no LibreOffice/Excel com acentos corretos.
+Manual (sessão gráfica, substituído por D-045): importar uma pasta ou XMLs individuais; conferir os
+metadados do lote; validar pendentes; observar status e progresso por linha; interromper e retomar
+somente os pendentes; selecionar documento para ver seus problemas; remover os válidos. Arquivos
+ilegíveis devem ser recusados em diálogo. CSV não faz parte do fluxo visual atual.
 
 - [ ] **Step 5: Commit**
 
@@ -1404,6 +1415,10 @@ git commit -m "feat(b4): ResultsPanel mestre-detalhe com toggle pré-emissão e 
 ```
 
 ### Task 24: Fechamento do Bloco 4 (PR + merge)
+
+**✅ Encerrada localmente em 29/07/2026.** A suíte, o lint de diff e o smoke de inicialização foram
+reexecutados após D-045. A validação visual do dono foi a fonte dos ajustes. O merge local preserva
+o histórico da branch; push/PR remoto continua uma ação separada, quando o dono quiser publicar.
 
 - [ ] **Step 1: Suíte completa**
 
@@ -1415,8 +1430,8 @@ Run: `./gradlew test --console=plain` — Expected: verde.
 git push -u origin bloco/4-ui
 gh pr create --title "B4: interface Swing (MVP) — drop, progresso, resultados, export" --body "$(cat <<'EOF'
 Bloco 4: MainPresenter com testes (view fake, executores síncronos), shell Swing
-FlatLaf (drop de pasta, progresso cancelável) e ResultsPanel mestre-detalhe com
-toggle pré-emissão e exportação CSV. Swing confinado a presentation/ (ArchUnit).
+FlatDarkLaf/Roboto, lote importado antes da validação, progresso cancelável no grid e detalhe por
+documento. CSV está temporariamente fora da UI (D-045). Swing confinado a presentation/ (ArchUnit).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
@@ -1440,6 +1455,14 @@ git checkout main && git pull
 Antes da primeira task: `git checkout main && git pull && git checkout -b bloco/5-release`
 
 ### Task 25: Tasks Gradle de jpackage (runtime jlink enxuto)
+
+**ADENDO D-045:** além das tasks descritas, preparar o ícone nativo do instalador e passá-lo ao
+`jpackage` por `--icon` (no Windows, `.ico`). O SVG em `resources/images/` atende a janela Swing,
+mas não é contrato suficiente para o shell/atalho do sistema operacional.
+
+**✅ Entregue** (commit `983ed90`, revisão independente PASS após fix loop). Além do app-image e
+runtime Java 21 verificados, há ícones `.ico`/`.png`/`.icns`; Linux seleciona RPM ou DEB conforme
+o ambiente e declara ferramentas ausentes antes de invocar `jpackage`.
 
 **Files:**
 - Modify: `build.gradle` (adicionar ao final)
@@ -1506,6 +1529,10 @@ git commit -m "build(b5): tasks jpackage com runtime jlink enxuto (msi/deb/dmg)"
 ```
 
 ### Task 26: Workflow de release (matrix com Windows-gate)
+
+**✅ Entregue** (commit `d45ed3a`, revisão independente PASS). O workflow de tag `v*` tem Windows
+como gate MSI, Linux/DEB e macOS/DMG best-effort após ele; Ubuntu verifica os pré-requisitos DEB
+introduzidos pela Task 25. A primeira execução real continua dependente de tag no GitHub.
 
 **Files:**
 - Create: `.github/workflows/release.yml`
@@ -1588,6 +1615,10 @@ git commit -m "build(b5): workflow de release com matrix e Windows como gate"
 
 ### Task 27: README definitivo
 
+**✅ Entregue** (commit `8e06e66`, revisão independente PASS). O README atual reflete D-045 e o
+estado de publicação real: importa antes de validar, não promete CSV na UI nem release já criada,
+e mantém instruções condicionais para o MSI/workflow.
+
 **Files:**
 - Modify: `README.md` (substituição completa)
 
@@ -1616,7 +1647,8 @@ documento por vez — e param no primeiro erro.
 - **Agrupa por causa-raiz**: "38 documentos com alíquota pCBS em formato inválido" em
   vez de 38 linhas soltas
 - Traduz o erro técnico para português claro, com ação sugerida
-- Exporta **CSV** que abre direto no Excel
+- A exportação CSV existe no núcleo, mas está temporariamente indisponível na interface; não
+  prometê-la como fluxo do usuário até uma task explícita de reativação (D-045)
 - Trata XML **pré-emissão** (sem assinatura) sem afogar você em falsos erros
 
 ## O que ela NÃO faz
@@ -1641,10 +1673,10 @@ Linux (`.deb`) e macOS (`.dmg`) são publicados como best-effort na mesma págin
 
 ## Como usar
 
-1. Coloque os XMLs (NF-e modelo 55 e/ou NFC-e modelo 65) numa pasta
-2. Arraste a pasta para a janela do validador
-3. Leia as causas agrupadas (clique numa causa para ver os arquivos afetados)
-4. Exporte o CSV e corrija no seu emissor, começando pela causa que afeta mais documentos
+1. Arraste uma pasta ou XMLs individuais para a janela do validador
+2. Revise a grade de documentos e clique em **Validar pendentes**
+3. Selecione um documento para ler seus problemas; remova os válidos para focar no que exige ação
+4. Corrija no emissor a partir das mensagens apresentadas
 
 ## Base de schemas
 
@@ -1685,6 +1717,9 @@ git commit -m "docs(b5): README definitivo com instalação, SmartScreen e priva
 ```
 
 ### Task 28: Fechamento do Bloco 5 (PR + merge)
+
+**Pendente de autorização externa.** Código/documentação das Tasks 25–27 passaram nas revisões;
+esta task altera o remoto (push, PR e merge) e não é inferida da conclusão local.
 
 - [ ] **Step 1: Push e PR**
 

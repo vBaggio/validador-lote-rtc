@@ -3,23 +3,24 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
-- **Bloco:** B3 — Caso de uso e CSV — **FECHADO**. PR #6 mergeado em `main` (merge commit
-  `37f1215`), branch `bloco/3-usecase-csv` deletada (local e remota).
-- **HEAD:** `37f1215` na `main`. Árvore limpa, suíte verde (`./gradlew clean test --console=plain`,
-  332 testes, 0 falhas).
-- **Próximo bloco pendente: B4 — Interface Swing**
-  (`docs/superpowers/plans/2026-07-26-v0-validador-lote-rtc.md`, branch `bloco/4-ui`, Tasks 21-24:
-  MainPresenter + contratos de view, shell Swing/FlatLaf, ResultsPanel mestre-detalhe, fechamento).
-  Ainda não iniciado — nenhuma branch criada.
-- **Antes de começar o B4:** ler o brief/plano das Tasks 21-24 e conferir se ficaram desatualizadas
-  pelos blocos 6/7 (mesmo padrão da Task 19) — em especial a exibição em camadas (conforme/
-  rejeitado/não-avaliado) que os blocos 6/7/3 mencionam repetidamente como pendente para "quem
-  consumir a distinção na UI" (D-043). Também é o ponto certo para revisitar D-015
-  (`allowEmptyShould(true)` em `presentationDoesNotSeeInfrastructure`, hoje ainda ligado porque
-  `presentation/` não existe).
-- **Pendências sem risco fiscal, herdadas do bloco 3:** custo de I/O (arquivo lido 3x por
-  documento); `BatchReport` sem contadores de conforme/rejeitado/não-avaliado por documento —
-  decisão deliberada, adiada para o bloco 4 (D-043).
-- **Processo:** D-044 (28/07/2026) — cerimônia proporcional ao risco fiscal (ver
-  `docs/workflow.md` §1.1 e §8) já vale para o B4: julgamento fiscal novo (se houver) recebe o
-  fluxo completo; wiring de UI/Swing recebe revisão mais leve.
+- **Bloco:** B5 — Empacotamento, release e README — **Task 28 aguardando autorização remota**. Branch
+  `bloco/5-release`, criada de `main` local em `0dff1b2`; nada foi enviado ao remoto.
+- **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
+  D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
+  validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final
+  `./gradlew clean test --console=plain`: 342 testes, 0 falhas; `git diff --check` limpo.
+- **Task 25 concluída:** `983ed90`, revisão independente PASS após fix loop. `clean test` (342)
+  e `jpackageImage` passaram; runtime Java 21 e launcher sem falta de classes. Linux escolhe RPM
+  ou DEB conforme a distribuição e explica pré-requisito ausente; ícones `.ico`/`.png`/`.icns`
+  cobrem Windows/Linux/macOS. O Fedora atual não tem `rpmbuild`, portanto não gera instalador local.
+- **Task 26 concluída:** `d45ed3a`, revisão independente PASS. Workflow de tag `v*`, Windows/MSI
+  como gate e Linux/macOS best-effort, com pré-requisitos DEB do Ubuntu. A execução real depende da
+  primeira tag publicada no GitHub; YAML e suíte local foram validados.
+- **Task 27 concluída:** `8e06e66`, revisão independente PASS. README descreve a área de trabalho
+  atual, privacidade, limites e instalação condicional sem prometer CSV ou release publicada.
+- **Próximo passo:** Task 28 — push, PR, checks e merge remoto do B5. Isso requer autorização
+  explícita para alterar o repositório remoto; a Task 29 (tag/release pública) permanece gate
+  humano separado e não foi iniciada.
+- **Débitos herdados:** CSV continua no backend sem rota na UI até task explícita; custo de I/O
+  (leitura até 3× por documento) permanece sem risco fiscal; pendência de ícone `.ico`/equivalente
+  já foi resolvida na Task 25.

@@ -4,6 +4,36 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-045 — Área de trabalho antes da validação; documentos como visão primária (29/07/2026)
+
+A tela deixa de validar no instante em que recebe a seleção. Importar uma pasta ou XML individual
+faz somente a leitura segura dos metadados mínimos e forma um **lote de trabalho**; o usuário pode
+adicionar mais arquivos, excluir linhas, limpar o lote e só então acionar **Validar pendentes**.
+Durante a execução sequencial em background, a linha corrente muda para "validando", a barra de
+progresso e o contador avançam na própria área de trabalho, o botão principal é substituído por
+"Interromper" e toda mutação do lote (incluindo drag-and-drop) fica bloqueada. O cancelamento é
+cooperativo e conserva os resultados já obtidos; linhas não iniciadas permanecem pendentes.
+
+**A visão principal passa a ser documento, não causa agrupada.** A grade superior, maior, mostra
+status, chave, emitente/CNPJ, modelo, série, número e explicação; sua ordem padrão é emitente,
+modelo, série e número. A grade inferior mostra os problemas do documento selecionado. Isso atende
+à tarefa operacional real: localizar e corrigir documentos, sem perder o detalhe de cada achado.
+As cores/ícones são estado de interface, não nova decisão fiscal: cinza = pendente, azul = em
+validação, verde = sem achado, vermelho = rejeição, amarelo = atenção e branco = não avaliado.
+"Remover válidos" preserva os documentos que ainda exigem atenção.
+
+XML que falha na leitura segura não é inserido na grade e é informado em diálogo após a importação;
+se ficar ilegível antes da validação, recebe o mesmo tratamento. A tela usa FlatDarkLaf, Roboto,
+janela maximizada e rodapé discreto; a permanência em modo escuro é escolha de produto, não
+preferência do SO. O controle visual de pré-emissão foi retirado por ora; o modo padrão continua
+ligado no caso de uso, sem mudar classificação fiscal.
+
+**CSV permanece no backend, mas está deliberadamente indisponível na UI.** O botão foi removido
+porque o formato/uso precisa de nova revisão; não prometer exportação no README ou fluxo de uso até
+uma task explícita reativá-la. Isto não remove o `CsvExporter` nem altera seus contratos/testes.
+Para o empacotamento, o SVG do ícone da janela não basta: a Task 25 deve gerar/usar o ícone nativo
+adequado ao `jpackage` (ao menos `.ico` no Windows).
+
 ## D-044 — Cerimônia proporcional ao risco fiscal; harness seco (28/07/2026)
 O fluxo de bloco completo (brief, revisor relendo a fonte, sonda de mutação, ledger extenso) fica
 reservado para código de **julgamento fiscal** (regra de rejeição, tabela, indicador, mensagem

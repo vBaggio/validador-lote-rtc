@@ -547,3 +547,94 @@ Task 20 (b3): review do orquestrador antes do fechamento encontrou um achado rea
 ### PARADA — 28/07/2026, fim do bloco 3. Suíte verde, revisão do orquestrador feita e achado
   corrigido. Pronto para push + PR (Task 20), aguardando confirmação do dono do projeto antes do
   merge.
+
+Task 21 (b4): complete (commit 8dccf5e, revisão independente PASS/PASS) — 341 testes.
+  ENTREGUE: contratos `MainView`/`UiThread` e `MainPresenter` toolkit-agnóstico. Análise e CSV
+  executam no executor de background; progresso, resultados e erros desse trabalho atravessam
+  `UiThread`. Toggle pré-emissão reutiliza `ValidateBatchUseCase.regroup` (teste apaga o XML antes
+  do toggle) e cancelamento/nova análise invalidam callbacks obsoletos pelo token.
+  ADENDO: o construtor do caso de uso no plano estava obsoleto desde B3; os testes usam
+  `TaxGroupExtractor` e `RuleEngine` atuais. `BatchReport` segue intacto — a apresentação em
+  camadas será resolvida na Task 23, sem classificar silenciosamente documentos como conformes.
+  REVISÃO INDEPENDENTE: PASS/PASS; conferiu confinamento sem Swing/AWT/infraestrutura, EDT dos
+  callbacks de background, cancelamento, erros e exportação. Sem achados ou débitos.
+
+Task 22 (b4): complete (commit 7892d14, revisão independente PASS/PASS) — 341 testes.
+  ENTREGUE: `App` monta o grafo atual (inclusive `TaxGroupExtractor` e `RuleEngine`), shell
+  Swing/FlatLaf com EDT, `CardLayout`, escolha/drop de pasta e progresso cancelável. A versão dos
+  schemas é lida uma vez e reaproveitada no caso de uso e título. D-015 concluída: a permissão
+  temporária `allowEmptyShould(true)` saiu da regra ArchUnit de `presentation`.
+  REVISÃO INDEPENDENTE: PASS/PASS; confirmou fronteiras, ciclo do executor daemon, EDT, DnD seguro
+  e caminhos de erro. Sem achados ou débitos. Inspeção humana dos fluxos de janela/drop/cancelamento
+  fica para a verificação visual do fechamento do bloco; a UI apenas iniciou em sessão gráfica.
+
+Task 23 (b4): complete (commit 206b92a, revisão independente PASS/PASS) — 341 testes.
+  ENTREGUE: ResultsPanel mestre-detalhe substitui o placeholder, com coluna `Camada` derivada só de
+  `FindingKind`, resumo de leitura/schema/previsão, toggle, nova análise e exportação. A camada de
+  previsão separa causas previstas das não avaliadas; o detalhe marca a razão de `NOT_EVALUATED`
+  como explicação local e preserva mensagem oficial quando existe. A conferência de valores é
+  declarada explicitamente não executada (requer Calculadora).
+  DECISÃO DE APRESENTAÇÃO: nenhum documento ou camada sem achado recebe rótulo de conforme/aprovado.
+  A UI exibe a origem dos achados já apurados e a limitação da camada de valores, sem inferir um
+  veredito que o `BatchReport` não carrega (D-043 e spec de camadas §7).
+  REVISÃO INDEPENDENTE: PASS/PASS; confirmou passividade, EDT, dados nulos/vazios, sem novo
+  julgamento fiscal e sem reordenação/reagrupamento no Swing. Sem achados ou débitos.
+
+### PARADA — 28/07/2026, B4 implementado e revisado; aguardando validação visual do dono.
+
+Branch `bloco/4-ui`; commits de task `8dccf5e`, `7892d14`, `206b92a`. A suíte final
+`./gradlew clean test --console=plain` está verde (341 testes), `git diff --check` limpo. As três
+tasks de implementação passaram em revisão independente PASS/PASS. O ambiente gráfico iniciou a
+aplicação, mas a captura do compositor ficou preta: falta inspeção humana de escolha/drop,
+progresso/cancelamento, mestre-detalhe, toggle e exportação antes de push/PR. Não houve push.
+Próximo passo, após validação do usuário: fechar o bloco com push e PR (Task 24), então atualizar
+`CURRENT.md` conforme o merge.
+
+Task 24 (b4): complete (merge local `0dff1b2`) — a validação visual do dono conduziu o refinamento
+final `1fb7132`, coberto por 342 testes verdes em `./gradlew clean test --console=plain` e
+`git diff --check` limpo. D-045 registra a divergência deliberada do plano: importar forma um lote
+de documentos e não valida automaticamente; a validação é sequencial, incremental e cancelável na
+grade; documentos são a visão primária e problemas do selecionado são o detalhe; XML ilegível é
+recusado fora da grade. FlatDarkLaf/Roboto, ícone de janela e layout maximizado são acabamento de
+produto. CSV foi retirado da apresentação, mantendo `CsvExporter`/testes no núcleo; README e B5
+foram ajustados para não prometê-lo. ACHADO DE FECHAMENTO: cancelamento entre a marcação de uma
+linha e seu processamento poderia removê-la como inválida; corrigido para devolvê-la a pendente.
+Também foram removidos os contratos/tela mortos do antigo fluxo de progresso. Sem julgamento
+fiscal novo; B4 foi mesclado **localmente**, sem push/PR remoto por escolha do dono.
+
+Task 25 (b5): em preparação — brief local inclui o adendo D-045: `jpackage` precisa receber ícone
+nativo (especialmente `.ico` no Windows), pois o SVG atual só cobre a janela Swing. Próximo fluxo:
+brief → implementador → revisão independente de build/plumbing → fix loop → commit.
+
+Task 25 (b5): complete (commit `983ed90`, revisão independente PASS após 2 fix loops) — tasks
+`jpackageImage`/`jpackageInstaller` e runtime jlink explícito; ícones nativos `.ico` (Windows),
+`.png` (Linux) e `.icns` (macOS). `./gradlew clean test --console=plain` verde (342); app-image
+gerado, runtime Java 21 confirmado e launcher iniciado sem falta de classes. ACHADOS DA REVISÃO:
+(1) Fedora não pode assumir DEB: seleção agora escolhe RPM/DEB por distribuição e verifica as
+ferramentas antes do `jpackage`; no Fedora atual falta `rpmbuild`, portanto a falha é explícita e
+não mascarada. (2) macOS recebeu `.icns`. (3) DEB também exige `fakeroot`, incluído na guarda e na
+mensagem. Sem mudança fiscal; relatório scratch registra o smoke e a limitação local.
+
+Task 26 (b5): em preparação — workflow de release, Windows como gate, conforme plano. Exige brief,
+implementação e revisão independente de CI/configuração.
+
+Task 26 (b5): complete (commit `d45ed3a`, revisão independente PASS) — workflow de release em
+tags `v*`, `contents: write`, Windows/MSI como gate obrigatório e Linux/DEB + macOS/DMG como
+best-effort após Windows. Ubuntu instala/verifica `dpkg`, `dpkg-deb` e `fakeroot`, compatível com
+a guarda da Task 25. YAML validado localmente e `./gradlew clean test --console=plain` verde (342).
+Limitação honesta: actionlint não estava instalado e execução completa depende da primeira tag no
+GitHub; nenhum push/tag foi feito.
+
+Task 27 (b5): em preparação — README definitivo deve refletir D-045: pasta/XML individual,
+importar antes de validar, detalhe por documento e CSV sem ação de UI. Exige brief, implementação e
+revisão independente de documentação.
+
+Task 27 (b5): complete (commit `8e06e66`, revisão independente PASS) — README de usuário final
+em pt-BR, fiel a D-045: importação antes de validar, estados/progresso/interrupção, detalhe do
+documento e remoção de válidos. Declara análise local, independência fiscal, ausência temporária de
+CSV na UI e instalação/release condicionais sem prometer artefato não publicado. Links, comandos
+Gradle e licença conferidos; `./gradlew clean test --console=plain` verde (342).
+
+Task 28 (b5): pendente de autorização externa — push/PR/checks/merge remoto. B5 está completo em
+código e documentação; não criar PR, não enviar branch e não mergear remoto sem comando explícito
+do dono. Task 29 (tag/release pública) continua gate humano posterior.

@@ -12,6 +12,7 @@
 
 # Build
 /build/
+/bin/
 /.gradle/
 /.worktrees/
 

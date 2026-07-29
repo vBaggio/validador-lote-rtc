@@ -4,8 +4,9 @@
 
 **Validador de Lote RTC** — ferramenta desktop, offline e independente (sem vínculo com
 RFB/SEFAZ) que valida em lote XMLs de NF-e (modelo 55) e NFC-e (modelo 65) contra os
-schemas XSD oficiais da Reforma Tributária do Consumo, agrupa os achados por causa-raiz
-e exporta CSV. Público: contadores e responsáveis fiscais, não-técnicos, Windows-first.
+schemas XSD oficiais da Reforma Tributária do Consumo e agrupa os achados por causa-raiz.
+O exportador CSV permanece no núcleo, mas sua ação está temporariamente suspensa na interface
+(D-045). Público: contadores e responsáveis fiscais, não-técnicos, Windows-first.
 
 A partir de 03/08/2026 a SEFAZ rejeita documentos de emitentes CRT=3 com grupos IBS/CBS
 fora da NT 2025.002. As ferramentas oficiais validam 1 documento por vez; esta valida
@@ -20,7 +21,8 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 
 ## Fases
 
-- **v0.x (atual)**: validação estrutural local + agrupamento + CSV + UI + instalador Windows.
+- **v0.x (atual)**: validação estrutural local + agrupamento + UI + instalador Windows; CSV
+  preservado no núcleo, sem ação visível até revisão própria (D-045).
 - **v1**: conferência de valores via motor oficial (`regime-geral` como processo filho),
   relatório narrativo por IA opcional (BYOK). Ver spec §3.2 e decisões D-012/D-014.
 
