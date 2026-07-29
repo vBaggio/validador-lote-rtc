@@ -589,3 +589,19 @@ aplicação, mas a captura do compositor ficou preta: falta inspeção humana de
 progresso/cancelamento, mestre-detalhe, toggle e exportação antes de push/PR. Não houve push.
 Próximo passo, após validação do usuário: fechar o bloco com push e PR (Task 24), então atualizar
 `CURRENT.md` conforme o merge.
+
+Task 24 (b4): complete (merge local `0dff1b2`) — a validação visual do dono conduziu o refinamento
+final `1fb7132`, coberto por 342 testes verdes em `./gradlew clean test --console=plain` e
+`git diff --check` limpo. D-045 registra a divergência deliberada do plano: importar forma um lote
+de documentos e não valida automaticamente; a validação é sequencial, incremental e cancelável na
+grade; documentos são a visão primária e problemas do selecionado são o detalhe; XML ilegível é
+recusado fora da grade. FlatDarkLaf/Roboto, ícone de janela e layout maximizado são acabamento de
+produto. CSV foi retirado da apresentação, mantendo `CsvExporter`/testes no núcleo; README e B5
+foram ajustados para não prometê-lo. ACHADO DE FECHAMENTO: cancelamento entre a marcação de uma
+linha e seu processamento poderia removê-la como inválida; corrigido para devolvê-la a pendente.
+Também foram removidos os contratos/tela mortos do antigo fluxo de progresso. Sem julgamento
+fiscal novo; B4 foi mesclado **localmente**, sem push/PR remoto por escolha do dono.
+
+Task 25 (b5): em preparação — brief local inclui o adendo D-045: `jpackage` precisa receber ícone
+nativo (especialmente `.ico` no Windows), pois o SVG atual só cobre a janela Swing. Próximo fluxo:
+brief → implementador → revisão independente de build/plumbing → fix loop → commit.
