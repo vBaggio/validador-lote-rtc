@@ -32,11 +32,22 @@ perfil 010e ativo do Portal, baixa ZIP confinado e agenda atualização após a 
 oficial `v.1.02` não era reconhecida e intervalo 24h era só memória; normalização canônica e estado
 persistente corrigem ambos. ZIP com atributo symlink também é rejeitado/testado. Próximo: UI/ACBr.
 
-Task 35 (b6): complete (commit 19649b1, revisão transversal PASS após fix loop) — B6 fechado
-localmente. Verificação final: `clean test` 376/0, `jpackageImage` e `git diff --check` verdes.
-ACHADOS de fechamento: docs de privacidade omitiram consulta automática e a UI offline omitira
-proveniência embarcada; corrigidos. Pesquisa marcou 010e_v1.01 como superada e harness foi
-reconciliado com os commits amendados. Próximo: validação do dono e PR, sem push.
+Fechamento local (b6): complete (commit e237ef6, revisão transversal PASS após fix loop) — B6
+fechado localmente. Verificação final: `clean test` 376/0, `jpackageImage` e `git diff --check`
+verdes. ACHADOS de fechamento: docs de privacidade omitiram consulta automática e a UI offline
+omitia proveniência embarcada; corrigidos. Pesquisa marcou 010e_v1.01 como superada e harness foi
+reconciliado com os commits amendados. A revisão adicional autorizada depois identificou a omissão
+de `java.net.http` no runtime jlink e a spec histórica ainda sem a exceção D-048; Task 35 corrige
+ambos antes do PR.
+
+Task 35 (b6): complete (commit de correção da Task 35, revisão independente PASS/PASS) — adiciona
+`java.net.http` ao runtime jpackage e um teste que falha se o módulo sair da configuração.
+`clean test` passou com 377 testes; `jpackageImage` passou, o runtime lista o módulo e o launcher
+ficou ativo por 12 s sem `NoClassDefFoundError`. A spec passa a declarar a exceção D-048 e CA-5
+mede o comportamento real: nenhuma rede/dado fiscal no lote e somente consulta normativa pós-boot
+consultiva. ACHADO CRÍTICO corrigido: o launcher da imagem falhava antes do Swing pela ausência do
+módulo HTTP. ACHADO MÉDIO corrigido: a spec histórica contradizia D-048. A revisão confirmou
+configuração, artefato gerado, smoke e coerência documental, sem novos débitos.
 
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),

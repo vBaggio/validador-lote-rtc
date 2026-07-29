@@ -314,7 +314,7 @@ tables.classTribCount=${totalCt}
 }
 
 // ---------- Empacotamento (D-008: jlink enxuto no v0) ----------
-def jpackageModules = 'java.base,java.desktop,java.xml,java.logging,java.prefs,jdk.unsupported'
+def jpackageModules = 'java.base,java.desktop,java.xml,java.logging,java.net.http,java.prefs,jdk.unsupported'
 def packagingIcons = layout.projectDirectory.dir('packaging/icons')
 def currentOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
 

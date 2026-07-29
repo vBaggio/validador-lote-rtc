@@ -3,7 +3,7 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
-- **Bloco:** B6 — Canal confiável de artefatos externos — **planejado em**
+- **Bloco:** B6 — Canal confiável de artefatos externos — implementado em
   `bloco/6-canal-schemas`, a partir de `main`/`origin/main` `efa10cc`. O plano está em
   `docs/superpowers/plans/2026-07-29-canal-confiavel-schemas.md`. **Task 30 concluída e revisada**
   em `974817d`: catálogo local de artefatos e
@@ -16,9 +16,13 @@
   revisada** em `068c868`: aquisição Portal segura, ZIP confinado, estado de consulta persistente
   e agendamento pós-boot. **Task 34 concluída** em `16080b3`: diálogo de Fontes externas,
   consulta manual sem duplicação, atualização válida no próximo boot, política ACBr sem fallback
-  automático e tasks Gradle históricas bloqueadas. **B6 fechado localmente** em `19649b1`: revisão
-  transversal PASS após fix loop, `./gradlew clean test` com 376 testes e `jpackageImage` verdes.
-  Próximo passo: validação do dono e abertura/publicação do PR; não houve push. A pesquisa provisória
+  automático e tasks Gradle históricas bloqueadas. O fechamento local foi documentado em `e237ef6`,
+  mas a revisão adicional identificou que o runtime do app-image omitia `java.net.http` e que a
+  spec ainda proibia toda rede em runtime. **Task 35 concluída e revisada:** inclui o
+  módulo necessário, teste de regressão e a exceção D-048 na spec. `clean test` passou com 377
+  testes; `jpackageImage` passou, o runtime lista `java.net.http` e o launcher permaneceu 12 s sem
+  erro de módulo. A revisão independente deu PASS/PASS, sem achados. Próximo passo: validação do
+  dono e abertura/publicação do PR; não houve push. A pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre
