@@ -3,8 +3,11 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
-- **Bloco:** B5 — Empacotamento, release e README — **mergeado no PR #7**. `main`/`origin/main`
-  estão em `96f501f`; não há trabalho local pendente.
+- **Bloco:** B6 — Canal confiável de artefatos externos — **planejado em**
+  `bloco/6-canal-schemas`, a partir de `main`/`origin/main` `efa10cc`. O plano está em
+  `docs/superpowers/plans/2026-07-29-canal-confiavel-schemas.md`; nenhum código de runtime foi
+  iniciado. O escopo cobre schemas e tabelas fiscais ativas, além do inventário do motor futuro da
+  Calculadora. Aguardar os ajustes do usuário ao desenho antes da Task 30.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final
