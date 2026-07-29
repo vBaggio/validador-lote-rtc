@@ -1,14 +1,105 @@
-# Validador de Lote RTC
+# Validador de XML em Lote - Reforma Tributária
 
-> ⚠️ **Em construção** — primeira release em breve.
+Aplicativo desktop para revisar, de uma vez, XMLs de NF-e (modelo 55) e NFC-e (modelo 65)
+quanto à estrutura exigida para os grupos IBS/CBS da Reforma Tributária do Consumo.
 
-Ferramenta desktop **offline** e **independente** (sem vínculo com Receita Federal ou
-SEFAZ) que valida **em lote** XMLs de NF-e/NFC-e contra os schemas oficiais da Reforma
-Tributária do Consumo (grupos IBS/CBS, NT 2025.002), agrupa os problemas por causa-raiz
-e exporta relatório CSV.
+> **Ferramenta independente.** Este projeto não tem vínculo com a Receita Federal, SEFAZ ou
+> qualquer órgão público. Ele usa artefatos oficiais embarcados para fazer verificações técnicas;
+> a decisão fiscal continua sendo responsabilidade da empresa e de sua assessoria contábil.
 
-- **Nenhum dado sai da sua máquina.** Sem cadastro, sem telemetria, sem envio de XML.
-- **Todos os erros de cada arquivo** — não só o primeiro.
-- Windows primeiro; Linux/macOS best-effort.
+## Privacidade
 
-Licença: [GPL-3.0](./LICENSE). Decisões e arquitetura: [`docs/`](./docs/).
+A análise acontece localmente, no computador em que o aplicativo está aberto. Não há cadastro,
+telemetria, envio de XMLs ou consulta à internet durante o uso normal. Os documentos permanecem
+na sua máquina.
+
+## O que o aplicativo faz
+
+- Importa uma pasta ou XMLs individuais para formar um lote de trabalho.
+- Lê os dados exibidos na grade e valida os documentos quando você solicita.
+- Mostra o andamento da validação documento a documento, sem bloquear a janela.
+- Reúne os problemas do documento selecionado em uma grade de detalhe.
+- Permite manter apenas os documentos que ainda precisam de atenção com **Remover válidos**.
+
+Os XMLs são verificados contra os schemas XSD oficiais embarcados para NF-e/NFC-e. A base de
+schemas usada aparece discretamente no rodapé da aplicação.
+
+## O que o aplicativo não faz
+
+- Não emite, assina, transmite nem corrige XMLs.
+- Não substitui orientação fiscal ou a validação definitiva dos ambientes autorizadores.
+- Não transforma uma validação sem problemas em garantia de autorização pela SEFAZ.
+- Não mostra arquivos que não puderam ser lidos com segurança; ao fim da importação, informa quais
+  deles ficaram de fora.
+- Não oferece exportação CSV na interface nesta versão. O recurso existe no núcleo do projeto, mas
+  está deliberadamente suspenso até uma revisão específica de seu fluxo e formato.
+
+## Como usar
+
+1. Abra o aplicativo e arraste uma pasta ou XMLs individuais para a área central. Também é possível
+   usar o botão de adicionar arquivos.
+2. Revise a grade **Documentos Fiscais**. Você pode adicionar mais XMLs, excluir uma linha ou
+   limpar o lote antes de iniciar.
+3. Clique em **Validar pendentes**. A coluna de status e a barra de progresso acompanham o processo
+   em tempo real. Se necessário, use **Interromper**; o que já foi validado é preservado e o que
+   não começou continua pendente.
+4. Selecione um documento para consultar a grade **Problemas** abaixo dele.
+5. Depois de tratar o resultado, use **Remover válidos** para deixar visíveis apenas os documentos
+   que requerem atenção.
+
+O status da grade distingue documentos pendentes (cinza), em validação (azul), sem problemas
+identificados (verde), com erro ou rejeição (vermelho), com atenção (amarelo) e não avaliados
+(branco). Essas cores ajudam a navegar pelo lote; elas não substituem a leitura da mensagem e do
+detalhe apresentado.
+
+## Instalação
+
+A primeira release pública ainda não foi publicada. Quando houver um instalador para Windows, ele
+será disponibilizado na página de releases deste repositório e incluirá o runtime necessário: não
+será preciso instalar Java separadamente.
+
+Enquanto não há release, o aplicativo pode ser executado a partir do código-fonte.
+
+### Para desenvolvimento
+
+Pré-requisito: JDK 21.
+
+```bash
+./gradlew clean test --console=plain
+./gradlew run
+```
+
+Para gerar um aplicativo com runtime embarcado, use:
+
+```bash
+./gradlew jpackageImage
+```
+
+Para gerar o instalador nativo do sistema operacional atual, use:
+
+```bash
+./gradlew jpackageInstaller
+```
+
+No Linux, a geração do instalador requer as ferramentas de empacotamento disponíveis no sistema;
+no Windows, o resultado é um instalador MSI. Os artefatos são criados em `build/jpackage/`.
+
+## Base de validação
+
+Os schemas XSD distribuídos com o aplicativo são extraídos do pacote oficial da Calculadora de
+Tributos da RFB. Quando a fonte oficial for atualizada, uma nova versão do aplicativo deverá trazer
+a base correspondente. Para manutenção do projeto, a task abaixo refaz essa extração e usa rede
+somente durante essa operação manual — nunca durante a validação do usuário:
+
+```bash
+./gradlew updateSchemas
+```
+
+Os detalhes de arquitetura, decisões e proveniência dos artefatos estão em
+[`docs/`](./docs/). Para a estrutura do projeto, consulte também
+[`docs/architecture.md`](./docs/architecture.md).
+
+## Licença
+
+[GPL-3.0](./LICENSE) — livre para usar, estudar, modificar e redistribuir; trabalhos derivados
+devem permanecer abertos.
