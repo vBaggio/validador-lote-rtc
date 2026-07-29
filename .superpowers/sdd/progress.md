@@ -605,3 +605,15 @@ fiscal novo; B4 foi mesclado **localmente**, sem push/PR remoto por escolha do d
 Task 25 (b5): em preparação — brief local inclui o adendo D-045: `jpackage` precisa receber ícone
 nativo (especialmente `.ico` no Windows), pois o SVG atual só cobre a janela Swing. Próximo fluxo:
 brief → implementador → revisão independente de build/plumbing → fix loop → commit.
+
+Task 25 (b5): complete (commit `983ed90`, revisão independente PASS após 2 fix loops) — tasks
+`jpackageImage`/`jpackageInstaller` e runtime jlink explícito; ícones nativos `.ico` (Windows),
+`.png` (Linux) e `.icns` (macOS). `./gradlew clean test --console=plain` verde (342); app-image
+gerado, runtime Java 21 confirmado e launcher iniciado sem falta de classes. ACHADOS DA REVISÃO:
+(1) Fedora não pode assumir DEB: seleção agora escolhe RPM/DEB por distribuição e verifica as
+ferramentas antes do `jpackage`; no Fedora atual falta `rpmbuild`, portanto a falha é explícita e
+não mascarada. (2) macOS recebeu `.icns`. (3) DEB também exige `fakeroot`, incluído na guarda e na
+mensagem. Sem mudança fiscal; relatório scratch registra o smoke e a limitação local.
+
+Task 26 (b5): em preparação — workflow de release, Windows como gate, conforme plano. Exige brief,
+implementação e revisão independente de CI/configuração.

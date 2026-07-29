@@ -1460,6 +1460,10 @@ Antes da primeira task: `git checkout main && git pull && git checkout -b bloco/
 `jpackage` por `--icon` (no Windows, `.ico`). O SVG em `resources/images/` atende a janela Swing,
 mas não é contrato suficiente para o shell/atalho do sistema operacional.
 
+**✅ Entregue** (commit `983ed90`, revisão independente PASS após fix loop). Além do app-image e
+runtime Java 21 verificados, há ícones `.ico`/`.png`/`.icns`; Linux seleciona RPM ou DEB conforme
+o ambiente e declara ferramentas ausentes antes de invocar `jpackage`.
+
 **Files:**
 - Modify: `build.gradle` (adicionar ao final)
 
