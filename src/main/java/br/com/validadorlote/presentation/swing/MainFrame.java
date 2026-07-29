@@ -5,7 +5,6 @@ import br.com.validadorlote.presentation.MainPresenter;
 import br.com.validadorlote.presentation.MainView;
 
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import java.awt.CardLayout;
@@ -17,16 +16,16 @@ public final class MainFrame extends JFrame implements MainView {
     private final CardLayout cards = new CardLayout();
     private final JPanel root = new JPanel(cards);
     private final RunningPanel runningPanel;
-    private final JPanel resultsPlaceholder = new JPanel();
+    private final ResultsPanel resultsPanel;
 
     public MainFrame(MainPresenter presenter, String schemasVersion) {
         super("Validador de Lote RTC — ferramenta independente (base " + schemasVersion + ")");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         runningPanel = new RunningPanel(presenter::cancelRequested);
-        resultsPlaceholder.add(new JLabel("Resultados na próxima task"));
+        resultsPanel = new ResultsPanel(presenter);
         root.add(new DropZonePanel(presenter::folderChosen), "drop");
         root.add(runningPanel, "running");
-        root.add(resultsPlaceholder, "results");
+        root.add(resultsPanel, "results");
         setContentPane(root);
         setSize(900, 620);
         setLocationRelativeTo(null);
@@ -45,6 +44,7 @@ public final class MainFrame extends JFrame implements MainView {
 
     @Override
     public void showResults(BatchReport report) {
+        resultsPanel.show(report);
         cards.show(root, "results");
     }
 
