@@ -628,3 +628,13 @@ GitHub; nenhum push/tag foi feito.
 Task 27 (b5): em preparação — README definitivo deve refletir D-045: pasta/XML individual,
 importar antes de validar, detalhe por documento e CSV sem ação de UI. Exige brief, implementação e
 revisão independente de documentação.
+
+Task 27 (b5): complete (commit `8e06e66`, revisão independente PASS) — README de usuário final
+em pt-BR, fiel a D-045: importação antes de validar, estados/progresso/interrupção, detalhe do
+documento e remoção de válidos. Declara análise local, independência fiscal, ausência temporária de
+CSV na UI e instalação/release condicionais sem prometer artefato não publicado. Links, comandos
+Gradle e licença conferidos; `./gradlew clean test --console=plain` verde (342).
+
+Task 28 (b5): pendente de autorização externa — push/PR/checks/merge remoto. B5 está completo em
+código e documentação; não criar PR, não enviar branch e não mergear remoto sem comando explícito
+do dono. Task 29 (tag/release pública) continua gate humano posterior.

@@ -1615,6 +1615,10 @@ git commit -m "build(b5): workflow de release com matrix e Windows como gate"
 
 ### Task 27: README definitivo
 
+**✅ Entregue** (commit `8e06e66`, revisão independente PASS). O README atual reflete D-045 e o
+estado de publicação real: importa antes de validar, não promete CSV na UI nem release já criada,
+e mantém instruções condicionais para o MSI/workflow.
+
 **Files:**
 - Modify: `README.md` (substituição completa)
 
@@ -1713,6 +1717,9 @@ git commit -m "docs(b5): README definitivo com instalação, SmartScreen e priva
 ```
 
 ### Task 28: Fechamento do Bloco 5 (PR + merge)
+
+**Pendente de autorização externa.** Código/documentação das Tasks 25–27 passaram nas revisões;
+esta task altera o remoto (push, PR e merge) e não é inferida da conclusão local.
 
 - [ ] **Step 1: Push e PR**
 
