@@ -46,8 +46,8 @@ adapter da v1. Views atrás de interface + `ProgressListener` neutro = frontend 
 
 ## Schemas oficiais
 
-`src/main/resources/schemas/{nfe,nfce}/` — extraídos do JAR oficial da Calculadora
-(proveniência em `schemas-version.properties`; atualização via `./gradlew updateSchemas`).
+`src/main/resources/schemas/{nfe,nfce}/` — closure do perfil NF-e 010e_v1.02, com autoridade,
+transporte e hashes em `schemas-version.properties` (D-047).
 Entrypoint de validação: `/schemas/nfe/nota.xsd` (declara `NFe`, `nfeProc`, `enviNFe`;
 cobre modelos 55 e 65). Includes relativos resolvem via systemId de URL do classpath.
 O contrato real da Calculadora (endpoints, quirks) está documentado em

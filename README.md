@@ -86,14 +86,11 @@ no Windows, o resultado é um instalador MSI. Os artefatos são criados em `buil
 
 ## Base de validação
 
-Os schemas XSD distribuídos com o aplicativo são extraídos do pacote oficial da Calculadora de
-Tributos da RFB. Quando a fonte oficial for atualizada, uma nova versão do aplicativo deverá trazer
-a base correspondente. Para manutenção do projeto, a task abaixo refaz essa extração e usa rede
-somente durante essa operação manual — nunca durante a validação do usuário:
-
-```bash
-./gradlew updateSchemas
-```
+O Portal Nacional da NF-e é a autoridade da base vigente. A base atualmente embarcada é o perfil
+`010e_v1.02`; seu payload foi transportado do espelho ACBr SVN r47146 e identificado por hashes
+registrados no aplicativo. O canal B6 conserva a proveniência e só ativa atualização após validação
+local. A antiga task `updateSchemas` da Calculadora não atualiza a base vigente e não deve ser usada
+para esse fim.
 
 Os detalhes de arquitetura, decisões e proveniência dos artefatos estão em
 [`docs/`](./docs/). Para a estrutura do projeto, consulte também

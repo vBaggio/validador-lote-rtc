@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,6 +68,30 @@ class SchemaValidatorEngineTest {
         var findings = engine.validate(xml, parser.parse(xml));
         assertThat(findings).anySatisfy(f ->
                 assertThat(f.xsdCode()).startsWith("cvc-complex-type.2.4"));
+    }
+
+    @Test
+    void acceptsTheNewOperationLocationFieldForNfeAndNfce() throws IOException {
+        String original = Files.readString(fixture("nfe-valida.xml"));
+        String withNewField = original.replace("<procEmi>", "<cIndOp>123456</cIndOp><procEmi>");
+        Path nfe = Files.createTempFile("nfe-cindop", ".xml");
+        Path nfce = Files.createTempFile("nfce-cindop", ".xml");
+        Files.writeString(nfe, withNewField);
+        Files.writeString(nfce, withNewField.replace("<mod>55</mod><serie>", "<mod>65</mod><serie>")
+                .replace("<tpImp>1</tpImp>", "<tpImp>4</tpImp>"));
+
+        assertThat(engine.validate(nfe, parser.parse(nfe))).isEmpty();
+        assertThat(engine.validate(nfce, parser.parse(nfce))).isEmpty();
+    }
+
+    @Test
+    void stillRejectsAnInvalidNewOperationLocationField() throws IOException {
+        String original = Files.readString(fixture("nfe-valida.xml"));
+        Path xml = Files.createTempFile("nfe-cindop-invalido", ".xml");
+        Files.writeString(xml, original.replace("<procEmi>", "<cIndOp>abc</cIndOp><procEmi>"));
+
+        assertThat(engine.validate(xml, parser.parse(xml))).anySatisfy(f ->
+                assertThat(f.officialMessage()).contains("cIndOp"));
     }
 
     @Test
@@ -392,9 +417,19 @@ class SchemaValidatorEngineTest {
     }
 
     @Test
-    void schemasVersionExposesEngineBaseAndExtractionDate() {
-        // Formato, não valores: ./gradlew updateSchemas troca os números como operação de rotina.
+    void schemasVersionExposesThePublishedProfile() {
         assertThat(SchemasVersion.read())
-                .matches("motor \\S+ / base .+ \\(extração \\d{4}-\\d{2}-\\d{2}\\)");
+                .matches("schemas 010e_v1\\.02 \\(publicado em 2026-07-10\\)");
+    }
+
+    @Test
+    void embeddedClosureMatchesItsDeclaredCanonicalHash() throws IOException {
+        Properties properties = new Properties();
+        try (var in = Files.newInputStream(Path.of("src/main/resources/schemas/schemas-version.properties"))) {
+            properties.load(in);
+        }
+        assertThat(SchemaClosureHash.calculate(Path.of("src/main/resources/schemas/nfe")))
+                .isEqualTo(properties.getProperty("closureSha256"));
+        assertThat(properties.getProperty("closureAlgorithm")).contains("NUL").contains("grupo.xsd");
     }
 }

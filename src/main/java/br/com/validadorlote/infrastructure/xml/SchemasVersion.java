@@ -22,8 +22,7 @@ public final class SchemasVersion {
         } catch (IOException e) {
             throw new UncheckedIOException(new IOException("Proveniência ilegível: " + RESOURCE, e));
         }
-        return "motor " + properties.getProperty("engineVersion")
-                + " / base " + properties.getProperty("baseVersion")
-                + " (extração " + properties.getProperty("extractedAt") + ")";
+        return "schemas " + properties.getProperty("profile")
+                + " (publicado em " + properties.getProperty("publishedAt") + ")";
     }
 }

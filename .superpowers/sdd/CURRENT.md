@@ -6,10 +6,12 @@
 - **Bloco:** B6 — Canal confiável de artefatos externos — **planejado em**
   `bloco/6-canal-schemas`, a partir de `main`/`origin/main` `efa10cc`. O plano está em
   `docs/superpowers/plans/2026-07-29-canal-confiavel-schemas.md`. **Task 30 concluída e revisada**
-  em `f95bec4`: catálogo local de artefatos e
+  em `974817d`: catálogo local de artefatos e
   `SchemaArtifactStore` transacional, carregamento de filesystem confinado e fallback embarcado.
   D-046 limita hash local a integridade operacional, não autenticidade contra escrita da mesma
-  conta. Próximo: Task 31, atualização/proveniência da árvore NF-e/NFC-e. A pesquisa provisória
+  conta. **Task 31 concluída e revisada** em `0edce89`: closure mínima atualizada para 010e_v1.02,
+  Portal Nacional como autoridade, ACBr r47146 como transporte identificado e hash canônico da
+  closure. Próximo: Task 32, canal transacional das tabelas fiscais. A pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre

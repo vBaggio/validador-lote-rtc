@@ -4,6 +4,16 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-047 — Portal Nacional determina vigência; ACBr transporta a closure 010e_v1.02 identificada por hash (29/07/2026)
+
+O Portal Nacional lista `010e_v1.02` (NT 2025.002 v1.40, NT 2026.002/003), publicado em
+10/07/2026, como versão oficial em uso. Seu download não pôde ser recuperado diretamente por
+502/captcha. A closure mínima usada pelo produto foi transportada do SVN ACBr r47146 (13/07/2026),
+com hashes gravados no manifesto; ACBr é espelho técnico, não autoridade. Portanto o repositório
+registra a vigência do Portal e a identidade do payload ACBr, sem alegar equivalência byte a byte
+ao ZIP oficial. A atualização preserva somente NFe/nfeProc/enviNFe e não muda regras de negócio
+nem a decisão D-040 sobre modelos.
+
 ## D-046 — Catálogo local detecta corrupção operacional, não autentica escrita da mesma conta (29/07/2026)
 
 O canal de artefatos instala candidatos por staging, compila a árvore XSD com resolver confinado e

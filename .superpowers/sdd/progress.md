@@ -14,6 +14,13 @@ embarcada. ACHADO: manifesto+hash no diretório do usuário não autenticam malw
 D-046 declara o modelo de ameaça e restringe a promessa a integridade operacional. DÉBITO/Task 31:
 proveniência/assinatura da aquisição oficial e atualização da base NF-e/NFC-e.
 
+Task 31 (b6): complete (commit 0edce89, revisão independente PASS após fix loop) — atualiza a
+closure NF-e/NFC-e para 010e_v1.02 e torna a proveniência auditável: Portal Nacional é autoridade,
+ACBr r47146 é transporte explicitamente limitado; manifesto lista paths/hashes e hash canônico,
+testado contra os bytes embarcados. ACHADO: README ainda apontava a Calculadora e o manifesto não
+identificava a closure completa; ambos corrigidos. DÉBITO/Task 32: tabelas SVRS cuja URL antiga já
+retorna 404 precisam do mesmo armazenamento transacional.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.

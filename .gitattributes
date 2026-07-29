@@ -4,4 +4,4 @@
 gradlew text eol=lf
 
 # Schemas oficiais da RFB: artefato normativo — preservar bytes exatos (fidelidade à fonte)
-*.xsd -text
+*.xsd -text whitespace=-trailing-space
