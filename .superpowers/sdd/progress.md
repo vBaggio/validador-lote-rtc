@@ -5,6 +5,15 @@
 > `docs/decisions.md` pelo número D-0XX, não duplicados. Nada foi perdido: o texto completo
 > original está no histórico do git deste arquivo (`git log -p -- .superpowers/sdd/progress.md`).
 
+## Bloco 6 (canal de artefatos externos, branch `bloco/6-canal-schemas`)
+
+Task 30 (b6): complete (commit f95bec4, revisão independente PASS após 2 fix loops) — catálogo
+local e instalação transacional da primeira base de schemas. Candidata só atualiza `current` depois
+de staging, cópia sem symlink/extras e compilação confinada; corrupção/erro de abertura volta à base
+embarcada. ACHADO: manifesto+hash no diretório do usuário não autenticam malware sob a mesma conta;
+D-046 declara o modelo de ameaça e restringe a promessa a integridade operacional. DÉBITO/Task 31:
+proveniência/assinatura da aquisição oficial e atualização da base NF-e/NFC-e.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.

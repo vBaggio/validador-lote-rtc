@@ -52,3 +52,8 @@ Entrypoint de validação: `/schemas/nfe/nota.xsd` (declara `NFe`, `nfeProc`, `e
 cobre modelos 55 e 65). Includes relativos resolvem via systemId de URL do classpath.
 O contrato real da Calculadora (endpoints, quirks) está documentado em
 [`calculadora/contrato-validar-xml.md`](./calculadora/contrato-validar-xml.md).
+
+Bases atualizadas ficam em `~/.validador-lote-rtc/artifacts/`, nunca junto da instalação. A
+referência local só é usada após hash/estrutura/compilação; falha abre com a base embarcada. Esse
+controle detecta corrupção operacional, mas não autentica alterações feitas por outro processo sob
+a mesma conta — ver D-046.

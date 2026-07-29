@@ -4,6 +4,17 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-046 — Catálogo local detecta corrupção operacional, não autentica escrita da mesma conta (29/07/2026)
+
+O canal de artefatos instala candidatos por staging, compila a árvore XSD com resolver confinado e
+guarda manifesto/hash para auditoria e detecção de corrupção acidental. No boot, uma base local só
+é aberta se a referência, a árvore e a compilação permanecerem válidas; qualquer falha devolve a
+base embarcada. Isso não autentica um payload contra quem possui escrita na mesma área de dados:
+essa pessoa pode alterar XSD e manifesto juntos. Sem assinatura verificável do publicador ou
+keystore fora dessa permissão, malware local está fora do modelo de ameaça. A aquisição posterior
+continua responsável por TLS, allowlist e proveniência da fonte; hash local jamais é alegado como
+prova de autoria.
+
 ## D-045 — Área de trabalho antes da validação; documentos como visão primária (29/07/2026)
 
 A tela deixa de validar no instante em que recebe a seleção. Importar uma pasta ou XML individual
