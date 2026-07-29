@@ -638,3 +638,8 @@ Gradle e licença conferidos; `./gradlew clean test --console=plain` verde (342)
 Task 28 (b5): pendente de autorização externa — push/PR/checks/merge remoto. B5 está completo em
 código e documentação; não criar PR, não enviar branch e não mergear remoto sem comando explícito
 do dono. Task 29 (tag/release pública) continua gate humano posterior.
+
+Task 28 (b5): complete — autorização do dono recebida; branch publicada, PR #7 aberto com B4+B5,
+check `build` verde e mergeado em `main` no commit `96f501f`. `main` local foi sincronizado com
+`origin/main`. Task 29 permanece o único gate: tag/release pública e smoke de MSI em Windows real;
+não iniciada sem confirmação explícita para publicar a versão.
