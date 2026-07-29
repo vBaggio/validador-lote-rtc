@@ -298,3 +298,102 @@ tables.classTribCount=${totalCt}
                 'Tabela atualizada. CONFIRA tables.referenceVersion e tables.referencePublishedAt no manifesto.')
     }
 }
+
+// ---------- Empacotamento (D-008: jlink enxuto no v0) ----------
+def jpackageModules = 'java.base,java.desktop,java.xml,java.logging,java.prefs,jdk.unsupported'
+def packagingIcons = layout.projectDirectory.dir('packaging/icons')
+def currentOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+
+def jpackageIcon = {
+    if (currentOs.contains('win')) {
+        return packagingIcons.file('app-icon.ico').asFile
+    }
+    if (currentOs.contains('linux')) {
+        return packagingIcons.file('app-icon.png').asFile
+    }
+    if (currentOs.contains('mac')) {
+        return packagingIcons.file('app-icon.icns').asFile
+    }
+    return null
+}
+
+def commandAvailable = { String command ->
+    (System.getenv('PATH') ?: '').split(File.pathSeparator)
+            .any { directory -> new File(directory, command).canExecute() }
+}
+
+def linuxInstallerType = {
+    def osRelease = file('/etc/os-release')
+    def distribution = osRelease.isFile() ? osRelease.readLines()
+            .findAll { it.startsWith('ID=') || it.startsWith('ID_LIKE=') }
+            .collect { it.substring(it.indexOf('=') + 1).replace('"', '') }
+            .join(' ').toLowerCase(Locale.ROOT) : ''
+    def debTools = commandAvailable('dpkg') && commandAvailable('dpkg-deb')
+            && commandAvailable('fakeroot')
+    def rpmTools = commandAvailable('rpm') && commandAvailable('rpmbuild')
+
+    if (distribution.contains('debian') || distribution.contains('ubuntu')) {
+        if (debTools) return 'deb'
+        throw new GradleException('Não é possível gerar DEB: instale dpkg, dpkg-deb e fakeroot.')
+    }
+    if (distribution.contains('fedora') || distribution.contains('rhel')
+            || distribution.contains('suse')) {
+        if (rpmTools) return 'rpm'
+        throw new GradleException('Não é possível gerar RPM: instale rpm e rpmbuild.')
+    }
+    if (debTools) return 'deb'
+    if (rpmTools) return 'rpm'
+    throw new GradleException(
+            'Nenhum empacotador Linux disponível: instale dpkg/dpkg-deb/fakeroot para DEB ou rpm/rpmbuild para RPM.')
+}
+
+def jpackageArgs = { String type ->
+    def libDir = layout.buildDirectory.dir("install/${project.name}/lib").get().asFile
+    def args = [
+            "${System.getProperty('java.home')}/bin/jpackage",
+            '--type', type,
+            '--name', 'ValidadorLoteRTC',
+            '--app-version', version.toString(),
+            '--input', libDir.absolutePath,
+            '--main-jar', "${project.name}-${version}.jar",
+            '--main-class', 'br.com.validadorlote.App',
+            '--add-modules', jpackageModules,
+            // Preserva bin/java para a verificação do runtime do app-image (D-008).
+            '--jlink-options', '--strip-debug --no-man-pages --no-header-files',
+            '--dest', layout.buildDirectory.dir('jpackage').get().asFile.absolutePath,
+            '--vendor', 'vBaggio',
+            '--description', 'Validador de lote de NF-e/NFC-e para a Reforma Tributária (RTC) - ferramenta independente'
+    ]
+    def icon = jpackageIcon()
+    if (icon != null) {
+        if (!icon.isFile()) {
+            throw new GradleException("Ícone nativo ausente para ${System.getProperty('os.name')}: ${icon}")
+        }
+        args += ['--icon', icon.absolutePath]
+    }
+    return args
+}
+
+tasks.register('jpackageImage', Exec) {
+    group = 'distribution'
+    description = 'Gera app-image com runtime embarcado (qualquer SO).'
+    dependsOn 'installDist'
+    doFirst { delete layout.buildDirectory.dir('jpackage') }
+    commandLine jpackageArgs('app-image')
+}
+
+tasks.register('jpackageInstaller', Exec) {
+    group = 'distribution'
+    description = 'Gera o instalador nativo do SO corrente (msi/deb/dmg/rpm).'
+    dependsOn 'installDist'
+    doFirst {
+        delete layout.buildDirectory.dir('jpackage')
+        def type = currentOs.contains('win') ? 'msi' : currentOs.contains('mac') ? 'dmg'
+                : linuxInstallerType()
+        def args = jpackageArgs(type)
+        if (currentOs.contains('win')) {
+            args += ['--win-menu', '--win-shortcut', '--win-dir-chooser', '--win-per-user-install']
+        }
+        commandLine args
+    }
+}
