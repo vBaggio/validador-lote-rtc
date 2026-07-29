@@ -617,3 +617,14 @@ mensagem. Sem mudança fiscal; relatório scratch registra o smoke e a limitaç�
 
 Task 26 (b5): em preparação — workflow de release, Windows como gate, conforme plano. Exige brief,
 implementação e revisão independente de CI/configuração.
+
+Task 26 (b5): complete (commit `d45ed3a`, revisão independente PASS) — workflow de release em
+tags `v*`, `contents: write`, Windows/MSI como gate obrigatório e Linux/DEB + macOS/DMG como
+best-effort após Windows. Ubuntu instala/verifica `dpkg`, `dpkg-deb` e `fakeroot`, compatível com
+a guarda da Task 25. YAML validado localmente e `./gradlew clean test --console=plain` verde (342).
+Limitação honesta: actionlint não estava instalado e execução completa depende da primeira tag no
+GitHub; nenhum push/tag foi feito.
+
+Task 27 (b5): em preparação — README definitivo deve refletir D-045: pasta/XML individual,
+importar antes de validar, detalhe por documento e CSV sem ação de UI. Exige brief, implementação e
+revisão independente de documentação.

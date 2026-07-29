@@ -1530,6 +1530,10 @@ git commit -m "build(b5): tasks jpackage com runtime jlink enxuto (msi/deb/dmg)"
 
 ### Task 26: Workflow de release (matrix com Windows-gate)
 
+**✅ Entregue** (commit `d45ed3a`, revisão independente PASS). O workflow de tag `v*` tem Windows
+como gate MSI, Linux/DEB e macOS/DMG best-effort após ele; Ubuntu verifica os pré-requisitos DEB
+introduzidos pela Task 25. A primeira execução real continua dependente de tag no GitHub.
+
 **Files:**
 - Create: `.github/workflows/release.yml`
 
