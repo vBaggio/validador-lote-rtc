@@ -1718,8 +1718,8 @@ git commit -m "docs(b5): README definitivo com instalação, SmartScreen e priva
 
 ### Task 28: Fechamento do Bloco 5 (PR + merge)
 
-**Pendente de autorização externa.** Código/documentação das Tasks 25–27 passaram nas revisões;
-esta task altera o remoto (push, PR e merge) e não é inferida da conclusão local.
+**✅ Entregue** — autorização recebida; PR #7 passou no check `build` e foi mesclado em `main`
+(`96f501f`). A publicação de tag/release continua exclusivamente na Task 29.
 
 - [ ] **Step 1: Push e PR**
 
