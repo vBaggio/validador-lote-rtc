@@ -1,10 +1,7 @@
 package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
-import br.com.validadorlote.domain.BatchReport;
-import br.com.validadorlote.domain.FindingKind;
 import br.com.validadorlote.domain.RootCauseGrouper;
-import br.com.validadorlote.domain.Severity;
 import br.com.validadorlote.infrastructure.csv.CsvExporter;
 import br.com.validadorlote.infrastructure.fs.FolderScanner;
 import br.com.validadorlote.infrastructure.rules.RuleEngine;
@@ -29,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MainPresenterTest {
 
     private final List<String> calls = new ArrayList<>();
-    private BatchReport lastResults;
+    private List<WorkspaceDocument> lastWorkspace = List.of();
     private MainPresenter presenter;
 
     private final MainView fakeView = new MainView() {
@@ -39,14 +36,15 @@ class MainPresenterTest {
         }
 
         @Override
-        public void showRunning(int processed, int total) {
-            calls.add("running " + processed + "/" + total);
+        public void showWorkspace(List<WorkspaceDocument> documents, boolean validating, int processed,
+                int total) {
+            calls.add("workspace " + documents.size() + " " + validating + " " + processed + "/" + total);
+            lastWorkspace = documents;
         }
 
         @Override
-        public void showResults(BatchReport report) {
-            calls.add("results");
-            lastResults = report;
+        public void showInvalidFiles(List<Path> files) {
+            calls.add("invalidFiles " + files.size());
         }
 
         @Override
@@ -54,15 +52,6 @@ class MainPresenterTest {
             calls.add("error: " + message);
         }
 
-        @Override
-        public void showExportSuccess(Path folder) {
-            calls.add("exportOk");
-        }
-
-        @Override
-        public void showExportError(String message) {
-            calls.add("exportErr");
-        }
     };
 
     @BeforeEach
@@ -77,69 +66,56 @@ class MainPresenterTest {
     }
 
     @Test
-    void folderChosenRunsBatchAndShowsResults(@TempDir Path dir) throws IOException {
+    void inputChosenImportsWithoutValidating(@TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-minima-invalida.xml", "a.xml");
 
-        presenter.folderChosen(dir);
+        presenter.inputChosen(dir);
 
-        assertThat(calls).contains("results");
-        assertThat(lastResults.documentsScanned()).isEqualTo(1);
+        assertThat(lastWorkspace).hasSize(1);
+        assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
+    }
+
+    @Test
+    void inputChosenAcceptsASingleXmlFile(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("a.xml");
+        copyFixture(dir, "nfe-minima-invalida.xml", file.getFileName().toString());
+
+        presenter.inputChosen(file);
+
+        assertThat(lastWorkspace).hasSize(1);
     }
 
     @Test
     void scanFailureShowsErrorNotCrash(@TempDir Path dir) {
-        presenter.folderChosen(dir.resolve("nao-existe"));
+        presenter.inputChosen(dir.resolve("nao-existe"));
 
         assertThat(calls).anySatisfy(call -> assertThat(call).startsWith("error: "));
     }
 
     @Test
-    void toggleRegroupsLastReportWithoutRereadingXml(@TempDir Path dir) throws IOException {
+    void invalidXmlIsReportedSeparatelyFromDocuments(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("quebrado.xml"), "isto não é XML");
+
+        presenter.inputChosen(dir);
+
+        assertThat(calls).contains("invalidFiles 1");
+        assertThat(lastWorkspace).isEmpty();
+    }
+
+    @Test
+    void validationPopulatesTheGridIncrementally(@TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida-sem-assinatura.xml", "a.xml");
-        presenter.folderChosen(dir);
-        int resultsBefore = (int) calls.stream().filter("results"::equals).count();
-        assertThat(signatureSeverity(lastResults)).isEqualTo(Severity.INFO);
-        Files.delete(dir.resolve("a.xml"));
+        presenter.inputChosen(dir);
+        presenter.validateRequested();
 
-        presenter.preEmissionToggled(false);
-
-        assertThat(calls.stream().filter("results"::equals).count()).isEqualTo(resultsBefore + 1);
-        assertThat(signatureSeverity(lastResults)).isEqualTo(Severity.REJECTION);
-    }
-
-    @Test
-    void exportBeforeAnyRunReportsError(@TempDir Path out) {
-        presenter.exportRequested(out);
-
-        assertThat(calls).contains("exportErr");
-    }
-
-    @Test
-    void exportAfterRunSucceeds(@TempDir Path dir, @TempDir Path out) throws IOException {
-        copyFixture(dir, "nfe-minima-invalida.xml", "a.xml");
-        presenter.folderChosen(dir);
-
-        presenter.exportRequested(out);
-
-        assertThat(calls).contains("exportOk");
-        assertThat(out.resolve("causas-raiz.csv")).exists();
-    }
-
-    @Test
-    void exportFailureIsShownInTheView(@TempDir Path dir, @TempDir Path out) throws IOException {
-        copyFixture(dir, "nfe-minima-invalida.xml", "a.xml");
-        presenter.folderChosen(dir);
-        Path fileInsteadOfFolder = Files.createFile(out.resolve("destino.csv"));
-
-        presenter.exportRequested(fileInsteadOfFolder);
-
-        assertThat(calls).contains("exportErr");
+        assertThat(lastWorkspace.getFirst().status()).isNotEqualTo(DocumentStatus.PENDING);
+        assertThat(calls).anySatisfy(call -> assertThat(call).contains("true 0/1"));
     }
 
     @Test
     void newAnalysisReturnsToIdle(@TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida.xml", "a.xml");
-        presenter.folderChosen(dir);
+        presenter.inputChosen(dir);
 
         presenter.newAnalysisRequested();
 
@@ -147,20 +123,35 @@ class MainPresenterTest {
     }
 
     @Test
-    void cancellationPublishesThePartialReport(@TempDir Path dir) throws IOException {
+    void removeValidKeepsDocumentsThatNeedAttention(@TempDir Path dir) throws IOException {
+        copyFixture(dir, "nfe-valida.xml", "valid.xml");
+        copyFixture(dir, "nfe-minima-invalida.xml", "invalid.xml");
+        presenter.inputChosen(dir);
+        presenter.validateRequested();
+
+        presenter.removeValidRequested();
+
+        assertThat(lastWorkspace).hasSize(1);
+        assertThat(lastWorkspace.getFirst().status()).isNotEqualTo(DocumentStatus.VALID);
+    }
+
+    @Test
+    void cancellationKeepsDocumentsThatWereNotYetValidated(@TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida.xml", "a.xml");
         var queued = new ArrayList<Runnable>();
         Executor deferredBackground = queued::add;
         var deferredPresenter = new MainPresenter(useCase(), Runnable::run, deferredBackground);
         deferredPresenter.attach(fakeView);
 
-        deferredPresenter.folderChosen(dir);
+        deferredPresenter.inputChosen(dir);
+        queued.removeFirst().run();
+        deferredPresenter.validateRequested();
         deferredPresenter.cancelRequested();
         assertThat(queued).hasSize(1);
-        queued.getFirst().run();
+        queued.removeFirst().run();
 
-        assertThat(lastResults).isNotNull();
-        assertThat(lastResults.cancelled()).isTrue();
+        assertThat(lastWorkspace).hasSize(1);
+        assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
     }
 
     private static ValidateBatchUseCase useCase() {
@@ -175,9 +166,4 @@ class MainPresenterTest {
         Files.copy(Path.of("src/test/resources/fixtures", fixture), dir.resolve(target));
     }
 
-    private static Severity signatureSeverity(BatchReport report) {
-        return report.rootCauses().stream()
-                .filter(cause -> cause.key().kind() == FindingKind.SIGNATURE_MISSING)
-                .findFirst().orElseThrow().findings().getFirst().severity();
-    }
 }

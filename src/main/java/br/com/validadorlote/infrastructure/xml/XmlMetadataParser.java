@@ -72,7 +72,8 @@ public final class XmlMetadataParser {
     }
 
     private ParsedMetadata read(Path source, XMLStreamReader r) throws XMLStreamException {
-        String root = null, accessKey = null, cnpj = null, nNF = null, mod = null, dhEmi = null,
+        String root = null, accessKey = null, cnpj = null, emitterName = null, nNF = null,
+                mod = null, serie = null, dhEmi = null,
                 crt = null, finNFe = null, tpNFDebito = null;
         // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
         // (infNFe/ide), não do item — daí não caber no TaxGroupExtractor. pRedutor, ao contrário,
@@ -164,8 +165,10 @@ public final class XmlMetadataParser {
                         String value = mixedContent ? null : blankToNull(text.toString());
                         switch (capturing) {
                             case "CNPJ" -> { if (cnpj == null) cnpj = value; }
+                            case "xNome" -> { if (emitterName == null) emitterName = value; }
                             case "nNF" -> { if (nNF == null) nNF = value; }
                             case "mod" -> { if (mod == null) mod = value; }
+                            case "serie" -> { if (serie == null) serie = value; }
                             case "dhEmi" -> { if (dhEmi == null) dhEmi = value; }
                             case "CRT" -> { if (crt == null) crt = value; }
                             case "finNFe" -> { if (finNFe == null) finNFe = value; }
@@ -206,12 +209,13 @@ public final class XmlMetadataParser {
         if (infNFeCount > 1) {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
-                    new FiscalDocument(source, null, null, null, null, null, root, null,
+                    new FiscalDocument(source, null, null, null, null, null, null, null, root, null,
                             null, null, false, null, false, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
-                new FiscalDocument(source, accessKey, cnpj, nNF, parseIssueDate(dhEmi), mod, root,
+                new FiscalDocument(source, accessKey, cnpj, emitterName, nNF, parseIssueDate(dhEmi),
+                        mod, serie, root,
                         crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
                         references),
                 ItemLineIndex.of(ranges));
@@ -230,9 +234,11 @@ public final class XmlMetadataParser {
     /** Nome do campo cujo texto deve ser capturado, ou null se o elemento não interessa. */
     private String targetField(Deque<String> stack) {
         if (isFirst(stack, "CNPJ", "emit")) return "CNPJ";
+        if (isFirst(stack, "xNome", "emit")) return "xNome";
         if (isFirst(stack, "CRT", "emit")) return "CRT";
         if (isFirst(stack, "nNF", "ide")) return "nNF";
         if (isFirst(stack, "mod", "ide")) return "mod";
+        if (isFirst(stack, "serie", "ide")) return "serie";
         if (isFirst(stack, "dhEmi", "ide")) return "dhEmi";
         if (isFirst(stack, "finNFe", "ide")) return "finNFe";
         if (isFirst(stack, "tpNFDebito", "ide")) return "tpNFDebito";

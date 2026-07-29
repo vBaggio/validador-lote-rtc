@@ -1,20 +1,16 @@
 package br.com.validadorlote.presentation;
 
-import br.com.validadorlote.domain.BatchReport;
-
 import java.nio.file.Path;
+import java.util.List;
 
 /** Contrato passivo e independente de toolkit da tela principal. */
 public interface MainView {
     void showIdle();
 
-    void showRunning(int processed, int total);
+    void showWorkspace(List<WorkspaceDocument> documents, boolean validating, int processed, int total);
 
-    void showResults(BatchReport report);
+    void showInvalidFiles(List<Path> files);
 
     void showError(String message);
 
-    void showExportSuccess(Path folder);
-
-    void showExportError(String message);
 }

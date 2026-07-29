@@ -1,25 +1,31 @@
 package br.com.validadorlote.presentation;
 
-import br.com.validadorlote.application.BatchRequest;
 import br.com.validadorlote.application.CancellationToken;
+import br.com.validadorlote.application.DocumentValidationResult;
+import br.com.validadorlote.application.ImportedBatch;
 import br.com.validadorlote.application.ValidateBatchUseCase;
-import br.com.validadorlote.domain.BatchReport;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 
-/** Dispara análises e exportações fora da UI e publica seus estados na tela principal. */
+/** Coordena o lote de trabalho: importar primeiro e validar sob solicitação do usuário. */
 public final class MainPresenter {
 
     private final ValidateBatchUseCase useCase;
     private final UiThread uiThread;
     private final Executor background;
+    private final Object workspaceLock = new Object();
+    private final List<WorkspaceDocument> workspace = new ArrayList<>();
 
     private volatile MainView view;
-    private volatile BatchReport lastReport;
     private volatile CancellationToken currentToken = new CancellationToken();
-    private volatile boolean preEmissionMode = true;
+    private volatile boolean validating;
+    private volatile int processed;
+    private volatile int total;
+    private long workspaceGeneration;
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
         this.useCase = Objects.requireNonNull(useCase);
@@ -33,83 +39,181 @@ public final class MainPresenter {
         view.showIdle();
     }
 
-    /** Inicia uma análise da pasta escolhida. */
-    public void folderChosen(Path folder) {
-        MainView attachedView = requireView();
-        CancellationToken token = new CancellationToken();
-        currentToken = token;
-        boolean mode = preEmissionMode;
-        attachedView.showRunning(0, 0);
-
-        background.execute(() -> runBatch(folder, mode, token));
+    /** Importa metadados seguros para a grade, sem executar validação fiscal ou schema. */
+    public void inputChosen(Path input) {
+        if (validating) return;
+        final long generation;
+        synchronized (workspaceLock) {
+            generation = workspaceGeneration;
+        }
+        background.execute(() -> importInput(input, generation));
     }
 
-    /** Solicita o cancelamento cooperativo da análise corrente. */
+    /** Valida somente os documentos que ainda aguardam validação. */
+    public void validateRequested() {
+        final List<Path> pending;
+        final CancellationToken token;
+        synchronized (workspaceLock) {
+            if (validating) return;
+            pending = workspace.stream().filter(document -> document.status() == DocumentStatus.PENDING)
+                    .map(document -> document.document().source()).toList();
+            if (pending.isEmpty()) {
+                publishWorkspace();
+                return;
+            }
+            validating = true;
+            processed = 0;
+            total = pending.size();
+            token = new CancellationToken();
+            currentToken = token;
+        }
+        publishWorkspace();
+        background.execute(() -> validatePending(pending, token));
+    }
+
+    /** Solicita o cancelamento cooperativo da validação corrente. */
     public void cancelRequested() {
-        currentToken.cancel();
+        if (validating) currentToken.cancel();
     }
 
-    /** Reagrupa o último relatório, sem reler os XMLs. */
-    public void preEmissionToggled(boolean on) {
-        preEmissionMode = on;
-        BatchReport report = lastReport;
-        if (report != null) {
-            BatchReport regrouped = useCase.regroup(report, on);
-            lastReport = regrouped;
-            requireView().showResults(regrouped);
+    /** Exclui uma linha antes de iniciar uma validação. */
+    public void removeRequested(Path source) {
+        if (validating) return;
+        synchronized (workspaceLock) {
+            workspace.removeIf(item -> item.document().source().equals(source));
         }
+        publishOrShowIdle();
     }
 
-    /** Exporta o último relatório em background. */
-    public void exportRequested(Path targetFolder) {
-        BatchReport report = lastReport;
-        if (report == null) {
-            requireView().showExportError("Nenhuma análise para exportar.");
-            return;
+    /** Limpa todo o lote antes de iniciar uma validação. */
+    public void clearRequested() {
+        if (validating) return;
+        synchronized (workspaceLock) {
+            workspace.clear();
+            workspaceGeneration++;
         }
-        background.execute(() -> export(report, targetFolder));
-    }
-
-    /** Descarta o resultado visível e invalida qualquer análise ainda em curso. */
-    public void newAnalysisRequested() {
-        currentToken.cancel();
-        currentToken = new CancellationToken();
-        lastReport = null;
         requireView().showIdle();
     }
 
-    private void runBatch(Path folder, boolean mode, CancellationToken token) {
-        try {
-            BatchReport report = useCase.execute(new BatchRequest(folder, mode),
-                    (processed, total) -> showProgress(token, processed, total), token);
-            if (token != currentToken) return;
+    /** Remove os documentos aprovados e preserva os que ainda exigem atenção. */
+    public void removeValidRequested() {
+        if (validating) return;
+        synchronized (workspaceLock) {
+            workspace.removeIf(item -> item.status() == DocumentStatus.VALID);
+        }
+        publishOrShowIdle();
+    }
 
-            lastReport = report;
-            uiThread.execute(() -> {
-                if (token == currentToken) requireView().showResults(report);
-            });
+    /** Mantém a ação existente como atalho semântico para limpar o lote. */
+    public void newAnalysisRequested() {
+        clearRequested();
+    }
+
+    private void importInput(Path input, long generation) {
+        try {
+            ImportedBatch imported = useCase.importDocuments(input);
+            uiThread.execute(() -> mergeImport(imported, generation));
         } catch (RuntimeException e) {
-            if (token != currentToken) return;
-            uiThread.execute(() -> {
-                if (token == currentToken) requireView().showError(messageFor(e));
-            });
+            uiThread.execute(() -> requireView().showError(messageFor(e)));
         }
     }
 
-    private void showProgress(CancellationToken token, int processed, int total) {
-        uiThread.execute(() -> {
-            if (token == currentToken) requireView().showRunning(processed, total);
-        });
+    private void mergeImport(ImportedBatch imported, long generation) {
+        if (validating) return;
+        synchronized (workspaceLock) {
+            if (generation != workspaceGeneration) return;
+            for (var document : imported.documents()) {
+                boolean alreadyAdded = workspace.stream().anyMatch(existing -> existing.document()
+                        .source().equals(document.source()));
+                if (!alreadyAdded) workspace.add(WorkspaceDocument.pending(document));
+            }
+        }
+        publishOrShowIdle();
+        if (!imported.invalidFiles().isEmpty()) requireView().showInvalidFiles(imported.invalidFiles());
     }
 
-    private void export(BatchReport report, Path targetFolder) {
-        try {
-            useCase.exportCsv(report, targetFolder);
-            uiThread.execute(() -> requireView().showExportSuccess(targetFolder));
-        } catch (Exception e) {
-            uiThread.execute(() -> requireView().showExportError(
-                    "Não foi possível gravar o CSV: " + messageFor(e)));
+    private void validatePending(List<Path> pending, CancellationToken token) {
+        for (Path source : pending) {
+            if (token.isCancelled() || token != currentToken) break;
+            uiThread.execute(() -> setStatus(source, DocumentStatus.VALIDATING, token));
+            try {
+                DocumentValidationResult result = useCase.validateDocument(source, true, token);
+                uiThread.execute(() -> applyValidation(source, result, token));
+            } catch (RuntimeException e) {
+                uiThread.execute(() -> validationFailed(source, token, e));
+            }
         }
+        uiThread.execute(() -> finishValidation(token));
+    }
+
+    private void setStatus(Path source, DocumentStatus status, CancellationToken token) {
+        if (token != currentToken) return;
+        synchronized (workspaceLock) {
+            replace(source, item -> item.withStatus(status));
+        }
+        publishWorkspace();
+    }
+
+    private void applyValidation(Path source, DocumentValidationResult result, CancellationToken token) {
+        if (token != currentToken) return;
+        synchronized (workspaceLock) {
+            if (token.isCancelled() && result.document() == null && result.findings().isEmpty()) {
+                replace(source, item -> item.withStatus(DocumentStatus.PENDING));
+            } else if (result.document() == null) {
+                workspace.removeIf(item -> item.document().source().equals(source));
+            } else {
+                DocumentStatus status = WorkspaceDocument.statusFor(result.findings());
+                replace(source, item -> item.withResult(status, result.findings()));
+                processed++;
+            }
+        }
+        publishOrShowIdle();
+        if (result.document() == null && !token.isCancelled()) requireView().showInvalidFiles(List.of(source));
+    }
+
+    private void finishValidation(CancellationToken token) {
+        if (token != currentToken) return;
+        synchronized (workspaceLock) {
+            validating = false;
+        }
+        publishOrShowIdle();
+    }
+
+    private void validationFailed(Path source, CancellationToken token, RuntimeException failure) {
+        if (token != currentToken) return;
+        synchronized (workspaceLock) {
+            replace(source, item -> item.withStatus(DocumentStatus.PENDING));
+        }
+        publishWorkspace();
+        requireView().showError("Não foi possível validar " + source.getFileName() + ": "
+                + messageFor(failure));
+    }
+
+    private void replace(Path source, java.util.function.UnaryOperator<WorkspaceDocument> update) {
+        for (int index = 0; index < workspace.size(); index++) {
+            if (workspace.get(index).document().source().equals(source)) {
+                workspace.set(index, update.apply(workspace.get(index)));
+                return;
+            }
+        }
+    }
+
+    private void publishOrShowIdle() {
+        synchronized (workspaceLock) {
+            if (workspace.isEmpty()) {
+                requireView().showIdle();
+                return;
+            }
+        }
+        publishWorkspace();
+    }
+
+    private void publishWorkspace() {
+        List<WorkspaceDocument> snapshot;
+        synchronized (workspaceLock) {
+            snapshot = List.copyOf(workspace);
+        }
+        requireView().showWorkspace(snapshot, validating, processed, total);
     }
 
     private MainView requireView() {

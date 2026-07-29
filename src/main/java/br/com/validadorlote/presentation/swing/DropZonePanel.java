@@ -8,41 +8,66 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.TransferHandler;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.Component;
+import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.datatransfer.DataFlavor;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** Zona de arrastar-e-soltar de pasta, com botão alternativo de escolha. */
+/** Zona de arrastar-e-soltar de pasta ou XML, com botão alternativo de escolha. */
 public final class DropZonePanel extends JPanel {
 
-    public DropZonePanel(Consumer<Path> onFolderChosen) {
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBorder(BorderFactory.createEmptyBorder(60, 40, 60, 40));
+    public DropZonePanel(Consumer<Path> onInputChosen) {
+        setLayout(new GridBagLayout());
 
-        JLabel title = new JLabel("Arraste aqui a pasta com os XMLs");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
+        JPanel dropArea = new JPanel();
+        dropArea.setLayout(new BoxLayout(dropArea, BoxLayout.Y_AXIS));
+        dropArea.setPreferredSize(new Dimension(680, 400));
+        dropArea.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createDashedBorder(new Color(115, 115, 115), 1f, 7f, 4f, true),
+                BorderFactory.createEmptyBorder(48, 48, 42, 48)));
+
+        JLabel icon = new JLabel(new OutlineIcon(OutlineIcon.Kind.DRAG_DROP, 48));
+        icon.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel title = new JLabel("Arraste e solte seus XMLs aqui");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 26f));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel subtitle = new JLabel("NF-e e NFC-e — a análise roda 100% no seu computador");
+        JLabel subtitle = new JLabel("Importe uma pasta ou um arquivo XML para iniciar a análise");
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton choose = new JButton("Escolher pasta...");
+        JButton choose = new JButton("Escolher pasta ou XML...");
+        choose.setIcon(new OutlineIcon(OutlineIcon.Kind.IMPORT));
+        choose.setPreferredSize(new Dimension(250, 40));
         choose.setAlignmentX(Component.CENTER_ALIGNMENT);
-        choose.addActionListener(event -> chooseFolder(onFolderChosen));
+        choose.addActionListener(event -> chooseInput(onInputChosen));
 
-        add(Box.createVerticalGlue());
-        add(title);
-        add(Box.createVerticalStrut(8));
-        add(subtitle);
-        add(Box.createVerticalStrut(24));
-        add(choose);
-        add(Box.createVerticalGlue());
+        dropArea.add(Box.createVerticalGlue());
+        dropArea.add(icon);
+        dropArea.add(Box.createVerticalStrut(18));
+        dropArea.add(title);
+        dropArea.add(Box.createVerticalStrut(12));
+        dropArea.add(subtitle);
+        dropArea.add(Box.createVerticalStrut(34));
+        dropArea.add(choose);
+        dropArea.add(Box.createVerticalStrut(22));
+        JLabel hint = new JLabel("A análise é local e não envia seus dados pela rede");
+        hint.setFont(hint.getFont().deriveFont(12f));
+        hint.setForeground(new Color(150, 150, 150));
+        hint.setAlignmentX(Component.CENTER_ALIGNMENT);
+        dropArea.add(hint);
+        dropArea.add(Box.createVerticalGlue());
 
-        setTransferHandler(new TransferHandler() {
+        add(dropArea, new GridBagConstraints());
+
+        TransferHandler handler = new TransferHandler() {
             @Override
             public boolean canImport(TransferSupport support) {
                 return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
@@ -62,8 +87,8 @@ public final class DropZonePanel extends JPanel {
                         return false;
                     }
                     for (Object candidate : files) {
-                        if (candidate instanceof File file && file.isDirectory()) {
-                            onFolderChosen.accept(file.toPath());
+                        if (candidate instanceof File file && isSupported(file)) {
+                            onInputChosen.accept(file.toPath());
                             return true;
                         }
                     }
@@ -72,14 +97,31 @@ public final class DropZonePanel extends JPanel {
                     return false;
                 }
             }
-        });
+        };
+        setTransferHandler(handler);
+        dropArea.setTransferHandler(handler);
+        icon.setTransferHandler(handler);
+        title.setTransferHandler(handler);
+        subtitle.setTransferHandler(handler);
+        hint.setTransferHandler(handler);
     }
 
-    private void chooseFolder(Consumer<Path> onFolderChosen) {
+    private void chooseInput(Consumer<Path> onInputChosen) {
         JFileChooser chooser = new JFileChooser();
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        chooser.setDialogTitle("Escolha uma pasta ou um XML");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            onFolderChosen.accept(chooser.getSelectedFile().toPath());
+            File selected = chooser.getSelectedFile();
+            if (isSupported(selected)) {
+                onInputChosen.accept(selected.toPath());
+            }
         }
+    }
+
+    private static boolean isSupported(File file) {
+        return file.isDirectory() || (file.isFile()
+                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".xml"));
     }
 }

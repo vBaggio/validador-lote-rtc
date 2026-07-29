@@ -53,6 +53,14 @@ class ValidateBatchUseCaseTest {
         assertThat(report.documentsScanned()).isEqualTo(3);
         assertThat(report.documentsUnreadable()).isEqualTo(1);
         assertThat(report.documentsWithFindings()).isEqualTo(2); // ruim + lixo (ok.xml limpo)
+        assertThat(report.documents()).hasSize(2);
+        assertThat(report.invalidFiles()).containsExactly(dir.resolve("lixo.xml"));
+        assertThat(report.documents()).anySatisfy(document -> {
+            assertThat(document.document().source()).isEqualTo(dir.resolve("ok.xml"));
+            assertThat(document.document().accessKey()).isNotBlank();
+            assertThat(document.document().emitterName()).isNotBlank();
+            assertThat(document.document().series()).isNotBlank();
+        });
         assertThat(report.cancelled()).isFalse();
         assertThat(report.schemasVersion()).isEqualTo("motor-teste");
         assertThat(report.rootCauses()).isNotEmpty();

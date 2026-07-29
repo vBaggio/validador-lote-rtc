@@ -20,10 +20,10 @@ A partir de **03/08/2026**, a SEFAZ rejeita NF-e/NFC-e de emitentes em Regime No
 
 Ferramenta desktop, offline, de instalação em um clique para usuário **não-técnico**:
 
-1. Recebe uma pasta com XMLs de NF-e/NFC-e (drag-and-drop)
+1. Recebe uma pasta ou XMLs individuais de NF-e/NFC-e (drag-and-drop ou escolha)
 2. Valida cada documento contra os **schemas XSD oficiais** vigentes (a mesma régua estrutural que a SEFAZ aplica), coletando **todos** os erros de cada documento
 3. Agrupa os achados por **causa-raiz** e mostra "N documentos com o mesmo problema"
-4. Exporta relatório CSV que abre direto no Excel pt-BR
+4. Mantém relatório CSV no núcleo para reativação posterior da interface (D-045)
 
 Na fase 2 (v1), soma a **conferência de valores**: recalcula IBS/CBS de cada item via motor de cálculo oficial (`regime-geral`) e aponta divergências entre declarado e calculado.
 
@@ -63,18 +63,18 @@ Em 26/07/2026 a Calculadora de Tributos oficial (v1.2.4, base V0039 de 08/07/202
 
 ### 3.1 v0.x — validação estrutural (meta: publicável rápido)
 
-- Varredura recursiva de pasta (`.xml`)
-- Parse de metadados: chave de acesso, CNPJ emitente, número, data, modelo (55/65), raiz (`NFe`/`nfeProc`/`enviNFe`)
+- Varredura recursiva de pasta e aceitação de XML individual (`.xml`)
+- Parse de metadados: chave de acesso, emitente/CNPJ, número, série, data, modelo (55/65), raiz (`NFe`/`nfeProc`/`enviNFe`)
 - Validação XSD local com **coleta total de erros** por documento (entrypoint `nota.xsd`)
 - Mapeamento erro→item: faixas de linha de cada `<det nItem>` indexadas no parse
 - Tradução determinística das mensagens `cvc-*` para pt-BR + ação sugerida (tabela em resources; sem correspondência → mensagem oficial; **nunca IA**)
-- Assinatura ausente → achado `SIGNATURE_MISSING`, toggle "XMLs pré-emissão": ligado (padrão) = severidade INFO, separado dos erros; desligado = tratado como REJECTION normal
+- Assinatura ausente → achado `SIGNATURE_MISSING`; o modo pré-emissão padrão a trata como INFO. O controle para alterná-lo está temporariamente fora da UI (D-045).
 - Severidade por tipo: `SCHEMA` → REJECTION; `SIGNATURE_MISSING` → INFO ou REJECTION (toggle); `UNREADABLE` → WARNING
 - Agrupamento por causa-raiz + contagem de documentos afetados
-- CSV: `causas-raiz.csv` + `achados-detalhados.csv`, UTF-8 com BOM, separador `;`
+- CSV: `causas-raiz.csv` + `achados-detalhados.csv`, UTF-8 com BOM, separador `;` (backend pronto; ação de exportar temporariamente fora da UI, D-045)
   - `causas-raiz.csv`: causa (amigável ou oficial), campo, código XSD, severidade, documentos afetados, ocorrências, ação sugerida
   - `achados-detalhados.csv`: arquivo, chave de acesso, item, campo, código XSD, severidade, linha, coluna, mensagem oficial, mensagem amigável
-- UI Swing+FlatLaf: drop de pasta, progresso com cancelar, mestre-detalhe (causas ↑ / achados da causa selecionada ↓), exportar
+- UI Swing+FlatLaf escura: importar primeiro e validar sob comando, progresso cancelável na própria grade, documentos como visão principal e problemas do documento selecionado como detalhe; sem exportação visível no momento (D-045)
 - Instalador Windows `.msi` (gate); Linux/macOS best-effort
 
 ### 3.2 v1 — conferência de valores
@@ -161,26 +161,28 @@ record BatchReport(
     int documentsScanned, int documentsWithFindings, int documentsUnreadable,
     boolean cancelled,            // true = resultados parciais (CA-9)
     List<RootCause> rootCauses,   // ordenadas por affectedDocuments desc
-    String schemasVersion         // proveniência da base embarcada
+    String schemasVersion,        // proveniência da base embarcada
+    List<DocumentReport> documents, // resultado por documento para a área de trabalho
+    List<Path> invalidFiles       // arquivos que não podem integrar a grade
 ) {}
 ```
 
 ### 4.2 Fluxo do lote (v0)
 
 ```
-1. Usuário arrasta pasta
-2. FolderScanner: varredura recursiva → lista de .xml
-3. Pool de workers (availableProcessors; CPU-bound, sem trava externa)
-   Por arquivo:
-   a. XmlMetadataParser (StAX seguro) → FiscalDocument + índice linha→nItem
-      → falha: Finding(UNREADABLE), segue
-   b. SchemaValidatorEngine → todos os erros XSD → List<Finding>
-      (Signature ausente reclassificada SIGNATURE_MISSING/INFO)
-4. RootCauseGrouper → List<RootCause> (ordem: docs afetados desc)
-5. BatchReport → ResultsView + habilita CSV
+1. Usuário arrasta uma pasta/XML ou o escolhe; pode repetir a operação para compor o lote.
+2. FolderScanner encontra `.xml`; XmlMetadataParser faz a leitura segura dos metadados usados na
+   grade. Arquivo ilegível é recusado e informado, sem entrar no lote.
+3. Usuário revisa a grade e aciona **Validar pendentes**.
+4. Worker sequencial, fora da EDT, valida um arquivo por vez (schema + regras), atualizando sua
+   linha e o progresso na grade; pode ser interrompido cooperativamente.
+5. Para cada documento validado, RootCauseGrouper continua formando o relatório interno/exportável;
+   a UI mostra primeiro o documento e, abaixo, os achados desse documento selecionado.
 ```
 
-Progresso via `ProgressListener` (arquivos processados/total, cancelável). UI nunca congela: trabalho fora da EDT, presenter faz o marshalling.
+No fluxo interativo, o presenter valida cada pendência em worker sequencial e publica o contador na
+EDT. O `ProgressListener` continua disponível para a execução completa do caso de uso. A UI nunca
+congela: trabalho fora da EDT, presenter faz o marshalling.
 
 ### 4.3 Engenharia crítica (vai para conventions.md)
 
@@ -198,11 +200,11 @@ Regra de ouro: **lote de 500 nunca aborta por 1 arquivo.**
 
 | Situação | Comportamento |
 |---|---|
-| XML corrompido / não-XML | `UNREADABLE`, conta no resumo, segue |
+| XML corrompido / não-XML | Não é adicionado à grade; diálogo lista os arquivos recusados |
 | Erro inesperado num worker | Capturado por arquivo; documento marcado não-processado; segue |
 | Pasta vazia / sem `.xml` | Mensagem informativa, não erro |
 | Cancelamento | Pool encerra gracioso; resultados parciais rotulados "análise cancelada" |
-| Falha ao gravar CSV | Diálogo com opção de outro local; relatório não se perde |
+| Falha ao gravar CSV | Sem caminho de UI enquanto a exportação estiver suspensa (D-045); o contrato backend preserva a falha para quando a ação voltar |
 | (v1) Motor não sobe / timeout | Erro claro + log; retry 1×; documento não-processado; app nunca trava |
 
 ---
