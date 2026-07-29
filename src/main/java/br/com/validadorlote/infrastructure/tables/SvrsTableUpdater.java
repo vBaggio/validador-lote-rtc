@@ -31,4 +31,14 @@ public final class SvrsTableUpdater {
         String version = "svrs-" + FiscalTableArtifactStore.sha256(candidate).substring(0, 12);
         return store.install(candidate, version, SOURCE.toString(), Instant.now());
     }
+
+    /** @return {@code true} se instalou base nova; consulta idêntica não troca {@code current}. */
+    public boolean updateIfNew() {
+        JsonNode raw = extractor.extract(https.getUtf8(SOURCE));
+        byte[] candidate = normalizer.normalize(raw);
+        String version = "svrs-" + FiscalTableArtifactStore.sha256(candidate).substring(0, 12);
+        if (store.isActiveVersion(version)) return false;
+        store.install(candidate, version, SOURCE.toString(), Instant.now());
+        return true;
+    }
 }

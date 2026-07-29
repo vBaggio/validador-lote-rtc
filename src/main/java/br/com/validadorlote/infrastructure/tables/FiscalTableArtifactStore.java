@@ -80,6 +80,17 @@ public final class FiscalTableArtifactStore {
         }
     }
 
+    /** Evita reinstalar a mesma tabela destilada em cada consulta periódica. */
+    public boolean isActiveVersion(String version) {
+        Path active = activePathOrNull();
+        if (active == null) return false;
+        try {
+            return readManifest(active).version().equals(version);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     private Path activePathOrNull() {
         try {
             Path current = root.resolve("current");

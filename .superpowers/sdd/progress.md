@@ -27,6 +27,11 @@ página atual SVRS, atualiza tabelas em staging via HTTPS allowlist/limites e ca
 interseção >=80% de CST e cClassTrib, com mutação. Manifesto/Gradle apontam para a rota vigente e
 separam última consulta de extração. Próximo: rotina de atualização e UI.
 
+Task 33 (b6): complete (commit 7f731fe, revisão independente PASS após fix loop) — descobre só o
+perfil 010e ativo do Portal, baixa ZIP confinado e agenda atualização após a UI. ACHADOS: grafia
+oficial `v.1.02` não era reconhecida e intervalo 24h era só memória; normalização canônica e estado
+persistente corrigem ambos. ZIP com atributo symlink também é rejeitado/testado. Próximo: UI/ACBr.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.

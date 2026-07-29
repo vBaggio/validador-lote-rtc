@@ -17,6 +17,7 @@ public final class SafeHttpsClient {
 
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(15);
     public static final int SVRS_MAX_BYTES = 6 * 1024 * 1024;
+    public static final int PORTAL_SCHEMA_MAX_BYTES = 32 * 1024 * 1024;
     private static final int MAX_REDIRECTS = 3;
 
     private final Set<String> allowedHosts;
@@ -37,11 +38,21 @@ public final class SafeHttpsClient {
 
     public static SafeHttpsClient forSvrs() {
         return new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"), DEFAULT_TIMEOUT,
-                SVRS_MAX_BYTES, new JdkTransport());
+                SVRS_MAX_BYTES, new JdkTransport(SVRS_MAX_BYTES));
+    }
+
+    public static SafeHttpsClient forNationalPortal() {
+        return new SafeHttpsClient(Set.of("www.nfe.fazenda.gov.br", "nfe.fazenda.gov.br"),
+                DEFAULT_TIMEOUT, PORTAL_SCHEMA_MAX_BYTES, new JdkTransport(PORTAL_SCHEMA_MAX_BYTES));
     }
 
     /** Retorna sempre UTF-8; a página da fonte é pública e não dita o charset ao aplicativo. */
     public String getUtf8(URI initial) {
+        return new String(getBytes(initial), StandardCharsets.UTF_8);
+    }
+
+    /** Baixa bytes de artefato sem permitir que a origem escolha host, redirect ou tamanho. */
+    public byte[] getBytes(URI initial) {
         URI current = validate(initial);
         for (int redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
             HttpsTransport.Response response;
@@ -68,7 +79,7 @@ public final class SafeHttpsClient {
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Fonte HTTPS respondeu HTTP " + response.statusCode());
             }
-            return new String(response.body(), StandardCharsets.UTF_8);
+            return response.body();
         }
         throw new IllegalStateException("A fonte excedeu o limite de redirecionamentos");
     }
@@ -84,8 +95,13 @@ public final class SafeHttpsClient {
 
     /** Implementação de produção; redirects ficam deliberadamente desligados no JDK. */
     private static final class JdkTransport implements HttpsTransport {
+        private final int maxBytes;
         private final HttpClient client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER).build();
+
+        private JdkTransport(int maxBytes) {
+            this.maxBytes = maxBytes;
+        }
 
         @Override
         public Response get(URI uri, Duration timeout) throws IOException, InterruptedException {
@@ -93,7 +109,7 @@ public final class SafeHttpsClient {
             HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             try (InputStream body = response.body()) {
                 return new Response(response.statusCode(), response.uri(), response.headers().map(),
-                        readLimited(body, SVRS_MAX_BYTES));
+                        readLimited(body, maxBytes));
             }
         }
 

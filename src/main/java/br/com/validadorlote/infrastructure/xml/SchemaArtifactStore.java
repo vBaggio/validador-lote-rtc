@@ -23,6 +23,12 @@ public final class SchemaArtifactStore {
     }
 
     public ArtifactManifest install(Path candidate, String version, String sourceUrl, Instant publishedAt) {
+        return install(candidate, version, sourceUrl, sourceUrl, publishedAt);
+    }
+
+    /** Registra separadamente a página oficial que declarou a versão e o ZIP que a transportou. */
+    public ArtifactManifest install(Path candidate, String version, String discoveryUrl,
+            String sourceUrl, Instant publishedAt) {
         try {
             Files.createDirectories(root.resolve("versions"));
             Path stage = Files.createTempDirectory(root, "staging-");
@@ -32,7 +38,7 @@ public final class SchemaArtifactStore {
                 new SchemaValidatorEngine(new XsdErrorTranslator(), stage); // gate antes de publicar
                 ArtifactManifest manifest = new ArtifactManifest(ID, version, sourceUrl, publishedAt, hash,
                         Instant.now(), Instant.now(), "INSTALLED");
-                writeManifest(stage, manifest);
+                writeManifest(stage, manifest, discoveryUrl);
                 Path target = root.resolve("versions").resolve(version);
                 if (Files.exists(target)) throw new IllegalArgumentException("Versão já instalada: " + version);
                 Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
@@ -51,6 +57,17 @@ public final class SchemaArtifactStore {
             return active;
         } catch (RuntimeException ignored) {
             return null;
+        }
+    }
+
+    /** Permite evitar download/reinstalação quando o Portal declara a mesma versão já ativa. */
+    public boolean isActiveVersion(String version) {
+        Path active = activePathOrNull();
+        if (active == null) return false;
+        try {
+            return readManifest(active).version().equals(version);
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -110,8 +127,8 @@ public final class SchemaArtifactStore {
             }} return java.util.HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
-    private static void writeManifest(Path base, ArtifactManifest m) throws IOException { Properties p = new Properties();
-        p.setProperty("artifact",m.artifact().name()); p.setProperty("version",m.version()); p.setProperty("sourceUrl",m.sourceUrl()); p.setProperty("publishedAt",m.publishedAt().toString()); p.setProperty("sha256",m.sha256()); p.setProperty("lastCheckedAt",m.lastCheckedAt().toString()); p.setProperty("updatedAt",m.updatedAt().toString()); p.setProperty("result",m.result());
+    private static void writeManifest(Path base, ArtifactManifest m, String discoveryUrl) throws IOException { Properties p = new Properties();
+        p.setProperty("artifact",m.artifact().name()); p.setProperty("version",m.version()); p.setProperty("discoveryUrl",discoveryUrl); p.setProperty("sourceUrl",m.sourceUrl()); p.setProperty("publishedAt",m.publishedAt().toString()); p.setProperty("sha256",m.sha256()); p.setProperty("lastCheckedAt",m.lastCheckedAt().toString()); p.setProperty("updatedAt",m.updatedAt().toString()); p.setProperty("result",m.result());
         try (var out=Files.newOutputStream(base.resolve("manifest.properties"))) { p.store(out,"Artefato externo auditável"); }}
     private static ArtifactManifest readManifest(Path base) throws IOException { Properties p=new Properties(); try(var in=Files.newInputStream(base.resolve("manifest.properties"))){p.load(in);} return new ArtifactManifest(ArtifactId.valueOf(p.getProperty("artifact")),p.getProperty("version"),p.getProperty("sourceUrl"),Instant.parse(p.getProperty("publishedAt")),p.getProperty("sha256"),Instant.parse(p.getProperty("lastCheckedAt")),Instant.parse(p.getProperty("updatedAt")),p.getProperty("result")); }
     private static void deleteTree(Path path) throws IOException { try(var paths=Files.walk(path)){ for(Path p:paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p); } }

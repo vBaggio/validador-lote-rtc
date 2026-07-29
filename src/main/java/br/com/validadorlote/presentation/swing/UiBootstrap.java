@@ -16,6 +16,11 @@ public final class UiBootstrap {
     private UiBootstrap() {}
 
     public static void launch(ValidateBatchUseCase useCase, String schemasVersion) {
+        launch(useCase, schemasVersion, () -> { });
+    }
+
+    /** O callback roda após a janela visível; trabalho de rede deve apenas agendar executor próprio. */
+    public static void launch(ValidateBatchUseCase useCase, String schemasVersion, Runnable afterVisible) {
         SwingUtilities.invokeLater(() -> {
             FlatRobotoFont.install();
             FlatDarkLaf.setup();
@@ -32,6 +37,7 @@ public final class UiBootstrap {
             MainFrame frame = new MainFrame(presenter, schemasVersion);
             presenter.attach(frame);
             frame.setVisible(true);
+            afterVisible.run();
         });
     }
 }

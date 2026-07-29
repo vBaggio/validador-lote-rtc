@@ -12,8 +12,10 @@
   conta. **Task 31 concluída e revisada** em `0edce89`: closure mínima atualizada para 010e_v1.02,
   Portal Nacional como autoridade, ACBr r47146 como transporte identificado e hash canônico da
   closure. **Task 32 concluída e revisada** em `c8047b6`: atualização SVRS com HTTPS restrito,
-  staging/rollback, continuidade de identidades e fallback embarcado. Próximo: Task 33,
-  orquestração da atualização e status das fontes externas na UI. A pesquisa provisória
+  staging/rollback, continuidade de identidades e fallback embarcado. **Task 33 concluída e
+  revisada** em `7f731fe`: aquisição Portal segura, ZIP confinado, estado de consulta persistente
+  e agendamento pós-boot. Próximo: Task 34, status do usuário, política ACBr e manutenção. A
+  pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre
