@@ -6,8 +6,11 @@
 - **Bloco:** B6 — Canal confiável de artefatos externos — **planejado em**
   `bloco/6-canal-schemas`, a partir de `main`/`origin/main` `efa10cc`. O plano está em
   `docs/superpowers/plans/2026-07-29-canal-confiavel-schemas.md`; nenhum código de runtime foi
-  iniciado. O escopo cobre schemas e tabelas fiscais ativas, além do inventário do motor futuro da
-  Calculadora. Aguardar os ajustes do usuário ao desenho antes da Task 30.
+  iniciado. A pesquisa provisória está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
+  confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
+  tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre
+  schemas e tabelas fiscais ativas, além do inventário do motor futuro da Calculadora. Aguardar os
+  ajustes do usuário ao desenho antes da Task 30.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final
