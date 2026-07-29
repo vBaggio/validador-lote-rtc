@@ -75,19 +75,22 @@ class FolderScannerTest {
                 .hasMessageContaining("não encontrada");
     }
 
-    /**
-     * Caso do usuário que arrasta um arquivo .xml em vez da pasta que o contém: o caminho
-     * existe, mas não é uma pasta. Mensagem precisa ser distinta de "não encontrada" —
-     * o arquivo foi encontrado, só não é do tipo esperado.
-     */
     @Test
-    void pathThatIsAFileThrowsDistinctMessageFromNotFound(@TempDir Path dir) throws IOException {
+    void singleXmlFileYieldsAOneFileBatch(@TempDir Path dir) throws IOException {
         Path file = dir.resolve("nota.xml");
         Files.writeString(file, "<x/>");
 
+        assertThat(scanner.scan(file)).containsExactly(file);
+    }
+
+    @Test
+    void nonXmlFileIsRejectedWithAHelpfulMessage(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("nota.pdf");
+        Files.writeString(file, "não é XML");
+
         assertThatThrownBy(() -> scanner.scan(file))
                 .isInstanceOf(ScanException.class)
-                .hasMessageContaining("não é uma pasta")
+                .hasMessageContaining("não é um arquivo XML")
                 .hasMessageNotContaining("não encontrada");
     }
 

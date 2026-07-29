@@ -1,6 +1,8 @@
 package br.com.validadorlote.application;
 
 import br.com.validadorlote.domain.BatchReport;
+import br.com.validadorlote.domain.DocumentReport;
+import br.com.validadorlote.domain.FiscalDocument;
 import br.com.validadorlote.domain.Finding;
 import br.com.validadorlote.domain.FindingKind;
 import br.com.validadorlote.domain.FindingReclassifier;
@@ -22,6 +24,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,14 +75,14 @@ public final class ValidateBatchUseCase {
     public BatchReport execute(BatchRequest request, ProgressListener listener, CancellationToken token) {
         Instant start = Instant.now();
         List<Path> files = scanner.scan(request.folder());
-        List<Finding> findings = new ArrayList<>();
+        List<DocumentValidation> validations = new ArrayList<>();
         AtomicInteger processed = new AtomicInteger();
 
         ExecutorService pool = Executors.newFixedThreadPool(
                 Math.max(1, Runtime.getRuntime().availableProcessors()));
         try {
-            CompletionService<List<Finding>> completion = new ExecutorCompletionService<>(pool);
-            Map<Future<List<Finding>>, Path> fileOf = new HashMap<>();
+            CompletionService<DocumentValidation> completion = new ExecutorCompletionService<>(pool);
+            Map<Future<DocumentValidation>, Path> fileOf = new HashMap<>();
             int submitted = 0;
             for (Path file : files) {
                 if (token.isCancelled()) break;
@@ -88,15 +91,16 @@ public final class ValidateBatchUseCase {
             }
             for (int i = 0; i < submitted; i++) {
                 try {
-                    Future<List<Finding>> future = completion.take();
+                    Future<DocumentValidation> future = completion.take();
                     try {
-                        findings.addAll(future.get());
+                        validations.add(future.get());
                     } catch (java.util.concurrent.ExecutionException e) {
                         // validateOne nunca lança RuntimeException; cinto de segurança contra
                         // Error (ex.: StackOverflowError) para nunca abortar o lote. fileOf
                         // identifica o arquivo certo mesmo fora de ordem de submissão —
                         // CompletionService entrega por ordem de conclusão, não de submissão.
-                        findings.add(unexpected(fileOf.get(future), e.getCause()));
+                        validations.add(invalid(fileOf.get(future), unexpected(fileOf.get(future),
+                                e.getCause())));
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -108,8 +112,44 @@ public final class ValidateBatchUseCase {
             pool.shutdownNow();
         }
 
-        List<Finding> reclassified = FindingReclassifier.reclassify(findings, request.preEmissionMode());
-        return buildReport(start, files.size(), reclassified, token.isCancelled());
+        return buildReport(start, files.size(), validations, request.preEmissionMode(),
+                token.isCancelled());
+    }
+
+    /** Importa XMLs para a grade sem executar schema nem regras fiscais. */
+    public ImportedBatch importDocuments(Path input) {
+        List<FiscalDocument> documents = new ArrayList<>();
+        List<Path> invalidFiles = new ArrayList<>();
+        for (Path file : scanner.scan(input)) {
+            try {
+                documents.add(parser.parse(file).document());
+            } catch (RuntimeException e) {
+                invalidFiles.add(file);
+            }
+        }
+        return new ImportedBatch(documents, invalidFiles);
+    }
+
+    /** Valida um único XML, para que a interface publique o resultado incrementalmente. */
+    public DocumentValidationResult validateDocument(Path file, boolean preEmissionMode,
+            CancellationToken token) {
+        DocumentValidation validation = validateOne(file, token);
+        if (isInvalid(validation)) {
+            return new DocumentValidationResult(null, validation.findings());
+        }
+        return new DocumentValidationResult(validation.document(),
+                FindingReclassifier.reclassify(validation.findings(), preEmissionMode));
+    }
+
+    /** Monta o relatório exportável a partir dos documentos já processados na sessão. */
+    public BatchReport reportOf(List<DocumentReport> documents, int scanned, boolean cancelled) {
+        List<Finding> findings = documents.stream().flatMap(document -> document.findings().stream())
+                .toList();
+        int withFindings = (int) findings.stream().map(Finding::source).distinct().count();
+        int unreadable = (int) findings.stream().filter(f -> f.kind() == FindingKind.UNREADABLE)
+                .map(Finding::source).distinct().count();
+        return new BatchReport(Instant.now(), Duration.ZERO, scanned, withFindings, unreadable,
+                cancelled, grouper.group(findings, texts), schemasVersion, documents, List.of());
     }
 
     /** Reaplica o modo pré-emissão sobre um relatório existente, sem revalidar arquivos. */
@@ -117,9 +157,16 @@ public final class ValidateBatchUseCase {
         List<Finding> all = previous.rootCauses().stream()
                 .flatMap(c -> c.findings().stream()).toList();
         List<Finding> reclassified = FindingReclassifier.reclassify(all, preEmissionMode);
+        Map<Path, List<Finding>> bySource = reclassified.stream().collect(java.util.stream.Collectors
+                .groupingBy(Finding::source));
+        List<DocumentReport> documents = previous.documents().stream()
+                .map(document -> new DocumentReport(document.document(),
+                        bySource.getOrDefault(document.document().source(), List.of())))
+                .toList();
         return new BatchReport(previous.startedAt(), previous.elapsed(), previous.documentsScanned(),
                 previous.documentsWithFindings(), previous.documentsUnreadable(), previous.cancelled(),
-                grouper.group(reclassified, texts), previous.schemasVersion());
+                grouper.group(reclassified, texts), previous.schemasVersion(), documents,
+                previous.invalidFiles());
     }
 
     public List<Path> exportCsv(BatchReport report, Path targetFolder) throws IOException {
@@ -130,15 +177,15 @@ public final class ValidateBatchUseCase {
      * As três fontes de achado de um arquivo. Cada uma tem seu próprio {@code try/catch}: uma
      * falha inesperada numa não descarta o que a outra já apurou.
      */
-    private List<Finding> validateOne(Path file, CancellationToken token) {
-        if (token.isCancelled()) return List.of();
+    private DocumentValidation validateOne(Path file, CancellationToken token) {
+        if (token.isCancelled()) return new DocumentValidation(null, List.of());
         ParsedMetadata meta;
         try {
             meta = parser.parse(file);
         } catch (UnreadableXmlException e) {
-            return List.of(unreadable(file, e.getMessage()));
+            return invalid(file, unreadable(file, e.getMessage()));
         } catch (RuntimeException e) {
-            return List.of(unexpected(file, e));
+            return invalid(file, unexpected(file, e));
         }
 
         List<Finding> findings = new ArrayList<>();
@@ -157,7 +204,7 @@ public final class ValidateBatchUseCase {
         } catch (RuntimeException e) {
             findings.add(unexpected(file, e));
         }
-        return findings;
+        return new DocumentValidation(meta.document(), findings);
     }
 
     private Finding unreadable(Path file, String message) {
@@ -172,12 +219,41 @@ public final class ValidateBatchUseCase {
                 null, null, message, null, null, null, null, null, null);
     }
 
-    private BatchReport buildReport(Instant start, int scanned, List<Finding> findings, boolean cancelled) {
+    private BatchReport buildReport(Instant start, int scanned, List<DocumentValidation> validations,
+            boolean preEmissionMode, boolean cancelled) {
+        List<DocumentReport> documents = validations.stream()
+                .filter(validation -> validation.document() != null && !isInvalid(validation))
+                .sorted(Comparator.comparing(validation -> validation.document().source()))
+                .map(validation -> new DocumentReport(validation.document(),
+                        FindingReclassifier.reclassify(validation.findings(), preEmissionMode)))
+                .toList();
+        List<Path> invalidFiles = validations.stream()
+                .filter(this::isInvalid)
+                .flatMap(validation -> validation.findings().stream())
+                .map(Finding::source)
+                .distinct()
+                .toList();
+        List<Finding> findings = documents.stream().flatMap(document -> document.findings().stream())
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        validations.stream().filter(validation -> validation.document() == null)
+                .flatMap(validation -> validation.findings().stream()).forEach(findings::add);
         int withFindings = (int) findings.stream().map(Finding::source).distinct().count();
         int unreadable = (int) findings.stream()
                 .filter(f -> f.kind() == FindingKind.UNREADABLE)
                 .map(Finding::source).distinct().count();
         return new BatchReport(start, Duration.between(start, Instant.now()), scanned,
-                withFindings, unreadable, cancelled, grouper.group(findings, texts), schemasVersion);
+                withFindings, unreadable, cancelled, grouper.group(findings, texts), schemasVersion,
+                documents, invalidFiles);
     }
+
+    private DocumentValidation invalid(Path file, Finding finding) {
+        return new DocumentValidation(null, List.of(finding));
+    }
+
+    private boolean isInvalid(DocumentValidation validation) {
+        return validation.document() == null || validation.findings().stream()
+                .anyMatch(finding -> finding.kind() == FindingKind.UNREADABLE);
+    }
+
+    private record DocumentValidation(FiscalDocument document, List<Finding> findings) {}
 }

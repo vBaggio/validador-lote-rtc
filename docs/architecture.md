@@ -27,16 +27,22 @@ adapter da v1. Views atrás de interface + `ProgressListener` neutro = frontend 
 
 ## Fluxo do lote (v0)
 
-1. `FolderScanner` varre a pasta recursivamente (`.xml`)
-2. Pool fixo (`availableProcessors`); por arquivo: `XmlMetadataParser` (StAX seguro,
-   índice linha→item) → falha vira achado `UNREADABLE`; senão `SchemaValidatorEngine`
-   (Schema único compilado no boot; `Validator` por documento; `ErrorHandler` coletor)
-3. `FindingReclassifier` aplica o modo pré-emissão (assinatura ausente → INFO/REJECTION)
-4. `RootCauseGrouper` agrupa por `RootCauseKey.from(Finding)`: schema usa `(kind, xsdCode, field)`;
+1. `FolderScanner` recebe pasta ou XML individual; `XmlMetadataParser` lê os metadados seguros que
+   formam a área de trabalho. XML ilegível não entra na grade e é informado ao usuário.
+2. O usuário compõe o lote e pede a validação. `MainPresenter` processa somente as pendências,
+   sequencialmente e fora da EDT, publicando o estado de cada linha e o progresso na view.
+3. Por arquivo: `XmlMetadataParser` (StAX seguro, índice linha→item),
+   `SchemaValidatorEngine` (Schema único compilado no boot; `Validator` por documento;
+   `ErrorHandler` coletor) e `RuleEngine`. Cancelamento cooperativo conserva o que já terminou e
+   devolve a linha ainda não iniciada ao estado pendente.
+4. `FindingReclassifier` aplica o modo pré-emissão padrão (assinatura ausente → INFO).
+5. `RootCauseGrouper` agrupa por `RootCauseKey.from(Finding)`: schema usa `(kind, xsdCode, field)`;
    rejeição prevista usa `(kind, rejectionCode)`; não avaliado usa `(kind, notEvaluatedCause)` e
    acrescenta `ruleId` apenas para `RULE_SPECIFIC`; assinatura ausente e XML ilegível usam o próprio
    `kind`. Em seguida, ordena por documentos afetados
-5. `BatchReport` → UI (mestre-detalhe) e `CsvExporter` (2 arquivos, UTF-8 BOM, `;`)
+6. A UI mostra documentos como visão primária e os problemas do selecionado como detalhe.
+   `CsvExporter` continua produzindo 2 arquivos UTF-8 BOM/`;`, mas não possui entrada na UI até
+   nova decisão (D-045).
 
 ## Schemas oficiais
 
