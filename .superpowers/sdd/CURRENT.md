@@ -14,7 +14,7 @@
   closure. **Task 32 concluída e revisada** em `1d0a12c`: atualização SVRS com HTTPS restrito,
   staging/rollback, continuidade de identidades e fallback embarcado. **Task 33 concluída e
   revisada** em `068c868`: aquisição Portal segura, ZIP confinado, estado de consulta persistente
-  e agendamento pós-boot. **Task 34 concluída** em `f4027fd`: diálogo de Fontes externas,
+  e agendamento pós-boot. **Task 34 concluída** em `16080b3`: diálogo de Fontes externas,
   consulta manual sem duplicação, atualização válida no próximo boot, política ACBr sem fallback
   automático e tasks Gradle históricas bloqueadas. Próximo: Task 35, revisão/fechamento do bloco. A
   pesquisa provisória

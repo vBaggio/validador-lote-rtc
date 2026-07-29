@@ -7,27 +7,27 @@
 
 ## Bloco 6 (canal de artefatos externos, branch `bloco/6-canal-schemas`)
 
-Task 30 (b6): complete (commit f95bec4, revisão independente PASS após 2 fix loops) — catálogo
+Task 30 (b6): complete (commit 974817d, revisão independente PASS após 2 fix loops) — catálogo
 local e instalação transacional da primeira base de schemas. Candidata só atualiza `current` depois
 de staging, cópia sem symlink/extras e compilação confinada; corrupção/erro de abertura volta à base
 embarcada. ACHADO: manifesto+hash no diretório do usuário não autenticam malware sob a mesma conta;
 D-046 declara o modelo de ameaça e restringe a promessa a integridade operacional. DÉBITO/Task 31:
 proveniência/assinatura da aquisição oficial e atualização da base NF-e/NFC-e.
 
-Task 31 (b6): complete (commit 0edce89, revisão independente PASS após fix loop) — atualiza a
+Task 31 (b6): complete (commit ebfb4ae, revisão independente PASS após fix loop) — atualiza a
 closure NF-e/NFC-e para 010e_v1.02 e torna a proveniência auditável: Portal Nacional é autoridade,
 ACBr r47146 é transporte explicitamente limitado; manifesto lista paths/hashes e hash canônico,
 testado contra os bytes embarcados. ACHADO: README ainda apontava a Calculadora e o manifesto não
 identificava a closure completa; ambos corrigidos. DÉBITO/Task 32: tabelas SVRS cuja URL antiga já
 retorna 404 precisam do mesmo armazenamento transacional.
 
-Task 32 (b6): complete (commit c8047b6, revisão independente PASS após fix loop) — normaliza a
+Task 32 (b6): complete (commit 1d0a12c, revisão independente PASS após fix loop) — normaliza a
 página atual SVRS, atualiza tabelas em staging via HTTPS allowlist/limites e carrega a última tabela
 íntegra com fallback. ACHADO: cobertura por cardinalidade aceitava troca de códigos; corrigida para
 interseção >=80% de CST e cClassTrib, com mutação. Manifesto/Gradle apontam para a rota vigente e
 separam última consulta de extração. Próximo: rotina de atualização e UI.
 
-Task 33 (b6): complete (commit 7f731fe, revisão independente PASS após fix loop) — descobre só o
+Task 33 (b6): complete (commit 068c868, revisão independente PASS após fix loop) — descobre só o
 perfil 010e ativo do Portal, baixa ZIP confinado e agenda atualização após a UI. ACHADOS: grafia
 oficial `v.1.02` não era reconhecida e intervalo 24h era só memória; normalização canônica e estado
 persistente corrigem ambos. ZIP com atributo symlink também é rejeitado/testado. Próximo: UI/ACBr.
@@ -671,7 +671,7 @@ check `build` verde e mergeado em `main` no commit `96f501f`. `main` local foi s
 `origin/main`. Task 29 permanece o único gate: tag/release pública e smoke de MSI em Windows real;
 não iniciada sem confirmação explícita para publicar a versão.
 
-Task 34 (b6): complete (commit `f4027fd`, revisão pendente da Task 35) — 375 testes.
+Task 34 (b6): complete (commit `16080b3`, revisão pendente da Task 35) — 376 testes.
   ENTREGUE: rodapé abre diálogo não modal **Fontes externas**, com estado por artefato, origem,
   versão/snapshot, hash abreviado, atualização, consulta e aviso recuperável. “Verificar agora”
   usa o mesmo coordenador em background, força uma consulta mas é protegido por gate atômico:
@@ -681,5 +681,5 @@ Task 34 (b6): complete (commit `f4027fd`, revisão pendente da Task 35) — 375 
   SVN silencioso. `updateSchemas`/`updateFiscalTables` foram bloqueadas antes de rede/escrita;
   base embarcada só muda por manutenção de release em staging e diff revisado.
   Sonda de mutação: removido o gate `compareAndSet`; o teste de clique duplicado caiu sozinho;
-  restauração e `./gradlew clean test --console=plain` (375) verdes. DÉBITO: retenção/poda de
+  restauração e `./gradlew clean test --console=plain` (376) verdes. DÉBITO: retenção/poda de
   versões e telemetria local de espelho ACBr permanecem fora do escopo, sem autorizar ativação.
