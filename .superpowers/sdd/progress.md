@@ -828,3 +828,18 @@ release `010e_v1.02-r2`, ativação confirmada e uso após reinício; detalhes l
 `tmp/runtime-smoke-canal-curado-2026-07-30.md`. As pendências evolutivas e o gate visual do
 instalador Windows foram registrados em `docs/operacao-canal-schemas-curados.md`. Em 30/07/2026,
 o dono autorizou push, abertura de PR e merge do aplicativo.
+
+Task 46 (b8): complete (commit `f949b89`, revisão independente PASS/PASS após 2 fix loops) —
+introduz `ValidationRuntime`/`RuntimeBases` imutáveis, factory thread-safe de gerações e associa a
+identidade da base ao resultado concluído do documento. ACHADOS IMPORTANTES corrigidos: o tipo
+agora proíbe bases em `PENDING`/`VALIDATING`, limpa identidade ao retornar a pendente e exige
+identidade em resultado terminal; a geração passou a ter dono monotônico; e os testes atravessam
+`VALIDATING` antes de cancelar ou lançar, provando que não há geração residual. TDD, suíte completa
+e duas sondas de mutação passaram; D-052 registra que troca posterior não recalcula nem
+reetiqueta resultados.
+
+### PARADA — 30/07/2026, Task 46 B8 concluída
+
+HEAD `f949b89` na branch `bloco/8-troca-runtime-bases`. Task 46 está commitada, revisada e árvore
+limpa. Próxima task: 47 — substituir a admissão booleana por leases capturadas sob o mesmo gate da
+ativação e preparar os testes de concorrência. Não há push, PR ou merge autorizado durante o bloco.

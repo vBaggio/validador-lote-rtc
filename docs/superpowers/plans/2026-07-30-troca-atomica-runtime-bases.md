@@ -90,6 +90,8 @@ Para **cada** task abaixo:
 
 ## Task 46 — Contrato de runtime imutável e identidade dos resultados
 
+**Status:** concluída em `f949b89`; revisão independente PASS/PASS após dois fix loops.
+
 **Propósito:** tornar explícito o conjunto que uma validação usa e impedir que uma referência
 mutável alcance um documento já em processamento ou exibido.
 

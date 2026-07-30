@@ -1,6 +1,10 @@
 package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.DocumentValidationResult;
+import br.com.validadorlote.application.RuntimeBases;
+import br.com.validadorlote.application.ValidationRuntimeFactory;
+import br.com.validadorlote.application.ValidationRuntime;
 import br.com.validadorlote.application.ExternalSourcesPhase;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
@@ -37,11 +41,16 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MainPresenterTest {
 
@@ -180,6 +189,52 @@ class MainPresenterTest {
     }
 
     @Test
+    void completedDocumentKeepsTheRuntimeBasesCapturedBeforeANewerRuntimeExists(
+            @TempDir Path dir) throws IOException {
+        copyFixture(dir, "nfe-valida-sem-assinatura.xml", "a.xml");
+        ValidationRuntimeFactory factory = new ValidationRuntimeFactory();
+        ValidationRuntime r1 = factory.create(useCase(), "schemas-r1", "canal-r1", "tabelas-r1",
+                "svrs-r1");
+        presenter = new MainPresenter(r1, DIRECT_UI_THREAD,
+                Runnable::run);
+        presenter.attach(fakeView);
+
+        presenter.inputChosen(dir);
+        presenter.validateRequested();
+
+        WorkspaceDocument completedWithR1 = lastWorkspace.getFirst();
+        List<?> findingsWithR1 = completedWithR1.findings();
+        AtomicReference<ValidationRuntime> publishedRuntime = new AtomicReference<>(r1);
+        ValidationRuntime r2 = factory.create(useCase(), "schemas-r2", "canal-r2", "tabelas-r2",
+                "svrs-r2");
+        publishedRuntime.set(r2);
+
+        assertThat(r2.useCase()).isNotSameAs(r1.useCase());
+        assertThat(r2.bases().generation()).isGreaterThan(completedWithR1.runtimeBases().generation());
+        assertThat(publishedRuntime.get().bases()).isEqualTo(r2.bases());
+        assertThat(lastWorkspace.getFirst().runtimeBases()).isEqualTo(r1.bases());
+        assertThat(lastWorkspace.getFirst().findings()).isEqualTo(findingsWithR1);
+    }
+
+    @Test
+    void workspaceDocumentRejectsIdentityOnIncompleteStatesAndClearsItWhenReturningToPending() {
+        RuntimeBases r1 = new RuntimeBases("schemas-r1", "canal-r1", "tabelas-r1", "svrs-r1", 1);
+        var document = new br.com.validadorlote.domain.FiscalDocument(Path.of("a.xml"), null, null,
+                null, null, "55", "NFe", "3", null, null, false, null, false, List.of());
+
+        assertThatThrownBy(() -> new WorkspaceDocument(document, DocumentStatus.PENDING, List.of(), r1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new WorkspaceDocument(document, DocumentStatus.VALID, List.of(), null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        WorkspaceDocument completed = WorkspaceDocument.pending(document)
+                .withResult(DocumentStatus.VALID, List.of(), r1);
+
+        assertThat(completed.withStatus(DocumentStatus.PENDING).runtimeBases()).isNull();
+        assertThat(completed.withStatus(DocumentStatus.VALIDATING).runtimeBases()).isNull();
+    }
+
+    @Test
     void newAnalysisReturnsToIdle(@TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida.xml", "a.xml");
         presenter.inputChosen(dir);
@@ -207,7 +262,9 @@ class MainPresenterTest {
         copyFixture(dir, "nfe-valida.xml", "a.xml");
         var queued = new ArrayList<Runnable>();
         Executor deferredBackground = queued::add;
-        var deferredPresenter = new MainPresenter(useCase(), DIRECT_UI_THREAD, deferredBackground);
+        var deferredPresenter = new MainPresenter(new ValidationRuntime(useCase(),
+                new RuntimeBases("schemas-r1", "canal-r1", "tabelas-r1", "svrs-r1", 1)),
+                DIRECT_UI_THREAD, deferredBackground);
         deferredPresenter.attach(fakeView);
 
         deferredPresenter.inputChosen(dir);
@@ -219,6 +276,85 @@ class MainPresenterTest {
 
         assertThat(lastWorkspace).hasSize(1);
         assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
+        assertThat(lastWorkspace.getFirst().runtimeBases()).isNull();
+    }
+
+    @Test
+    void cancellationAfterValidatingReturnsDocumentToPendingWithoutRuntimeBases(
+            @TempDir Path dir) throws Exception {
+        copyFixture(dir, "nfe-valida.xml", "a.xml");
+        CountDownLatch validating = new CountDownLatch(1);
+        CountDownLatch continueValidation = new CountDownLatch(1);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        AtomicBoolean importing = new AtomicBoolean(true);
+        Executor background = action -> {
+            if (importing.getAndSet(false)) {
+                action.run();
+            } else {
+                worker.execute(action);
+            }
+        };
+        try {
+            presenter = new MainPresenter(runtime("r1"), DIRECT_UI_THREAD, background, null,
+                    (runtime, source, token) -> {
+                        validating.countDown();
+                        await(continueValidation);
+                        return new DocumentValidationResult(null, List.of());
+                    });
+            presenter.attach(fakeView);
+            presenter.inputChosen(dir);
+            presenter.validateRequested();
+
+            await(validating);
+            assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.VALIDATING);
+            presenter.cancelRequested();
+            continueValidation.countDown();
+        } finally {
+            worker.shutdown();
+            worker.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+        }
+
+        assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
+        assertThat(lastWorkspace.getFirst().runtimeBases()).isNull();
+    }
+
+    @Test
+    void validationExceptionAfterValidatingReturnsDocumentToPendingWithoutRuntimeBases(
+            @TempDir Path dir) throws IOException {
+        copyFixture(dir, "nfe-valida.xml", "a.xml");
+        presenter = new MainPresenter(runtime("r1"), DIRECT_UI_THREAD, Runnable::run, null,
+                (runtime, source, token) -> {
+                    throw new IllegalStateException("falha forçada");
+                });
+        presenter.attach(fakeView);
+        presenter.inputChosen(dir);
+
+        presenter.validateRequested();
+
+        assertThat(calls).anySatisfy(call -> assertThat(call).contains("falha forçada"));
+        assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
+        assertThat(lastWorkspace.getFirst().runtimeBases()).isNull();
+    }
+
+    @Test
+    void validationSchedulingFailureLeavesThePendingDocumentWithoutRuntimeIdentity(
+            @TempDir Path dir) throws IOException {
+        copyFixture(dir, "nfe-valida.xml", "a.xml");
+        AtomicBoolean reject = new AtomicBoolean();
+        Executor executor = action -> {
+            if (reject.get()) throw new RejectedExecutionException("executor encerrado");
+            action.run();
+        };
+        presenter = new MainPresenter(new ValidationRuntime(useCase(), new RuntimeBases("schemas-r1",
+                "canal-r1", "tabelas-r1", "svrs-r1", 1)), DIRECT_UI_THREAD, executor);
+        presenter.attach(fakeView);
+        presenter.inputChosen(dir);
+        reject.set(true);
+
+        presenter.validateRequested();
+
+        assertThat(lastWorkspace.getFirst().status()).isEqualTo(DocumentStatus.PENDING);
+        assertThat(lastWorkspace.getFirst().runtimeBases()).isNull();
     }
 
     @Test
@@ -690,6 +826,23 @@ class MainPresenterTest {
                 new TaxGroupExtractor(), new SchemaValidatorEngine(translator),
                 new RuleEngine(FiscalTables.load()), new RootCauseGrouper(), translator,
                 new CsvExporter(), "motor-teste");
+    }
+
+    private static ValidationRuntime runtime(String generationName) {
+        return new ValidationRuntime(useCase(), new RuntimeBases("schemas-" + generationName,
+                "canal-" + generationName, "tabelas-" + generationName,
+                "svrs-" + generationName, 1));
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new AssertionError("A validação não alcançou o ponto de sincronização");
+            }
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Thread interrompida", failure);
+        }
     }
 
     private static void copyFixture(Path dir, String fixture, String target) throws IOException {

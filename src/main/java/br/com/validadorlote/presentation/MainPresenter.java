@@ -6,6 +6,8 @@ import br.com.validadorlote.application.ExternalSourcesPhase;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.application.ImportedBatch;
+import br.com.validadorlote.application.RuntimeBases;
+import br.com.validadorlote.application.ValidationRuntime;
 import br.com.validadorlote.application.ValidateBatchUseCase;
 
 import java.nio.file.Path;
@@ -17,7 +19,8 @@ import java.util.concurrent.Executor;
 /** Coordena o lote de trabalho: importar primeiro e validar sob solicitação do usuário. */
 public final class MainPresenter {
 
-    private final ValidateBatchUseCase useCase;
+    private final ValidationRuntime runtime;
+    private final DocumentValidationRunner validationRunner;
     private final UiThread uiThread;
     private final Executor background;
     private final ExternalSourcesUseCase externalSources;
@@ -43,15 +46,33 @@ public final class MainPresenter {
             "Não foi possível iniciar a atualização das bases: ";
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
-        this(useCase, uiThread, background, null);
+        this(new ValidationRuntime(useCase, RuntimeBases.legacy()), uiThread, background, null);
     }
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background,
             ExternalSourcesUseCase externalSources) {
-        this.useCase = Objects.requireNonNull(useCase);
+        this(new ValidationRuntime(useCase, RuntimeBases.legacy()), uiThread, background,
+                externalSources);
+    }
+
+    public MainPresenter(ValidationRuntime runtime, UiThread uiThread, Executor background) {
+        this(runtime, uiThread, background, null);
+    }
+
+    public MainPresenter(ValidationRuntime runtime, UiThread uiThread, Executor background,
+            ExternalSourcesUseCase externalSources) {
+        this(runtime, uiThread, background, externalSources,
+                (validationRuntime, source, token) -> validationRuntime.useCase()
+                        .validateDocument(source, true, token));
+    }
+
+    MainPresenter(ValidationRuntime runtime, UiThread uiThread, Executor background,
+            ExternalSourcesUseCase externalSources, DocumentValidationRunner validationRunner) {
+        this.runtime = Objects.requireNonNull(runtime);
         this.uiThread = Objects.requireNonNull(uiThread);
         this.background = Objects.requireNonNull(background);
         this.externalSources = externalSources;
+        this.validationRunner = Objects.requireNonNull(validationRunner);
     }
 
     /** Liga a view e a coloca no estado inicial. */
@@ -100,7 +121,7 @@ public final class MainPresenter {
         }
         publishWorkspace();
         try {
-            background.execute(() -> validatePending(pending, token));
+            background.execute(() -> validatePending(pending, token, runtime));
         } catch (RuntimeException e) {
             synchronized (workspaceLock) {
                 validating = false;
@@ -182,7 +203,7 @@ public final class MainPresenter {
 
     private void importInput(Path input, long generation) {
         try {
-            ImportedBatch imported = useCase.importDocuments(input);
+            ImportedBatch imported = runtime.useCase().importDocuments(input);
             uiThread.execute(() -> mergeImport(imported, generation));
         } catch (RuntimeException e) {
             uiThread.execute(() -> requireView().showError(messageFor(e)));
@@ -203,13 +224,15 @@ public final class MainPresenter {
         if (!imported.invalidFiles().isEmpty()) requireView().showInvalidFiles(imported.invalidFiles());
     }
 
-    private void validatePending(List<Path> pending, CancellationToken token) {
+    private void validatePending(List<Path> pending, CancellationToken token,
+            ValidationRuntime validationRuntime) {
         for (Path source : pending) {
             if (token.isCancelled() || token != currentToken) break;
             uiThread.execute(() -> setStatus(source, DocumentStatus.VALIDATING, token));
             try {
-                DocumentValidationResult result = useCase.validateDocument(source, true, token);
-                uiThread.execute(() -> applyValidation(source, result, token));
+                DocumentValidationResult result = validationRunner.validate(validationRuntime, source,
+                        token);
+                uiThread.execute(() -> applyValidation(source, result, token, validationRuntime.bases()));
             } catch (RuntimeException e) {
                 uiThread.execute(() -> validationFailed(source, token, e));
             }
@@ -225,7 +248,8 @@ public final class MainPresenter {
         publishWorkspace();
     }
 
-    private void applyValidation(Path source, DocumentValidationResult result, CancellationToken token) {
+    private void applyValidation(Path source, DocumentValidationResult result, CancellationToken token,
+            RuntimeBases runtimeBases) {
         if (token != currentToken) return;
         synchronized (workspaceLock) {
             if (token.isCancelled() && result.document() == null && result.findings().isEmpty()) {
@@ -234,7 +258,7 @@ public final class MainPresenter {
                 workspace.removeIf(item -> item.document().source().equals(source));
             } else {
                 DocumentStatus status = WorkspaceDocument.statusFor(result.findings());
-                replace(source, item -> item.withResult(status, result.findings()));
+                replace(source, item -> item.withResult(status, result.findings(), runtimeBases));
                 processed++;
             }
         }
@@ -363,5 +387,11 @@ public final class MainPresenter {
     private static String messageFor(Exception e) {
         String message = e.getMessage();
         return message == null || message.isBlank() ? "erro desconhecido" : message;
+    }
+
+    @FunctionalInterface
+    interface DocumentValidationRunner {
+        DocumentValidationResult validate(ValidationRuntime runtime, Path source,
+                CancellationToken token);
     }
 }

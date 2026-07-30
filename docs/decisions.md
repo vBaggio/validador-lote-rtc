@@ -4,6 +4,21 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-052 — Resultados guardam a geração imutável do runtime que os produziu (30/07/2026)
+
+Cada validação usa um `ValidationRuntime` imutável, composto pelo caso de uso e por
+`RuntimeBases` legível (versão e proveniência de schemas e tabela, além da geração). Ao concluir
+um documento, o presenter grava esse valor no `WorkspaceDocument`; pendente, validação cancelada
+e falha sem resultado não recebem identidade. Uma troca posterior de runtime não recalcula,
+reetiqueta nem consulta estado global para alterar resultados já exibidos.
+
+`ValidationRuntimeFactory` é o dono thread-safe da sequência: emite gerações estritamente
+crescentes e evita que o caminho de composição produza uma regressão manual. O contrato antecede
+a publicação atômica: nesta etapa ele conserva os construtores legados com uma identidade
+provisória, e a composição definitiva com as bases ativas será responsabilidade do composition
+root. A consequência é que a UI sempre poderá mostrar a proveniência que realmente gerou cada
+achado, mesmo quando a sessão passar a aceitar uma geração posterior.
+
 ## D-051 — Schemas runtime vêm de canal próprio, curado e assinado (30/07/2026)
 
 O runtime de schemas NF-e/NFC-e aceita somente releases completas do canal público próprio,

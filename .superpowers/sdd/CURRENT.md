@@ -3,6 +3,15 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
+- **Bloco:** B8 — Troca atômica do runtime de bases — está em execução na branch
+  `bloco/8-troca-runtime-bases`; plano em
+  `docs/superpowers/plans/2026-07-30-troca-atomica-runtime-bases.md`. **Task 46** concluída no
+  commit `f949b89`, revisão independente PASS/PASS após dois fix loops: `ValidationRuntime` e
+  `RuntimeBases` imutáveis, factory de geração thread-safe e associação persistida no resultado.
+  Estados pendentes/em validação não retêm identidade; cancelamento e falha reais retornam a
+  pendente sem geração residual. Próxima: Task 47, lease de validação e gate único. Não fazer push,
+  PR ou merge antes do aceite runtime do bloco.
+
 - **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
   `bloco/7-canal-proprio-schemas`; plano em
   `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–5 e a correção
