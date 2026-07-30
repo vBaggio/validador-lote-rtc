@@ -32,6 +32,33 @@ class SafeHttpsClientTest {
     private static final URI SVRS = URI.create("https://dfe-portal.svrs.rs.gov.br/DFE/TabelaClassificacaoTributaria");
 
     @Test
+    void curatedSchemaFactoriesKeepManifestAndZipPoliciesIndependent() {
+        URI artifact = URI.create("https://channel.test/artifact");
+        byte[] largerThanManifest = new byte[
+                SafeHttpsClient.CURATED_SCHEMA_MANIFEST_MAX_BYTES + 1];
+        HttpsTransport transport = (uri, timeout) ->
+                new HttpsTransport.Response(200, uri, Map.of(), largerThanManifest);
+        SafeHttpsClient manifest = SafeHttpsClient.forCuratedSchemaManifest(
+                Set.of("channel.test"), transport);
+        SafeHttpsClient zip = SafeHttpsClient.forCuratedSchemaZip(
+                Set.of("channel.test"), transport);
+
+        assertThatThrownBy(() -> manifest.getBytes(artifact))
+                .isInstanceOf(ArtifactUpdateException.class)
+                .hasMessageContaining("limite");
+        assertThat(zip.getBytes(artifact)).hasSize(largerThanManifest.length);
+
+        assertThatThrownBy(() -> SafeHttpsClient.forCuratedSchemaManifest(
+                Set.of("manifest.test"), transport).getBytes(artifact))
+                .isInstanceOf(ArtifactUpdateException.class)
+                .hasMessageContaining("não permitida");
+        assertThatThrownBy(() -> SafeHttpsClient.forCuratedSchemaZip(
+                Set.of("downloads.test"), transport).getBytes(artifact))
+                .isInstanceOf(ArtifactUpdateException.class)
+                .hasMessageContaining("não permitida");
+    }
+
+    @Test
     void usesTheConfiguredTimeoutAndUtf8WithoutOpeningRealNetwork() {
         AtomicReference<Duration> receivedTimeout = new AtomicReference<>();
         SafeHttpsClient client = client((uri, timeout) -> {

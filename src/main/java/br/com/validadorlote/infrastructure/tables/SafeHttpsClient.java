@@ -30,6 +30,7 @@ public final class SafeHttpsClient {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     public static final int SVRS_MAX_BYTES = 6 * 1024 * 1024;
+    public static final int CURATED_SCHEMA_MANIFEST_MAX_BYTES = 256 * 1024;
     public static final int SCHEMA_MAX_BYTES = 32 * 1024 * 1024;
     private static final int MAX_REDIRECTS = 3;
 
@@ -57,6 +58,25 @@ public final class SafeHttpsClient {
     public static SafeHttpsClient forSvrsSchemas() {
         return new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"), DEFAULT_TIMEOUT,
                 SCHEMA_MAX_BYTES, new JdkTransport(SCHEMA_MAX_BYTES));
+    }
+
+    public static SafeHttpsClient forCuratedSchemaManifest(Set<String> hosts) {
+        return forCuratedSchemaManifest(hosts,
+                new JdkTransport(CURATED_SCHEMA_MANIFEST_MAX_BYTES));
+    }
+
+    static SafeHttpsClient forCuratedSchemaManifest(Set<String> hosts,
+            HttpsTransport transport) {
+        return new SafeHttpsClient(hosts, DEFAULT_TIMEOUT,
+                CURATED_SCHEMA_MANIFEST_MAX_BYTES, transport);
+    }
+
+    public static SafeHttpsClient forCuratedSchemaZip(Set<String> hosts) {
+        return forCuratedSchemaZip(hosts, new JdkTransport(SCHEMA_MAX_BYTES));
+    }
+
+    static SafeHttpsClient forCuratedSchemaZip(Set<String> hosts, HttpsTransport transport) {
+        return new SafeHttpsClient(hosts, DEFAULT_TIMEOUT, SCHEMA_MAX_BYTES, transport);
     }
 
     /** Retorna sempre UTF-8; a página da fonte é pública e não dita o charset ao aplicativo. */
