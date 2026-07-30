@@ -52,8 +52,8 @@ public final class SchemaZipExtractor {
         try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zip))) {
             for (ZipEntry entry; (entry = input.getNextEntry()) != null;) {
                 if (++count > MAX_ENTRIES) throw new IllegalStateException("ZIP contém entradas demais");
-                if (count > centralDirectory.entryNames().size()
-                        || !entry.getName().equals(centralDirectory.entryNames().get(count - 1))) {
+                if (count > centralDirectory.entries().size()
+                        || !entry.getName().equals(centralDirectory.entries().get(count - 1).name())) {
                     throw new IllegalStateException(
                             "ZIP possui diretório central incompatível com as entradas locais");
                 }
@@ -72,7 +72,7 @@ public final class SchemaZipExtractor {
         } catch (IOException failure) {
             throw new IllegalStateException("ZIP contém dados comprimidos inválidos");
         }
-        if (count != centralDirectory.entryNames().size()) {
+        if (count != centralDirectory.entries().size()) {
             throw new IllegalStateException(
                     "ZIP possui diretório central incompatível com as entradas locais");
         }
@@ -114,7 +114,7 @@ public final class SchemaZipExtractor {
             throw new IllegalStateException("ZIP possui diretório central inválido");
         }
         int offset = Math.toIntExact(centralDirectoryOffset);
-        List<String> entryNames = new ArrayList<>(entries);
+        List<CentralEntry> centralEntries = new ArrayList<>(entries);
         for (int index = 0; index < entries; index++) {
             if ((long) offset + 46 > end || littleEndianInt(zip, offset) != 0x02014b50) {
                 throw new IllegalStateException("ZIP possui diretório central inválido");
@@ -125,17 +125,98 @@ public final class SchemaZipExtractor {
             int nameLength = littleEndianShort(zip, offset + 28);
             int extraLength = littleEndianShort(zip, offset + 30);
             int commentLength = littleEndianShort(zip, offset + 32);
+            int flags = littleEndianShort(zip, offset + 8);
+            int method = littleEndianShort(zip, offset + 10);
+            long crc = littleEndianUnsignedInt(zip, offset + 16);
+            long compressedSize = littleEndianUnsignedInt(zip, offset + 20);
+            long uncompressedSize = littleEndianUnsignedInt(zip, offset + 24);
+            long localHeaderOffset = littleEndianUnsignedInt(zip, offset + 42);
             long next = (long) offset + 46 + nameLength + extraLength + commentLength;
             if (next > end) {
                 throw new IllegalStateException("ZIP possui diretório central inválido");
             }
-            entryNames.add(decodeEntryName(zip, offset + 46, nameLength));
+            if (compressedSize == 0xFFFF_FFFFL || uncompressedSize == 0xFFFF_FFFFL
+                    || localHeaderOffset == 0xFFFF_FFFFL) {
+                throw new IllegalStateException("ZIP64 não é aceito");
+            }
+            centralEntries.add(new CentralEntry(
+                    decodeEntryName(zip, offset + 46, nameLength),
+                    flags, method, crc, compressedSize, uncompressedSize, localHeaderOffset));
             offset = Math.toIntExact(next);
         }
         if (offset != end) {
             throw new IllegalStateException("ZIP possui diretório central inválido");
         }
-        return new CentralDirectory(List.copyOf(entryNames));
+        validateLocalRegion(zip, centralDirectoryOffset, centralEntries);
+        return new CentralDirectory(List.copyOf(centralEntries));
+    }
+
+    private void validateLocalRegion(byte[] zip, long centralOffset,
+            List<CentralEntry> entries) {
+        if (entries.isEmpty()) {
+            if (centralOffset != 0) invalidLocalRegion();
+            return;
+        }
+        for (int index = 0; index < entries.size(); index++) {
+            CentralEntry entry = entries.get(index);
+            long localOffset = entry.localHeaderOffset();
+            if ((index == 0 && localOffset != 0)
+                    || localOffset + 30 > centralOffset
+                    || littleEndianInt(zip, Math.toIntExact(localOffset)) != 0x04034b50) {
+                invalidLocalRegion();
+            }
+            int local = Math.toIntExact(localOffset);
+            int flags = littleEndianShort(zip, local + 6);
+            int method = littleEndianShort(zip, local + 8);
+            int nameLength = littleEndianShort(zip, local + 26);
+            int extraLength = littleEndianShort(zip, local + 28);
+            long dataStart = localOffset + 30L + nameLength + extraLength;
+            long dataEnd = dataStart + entry.compressedSize();
+            long nextOffset = index + 1 < entries.size()
+                    ? entries.get(index + 1).localHeaderOffset()
+                    : centralOffset;
+            if (flags != entry.flags() || method != entry.method()
+                    || nextOffset <= localOffset || nextOffset > centralOffset
+                    || dataStart > centralOffset || dataEnd > nextOffset
+                    || !decodeEntryName(zip, local + 30, nameLength).equals(entry.name())) {
+                invalidLocalRegion();
+            }
+            long gap = nextOffset - dataEnd;
+            if ((flags & 0x0008) == 0) {
+                if (gap != 0
+                        || littleEndianUnsignedInt(zip, local + 14) != entry.crc()
+                        || littleEndianUnsignedInt(zip, local + 18) != entry.compressedSize()
+                        || littleEndianUnsignedInt(zip, local + 22) != entry.uncompressedSize()) {
+                    invalidLocalRegion();
+                }
+            } else {
+                validateDataDescriptor(zip, dataEnd, gap, entry);
+            }
+        }
+    }
+
+    private void validateDataDescriptor(byte[] zip, long dataEnd, long length,
+            CentralEntry entry) {
+        int descriptor = Math.toIntExact(dataEnd);
+        int valueOffset;
+        if (length == 16 && littleEndianInt(zip, descriptor) == 0x08074b50) {
+            valueOffset = descriptor + 4;
+        } else if (length == 12) {
+            valueOffset = descriptor;
+        } else {
+            invalidLocalRegion();
+            return;
+        }
+        if (littleEndianUnsignedInt(zip, valueOffset) != entry.crc()
+                || littleEndianUnsignedInt(zip, valueOffset + 4) != entry.compressedSize()
+                || littleEndianUnsignedInt(zip, valueOffset + 8) != entry.uncompressedSize()) {
+            invalidLocalRegion();
+        }
+    }
+
+    private void invalidLocalRegion() {
+        throw new IllegalStateException(
+                "ZIP possui diretório central inválido: região local incompatível");
     }
 
     private int findEndOfCentralDirectory(byte[] zip) {
@@ -256,5 +337,8 @@ public final class SchemaZipExtractor {
 
     private record ExtractedTree(Map<String, byte[]> files, String rootPrefix) {}
 
-    private record CentralDirectory(List<String> entryNames) {}
+    private record CentralDirectory(List<CentralEntry> entries) {}
+
+    private record CentralEntry(String name, int flags, int method, long crc,
+            long compressedSize, long uncompressedSize, long localHeaderOffset) {}
 }
