@@ -33,6 +33,12 @@
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre
   schemas e tabelas fiscais ativas, além do inventário do motor futuro da Calculadora.
+  A validação do dono abriu o refinamento **Tasks 37–41**, planejado em
+  `docs/superpowers/plans/2026-07-30-fluxo-observavel-atualizacao-bases.md`: consulta observável,
+  staging antes da confirmação, sucesso parcial, ativação bloqueante e diálogo adaptável. O commit
+  local `d399af9` é apenas o protótipo visual dos cards e ainda não foi publicado; ele será
+  substituído/incorporado na Task 40. Próximo passo: aprovação deste plano e execução da Task 37
+  com a cerimônia do bloco.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final

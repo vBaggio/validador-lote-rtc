@@ -158,6 +158,15 @@ concluída sem candidata, mantendo a base atual. ACBr permanece inspeção/conti
 automática. Cobrir a listagem, URL encoding, ZIP vazio/antigo, candidata nova e a mensagem
 recuperável na tela de Fontes externas.
 
+### Tasks 37–41 — Fluxo observável, confirmação e aplicação de bases
+
+A validação em campo revelou que o canal tecnicamente seguro ainda não explica bem consulta,
+candidata, falha parcial e ativação. O detalhamento aprovado para separar consulta/staging de
+ativação, compartilhar o estado entre rodapé e diálogo, adiar a aplicação durante validação e
+corrigir a experiência do modal está em
+[`2026-07-30-fluxo-observavel-atualizacao-bases.md`](./2026-07-30-fluxo-observavel-atualizacao-bases.md).
+Esse adendo governa o refinamento final do B6.
+
 ## Critérios de aceite
 
 - Sem rede ou com fonte indisponível, a aplicação continua validando com a última base íntegra.
