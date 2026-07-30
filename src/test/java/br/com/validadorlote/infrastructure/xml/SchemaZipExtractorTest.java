@@ -166,6 +166,18 @@ class SchemaZipExtractorTest {
     }
 
     @Test
+    void rejectsEarlyRealDescriptorHiddenByAForgedLateDescriptorAndSanitizedCentral()
+            throws Exception {
+        byte[] original = zip(Map.of("NFe/link.xsd", EMPTY_SCHEMA));
+        markLastCentralDirectoryEntryAsSymlink(original);
+        byte[] hostile = appendForgedDescriptorAndSanitizedCentralDirectory(original);
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("entrada local", "diretório central");
+    }
+
+    @Test
     void rejectsTrailingBytesThatAreNotDeclaredAsTheEocdComment() throws Exception {
         byte[] valid = zip(Map.of());
         byte[] hostile = java.util.Arrays.copyOf(valid, valid.length + 1);
@@ -338,6 +350,54 @@ class SchemaZipExtractorTest {
         writeLittleEndianInt(shadowed, shadowEnd + 12, centralSize);
         writeLittleEndianInt(shadowed, shadowEnd + 16, shadowCentralOffset);
         return shadowed;
+    }
+
+    private byte[] appendForgedDescriptorAndSanitizedCentralDirectory(byte[] zip) {
+        int originalEnd = endOfCentralDirectory(zip);
+        int entries = littleEndianShort(zip, originalEnd + 10);
+        int centralSize = littleEndianInt(zip, originalEnd + 12);
+        int originalCentralOffset = littleEndianInt(zip, originalEnd + 16);
+        int originalLastEntry = lastCentralDirectoryEntryOffset(
+                zip, originalCentralOffset, entries);
+        int localOffset = littleEndianInt(zip, originalLastEntry + 42);
+        int localNameLength = littleEndianShort(zip, localOffset + 26);
+        int localExtraLength = littleEndianShort(zip, localOffset + 28);
+        int dataStart = localOffset + 30 + localNameLength + localExtraLength;
+        int forgedDescriptorOffset = zip.length;
+        int expandedCompressedSize = forgedDescriptorOffset - dataStart;
+        int shadowCentralOffset = forgedDescriptorOffset + 16;
+        int shadowEnd = shadowCentralOffset + centralSize;
+        byte[] shadowed = java.util.Arrays.copyOf(zip, shadowEnd + 22);
+
+        writeLittleEndianInt(shadowed, forgedDescriptorOffset, 0x08074b50);
+        writeLittleEndianInt(shadowed, forgedDescriptorOffset + 4,
+                littleEndianInt(zip, originalLastEntry + 16));
+        writeLittleEndianInt(shadowed, forgedDescriptorOffset + 8, expandedCompressedSize);
+        writeLittleEndianInt(shadowed, forgedDescriptorOffset + 12,
+                littleEndianInt(zip, originalLastEntry + 24));
+
+        System.arraycopy(zip, originalCentralOffset, shadowed, shadowCentralOffset, centralSize);
+        int shadowLastEntry = lastCentralDirectoryEntryOffset(
+                shadowed, shadowCentralOffset, entries);
+        writeLittleEndianInt(shadowed, shadowLastEntry + 20, expandedCompressedSize);
+        writeLittleEndianInt(shadowed, shadowLastEntry + 38, 0);
+
+        writeLittleEndianInt(shadowed, shadowEnd, 0x06054b50);
+        writeLittleEndianShort(shadowed, shadowEnd + 8, entries);
+        writeLittleEndianShort(shadowed, shadowEnd + 10, entries);
+        writeLittleEndianInt(shadowed, shadowEnd + 12, centralSize);
+        writeLittleEndianInt(shadowed, shadowEnd + 16, shadowCentralOffset);
+        return shadowed;
+    }
+
+    private int lastCentralDirectoryEntryOffset(byte[] zip, int first, int entries) {
+        int offset = first;
+        for (int index = 1; index < entries; index++) {
+            offset += 46 + littleEndianShort(zip, offset + 28)
+                    + littleEndianShort(zip, offset + 30)
+                    + littleEndianShort(zip, offset + 32);
+        }
+        return offset;
     }
 
     private int endOfCentralDirectory(byte[] zip) {

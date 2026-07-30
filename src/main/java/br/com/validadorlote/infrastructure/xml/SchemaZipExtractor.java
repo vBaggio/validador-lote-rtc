@@ -52,8 +52,10 @@ public final class SchemaZipExtractor {
         try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zip))) {
             for (ZipEntry entry; (entry = input.getNextEntry()) != null;) {
                 if (++count > MAX_ENTRIES) throw new IllegalStateException("ZIP contém entradas demais");
-                if (count > centralDirectory.entries().size()
-                        || !entry.getName().equals(centralDirectory.entries().get(count - 1).name())) {
+                CentralEntry centralEntry = count <= centralDirectory.entries().size()
+                        ? centralDirectory.entries().get(count - 1)
+                        : null;
+                if (centralEntry == null || !entry.getName().equals(centralEntry.name())) {
                     throw new IllegalStateException(
                             "ZIP possui diretório central incompatível com as entradas locais");
                 }
@@ -63,6 +65,7 @@ public final class SchemaZipExtractor {
                     throw new IllegalStateException("ZIP contém arquivo regular não-XSD: " + name);
                 }
                 byte[] content = readEntry(input, MAX_EXTRACTED_BYTES - extracted);
+                validateObservedEntry(entry, centralEntry);
                 extracted += content.length;
                 if (extracted > MAX_EXTRACTED_BYTES) {
                     throw new IllegalStateException("ZIP excede o limite extraído");
@@ -91,6 +94,15 @@ public final class SchemaZipExtractor {
         validateSingleRoot(entries, rootPrefix);
         validatePortablePaths(files.keySet(), rootPrefix);
         return new ExtractedTree(files, rootPrefix);
+    }
+
+    private void validateObservedEntry(ZipEntry entry, CentralEntry centralEntry) {
+        if (entry.getCrc() != centralEntry.crc()
+                || entry.getCompressedSize() != centralEntry.compressedSize()
+                || entry.getSize() != centralEntry.uncompressedSize()) {
+            throw new IllegalStateException(
+                    "ZIP possui entrada local incompatível com o diretório central");
+        }
     }
 
     /**
