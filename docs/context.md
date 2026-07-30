@@ -2,7 +2,7 @@
 
 ## O que é
 
-**Validador de Lote RTC** — ferramenta desktop, offline e independente (sem vínculo com
+**Validador de Lote RTC** — ferramenta desktop, local e independente (sem vínculo com
 RFB/SEFAZ) que valida em lote XMLs de NF-e (modelo 55) e NFC-e (modelo 65) contra os
 schemas XSD oficiais da Reforma Tributária do Consumo e agrupa os achados por causa-raiz.
 O exportador CSV permanece no núcleo, mas sua ação está temporariamente suspensa na interface
@@ -14,7 +14,14 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 
 ## Princípios
 
-1. **Nenhum dado sai da máquina por padrão** — sem telemetria, sem rede em runtime no v0.
+1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após o
+   boot, o agendamento automático pode consultar a tabela fiscal no canal SVRS e o manifesto e ZIP
+   assinados do canal próprio de schemas curados, no máximo uma vez a cada 4 horas; a ação manual
+   **Verificar agora** não se submete a essa janela. A validação do lote continua local. A consulta
+   só prepara candidatas:
+   a ativação exige confirmação global do usuário, ocorre fora de uma validação e entra nos engines
+   somente após reinício. A consulta tem prazo também para o corpo HTTP; falhas e rejeições de
+   agendamento permanecem visíveis e recuperáveis, sem deixar uma base parcial ativa.
 2. **A ferramenta nunca decide tributo** — julgamento vem de artefato oficial (schemas; na v1, motor `regime-geral`).
 3. **Zero pré-requisitos** — instalador nativo com runtime embarcado.
 4. **Vida útil curta declarada** — simplicidade > extensibilidade.
@@ -36,6 +43,8 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 6. [`calculadora/`](./calculadora/) — contrato real da Calculadora RFB (descoberta 26/07/2026)
 7. [`superpowers/specs/`](./superpowers/specs/) — spec de design aprovada
 8. [`superpowers/plans/`](./superpowers/plans/) — plano de implementação vigente
+9. [`operacao-atualizacao-bases.md`](./operacao-atualizacao-bases.md) — operação, falhas e aceite do canal de atualização
+10. [`operacao-canal-schemas-curados.md`](./operacao-canal-schemas-curados.md) — curadoria, publicação e aceite do canal assinado de schemas
 
 O projeto é desenvolvido por mais de uma ferramenta de agente. Tudo que vale para todas fica aqui em
 `docs/`; `CLAUDE.md` e `AGENTS.md` são adaptadores finos com o que é específico de cada uma.

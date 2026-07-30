@@ -26,6 +26,7 @@ import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.LinkOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -176,20 +177,34 @@ public final class SchemaValidatorEngine {
     private final XsdErrorTranslator translator;
 
     public SchemaValidatorEngine(XsdErrorTranslator translator) {
+        this(translator, null);
+    }
+
+    /** Compila uma base instalada localmente; o diretório é a raiz que contém nota.xsd. */
+    public SchemaValidatorEngine(XsdErrorTranslator translator, Path schemaDirectory) {
         this.translator = translator;
         try {
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             // Secure processing proíbe acesso externo: os includes vêm do classpath, via resolver
             // próprio, que funciona igual em diretório de build e dentro do JAR (D-019).
-            factory.setResourceResolver(new ClasspathSchemaResolver());
+            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            factory.setResourceResolver(schemaDirectory == null
+                    ? new ClasspathSchemaResolver() : new FilesystemSchemaResolver(schemaDirectory));
             forceMessageLocale(factory::setProperty);
-            URL url = SchemaValidatorEngine.class.getResource(SCHEMA_RESOURCE);
-            if (url == null) {
-                throw new IllegalStateException("Schema ausente no classpath: " + SCHEMA_RESOURCE);
+            if (schemaDirectory == null) {
+                URL url = SchemaValidatorEngine.class.getResource(SCHEMA_RESOURCE);
+                if (url == null) throw new IllegalStateException("Schema ausente no classpath: " + SCHEMA_RESOURCE);
+                this.schema = factory.newSchema(url);
+            } else {
+                Path entrypoint = schemaDirectory.toRealPath().resolve("nota.xsd");
+                if (!entrypoint.startsWith(schemaDirectory.toRealPath()) || !Files.isRegularFile(entrypoint, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new IllegalStateException("Schema local sem nota.xsd regular: " + schemaDirectory);
+                }
+                this.schema = factory.newSchema(entrypoint.toUri().toURL());
             }
-            this.schema = factory.newSchema(url);
-        } catch (SAXException e) {
+        } catch (SAXException | IOException e) {
             throw new IllegalStateException("Falha ao preparar o motor de validação XSD", e);
         }
     }
@@ -498,6 +513,31 @@ public final class SchemaValidatorEngine {
                 if (stream != null) return new ClasspathInput(publicId, systemId, stream);
             }
             return null; // não resolvido: o Xerces reporta o include faltante
+        }
+    }
+
+    /** Resolver confinado: todo include precisa permanecer dentro da árvore ativada. */
+    private static final class FilesystemSchemaResolver implements LSResourceResolver {
+        private final Path root;
+
+        private FilesystemSchemaResolver(Path root) {
+            try { this.root = root.toRealPath(); }
+            catch (IOException e) { throw new IllegalArgumentException("Base local inacessível: " + root, e); }
+        }
+
+        @Override public LSInput resolveResource(String type, String namespaceURI, String publicId,
+                String systemId, String baseUri) {
+            if (systemId == null || baseUri == null) return null;
+            try {
+                Path base = Path.of(java.net.URI.create(baseUri)).toRealPath();
+                Path candidate = base.getParent().resolve(systemId).normalize();
+                if (!candidate.startsWith(root) || !candidate.getFileName().toString().endsWith(".xsd")
+                        || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)
+                        || Files.isSymbolicLink(candidate)) return null;
+                Path real = candidate.toRealPath();
+                if (!real.startsWith(root)) return null;
+                return new ClasspathInput(publicId, real.toUri().toString(), Files.newInputStream(real));
+            } catch (Exception ignored) { return null; }
         }
     }
 

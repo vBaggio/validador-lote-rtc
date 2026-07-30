@@ -12,7 +12,10 @@ import java.awt.geom.Path2D;
 /** Ícones outline monocromáticos desenhados no vetor para as ações principais. */
 final class OutlineIcon implements Icon {
 
-    enum Kind { IMPORT, DRAG_DROP, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS }
+    enum Kind {
+        IMPORT, DRAG_DROP, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
+        DATABASE, WARNING
+    }
 
     private final Kind kind;
     private final int size;
@@ -59,6 +62,8 @@ final class OutlineIcon implements Icon {
                 case ERROR -> errorIcon(g);
                 case NEUTRAL -> neutralIcon(g);
                 case PROGRESS -> progressIcon(g);
+                case DATABASE -> databaseIcon(g);
+                case WARNING -> warningIcon(g);
             }
         } finally {
             g.dispose();
@@ -139,5 +144,24 @@ final class OutlineIcon implements Icon {
         g.draw(path);
         g.drawLine(12, 3, 16, 3);
         g.drawLine(12, 3, 12, 7);
+    }
+
+    private static void databaseIcon(Graphics2D g) {
+        g.drawOval(4, 3, 16, 6);
+        g.drawLine(4, 6, 4, 18);
+        g.drawLine(20, 6, 20, 18);
+        g.drawArc(4, 15, 16, 6, 0, -180);
+        g.drawArc(4, 9, 16, 6, 0, -180);
+    }
+
+    private static void warningIcon(Graphics2D g) {
+        Path2D path = new Path2D.Double();
+        path.moveTo(12, 3);
+        path.lineTo(21, 20);
+        path.lineTo(3, 20);
+        path.closePath();
+        g.draw(path);
+        g.drawLine(12, 9, 12, 14);
+        g.fillOval(11, 17, 2, 2);
     }
 }

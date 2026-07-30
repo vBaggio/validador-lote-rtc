@@ -2,6 +2,9 @@ package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.CancellationToken;
 import br.com.validadorlote.application.DocumentValidationResult;
+import br.com.validadorlote.application.ExternalSourcesPhase;
+import br.com.validadorlote.application.ExternalSourcesSnapshot;
+import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.application.ImportedBatch;
 import br.com.validadorlote.application.ValidateBatchUseCase;
 
@@ -17,6 +20,7 @@ public final class MainPresenter {
     private final ValidateBatchUseCase useCase;
     private final UiThread uiThread;
     private final Executor background;
+    private final ExternalSourcesUseCase externalSources;
     private final Object workspaceLock = new Object();
     private final List<WorkspaceDocument> workspace = new ArrayList<>();
 
@@ -26,17 +30,40 @@ public final class MainPresenter {
     private volatile int processed;
     private volatile int total;
     private long workspaceGeneration;
+    private long lastOfferedExternalSourcesRevision = -1;
+    private long latestExternalSourcesRevision = -1;
+    private boolean applyingDialogRequested;
+    private boolean externalSourcesDialogOpenPending;
+    private boolean externalSourcesApplicationRequested;
+    private boolean restartRequiredShown;
+
+    private static final String ACTIVATION_IN_PROGRESS =
+            "Aguarde a atualização das bases terminar antes de validar o lote.";
+    private static final String APPLICATION_START_FAILED =
+            "Não foi possível iniciar a atualização das bases: ";
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
+        this(useCase, uiThread, background, null);
+    }
+
+    public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background,
+            ExternalSourcesUseCase externalSources) {
         this.useCase = Objects.requireNonNull(useCase);
         this.uiThread = Objects.requireNonNull(uiThread);
         this.background = Objects.requireNonNull(background);
+        this.externalSources = externalSources;
     }
 
     /** Liga a view e a coloca no estado inicial. */
     public void attach(MainView view) {
         this.view = Objects.requireNonNull(view);
         view.showIdle();
+        if (externalSources != null) {
+            externalSources.observe(snapshot ->
+                    uiThread.execute(() -> publishExternalSources(snapshot)));
+            ExternalSourcesSnapshot initial = externalSources.snapshot();
+            uiThread.execute(() -> publishExternalSources(initial));
+        }
     }
 
     /** Importa metadados seguros para a grade, sem executar validação fiscal ou schema. */
@@ -61,6 +88,10 @@ public final class MainPresenter {
                 publishWorkspace();
                 return;
             }
+            if (externalSources != null && !externalSources.tryStartValidation()) {
+                uiThread.execute(() -> requireView().showError(ACTIVATION_IN_PROGRESS));
+                return;
+            }
             validating = true;
             processed = 0;
             total = pending.size();
@@ -68,7 +99,21 @@ public final class MainPresenter {
             currentToken = token;
         }
         publishWorkspace();
-        background.execute(() -> validatePending(pending, token));
+        try {
+            background.execute(() -> validatePending(pending, token));
+        } catch (RuntimeException e) {
+            synchronized (workspaceLock) {
+                validating = false;
+            }
+            if (externalSources != null) {
+                externalSources.validationFinished();
+            }
+            uiThread.execute(() -> {
+                requireView().showError(
+                        "Não foi possível iniciar a validação: " + messageFor(e));
+                publishOrShowIdle();
+            });
+        }
     }
 
     /** Solicita o cancelamento cooperativo da validação corrente. */
@@ -107,6 +152,32 @@ public final class MainPresenter {
     /** Mantém a ação existente como atalho semântico para limpar o lote. */
     public void newAnalysisRequested() {
         clearRequested();
+    }
+
+    /** Abre/atualiza a visão consultiva de fontes, sem afetar a área de trabalho atual. */
+    public void externalSourcesRequested() {
+        if (externalSources == null) return;
+        ExternalSourcesSnapshot snapshot = externalSources.snapshot();
+        uiThread.execute(() -> {
+            publishExternalSources(snapshot);
+            openExternalSourcesDialog();
+        });
+    }
+
+    /** Ação manual não bloqueante; se já houver consulta, a view conserva o progresso em curso. */
+    public void checkExternalSourcesRequested() {
+        if (externalSources == null) return;
+        externalSources.checkNow();
+        ExternalSourcesSnapshot snapshot = externalSources.snapshot();
+        uiThread.execute(() -> publishExternalSources(snapshot));
+    }
+
+    /** Aplica apenas candidatas já confirmadas e deixa o coordenador publicar o progresso. */
+    public void applyExternalSourcesRequested() {
+        if (externalSources == null) return;
+        requestExternalSourcesApplication();
+        ExternalSourcesSnapshot snapshot = externalSources.snapshot();
+        uiThread.execute(() -> publishExternalSources(snapshot));
     }
 
     private void importInput(Path input, long generation) {
@@ -176,6 +247,9 @@ public final class MainPresenter {
         synchronized (workspaceLock) {
             validating = false;
         }
+        if (externalSources != null) {
+            externalSources.validationFinished();
+        }
         publishOrShowIdle();
     }
 
@@ -214,6 +288,72 @@ public final class MainPresenter {
             snapshot = List.copyOf(workspace);
         }
         requireView().showWorkspace(snapshot, validating, processed, total);
+    }
+
+    private void publishExternalSources(ExternalSourcesSnapshot snapshot) {
+        if (view == null || externalSources == null) {
+            return;
+        }
+        if (snapshot.revision() <= latestExternalSourcesRevision) {
+            return;
+        }
+        latestExternalSourcesRevision = snapshot.revision();
+        MainView attachedView = requireView();
+        attachedView.showExternalSources(snapshot);
+        if (snapshot.phase() == ExternalSourcesPhase.APPLYING) {
+            if (!applyingDialogRequested) {
+                applyingDialogRequested = true;
+                deferExternalSourcesDialog();
+            }
+            return;
+        }
+        applyingDialogRequested = false;
+        if (snapshot.phase() == ExternalSourcesPhase.UPDATES_AVAILABLE
+                && !externalSourcesApplicationRequested
+                && snapshot.revision() != lastOfferedExternalSourcesRevision) {
+            lastOfferedExternalSourcesRevision = snapshot.revision();
+            if (attachedView.confirmExternalSourcesUpdate(snapshot)) {
+                requestExternalSourcesApplication();
+            }
+        } else if (snapshot.phase() == ExternalSourcesPhase.RESTART_REQUIRED
+                && !restartRequiredShown) {
+            restartRequiredShown = true;
+            attachedView.showRestartRequired(snapshot);
+        }
+    }
+
+    private void requestExternalSourcesApplication() {
+        if (externalSourcesApplicationRequested) {
+            return;
+        }
+        externalSourcesApplicationRequested = true;
+        try {
+            externalSources.applyAvailable();
+        } catch (RuntimeException failure) {
+            lastOfferedExternalSourcesRevision = Math.max(lastOfferedExternalSourcesRevision,
+                    externalSources.snapshot().revision());
+            uiThread.execute(() -> requireView().showError(
+                    APPLICATION_START_FAILED + messageFor(failure)));
+        } finally {
+            externalSourcesApplicationRequested = false;
+        }
+    }
+
+    private void openExternalSourcesDialog() {
+        externalSourcesDialogOpenPending = false;
+        requireView().openExternalSourcesDialog();
+    }
+
+    private void deferExternalSourcesDialog() {
+        if (externalSourcesDialogOpenPending) {
+            return;
+        }
+        externalSourcesDialogOpenPending = true;
+        uiThread.executeLater(() -> {
+            if (externalSourcesDialogOpenPending) {
+                openExternalSourcesDialog();
+            }
+        });
     }
 
     private MainView requireView() {

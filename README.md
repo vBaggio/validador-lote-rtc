@@ -10,8 +10,10 @@ quanto à estrutura exigida para os grupos IBS/CBS da Reforma Tributária do Con
 ## Privacidade
 
 A análise acontece localmente, no computador em que o aplicativo está aberto. Não há cadastro,
-telemetria, envio de XMLs ou consulta à internet durante o uso normal. Os documentos permanecem
-na sua máquina.
+telemetria ou envio de XMLs. Após o boot, e no máximo uma vez a cada 4 horas, o aplicativo pode
+consultar a tabela fiscal no canal SVRS e o manifesto e ZIP assinados do canal próprio de schemas
+curados; **Fontes externas** também permite pedir essa verificação manualmente. A rotina nunca envia
+documentos, chaves, CNPJ ou conteúdo do lote. Os documentos permanecem na sua máquina.
 
 ## O que o aplicativo faz
 
@@ -21,8 +23,10 @@ na sua máquina.
 - Reúne os problemas do documento selecionado em uma grade de detalhe.
 - Permite manter apenas os documentos que ainda precisam de atenção com **Remover válidos**.
 
-Os XMLs são verificados contra os schemas XSD oficiais embarcados para NF-e/NFC-e. A base de
-schemas usada aparece discretamente no rodapé da aplicação.
+Os XMLs são verificados contra os schemas XSD oficiais embarcados para NF-e/NFC-e. O rodapé abre
+**Fontes externas**, onde é possível conferir origem, versão/snapshot, hash abreviado, últimas
+atualização e verificação, além de solicitar uma nova consulta sem interromper o lote. Uma base
+obtida nessa consulta só é usada no próximo boot, para que o lote atual não misture versões.
 
 ## O que o aplicativo não faz
 
@@ -86,14 +90,17 @@ no Windows, o resultado é um instalador MSI. Os artefatos são criados em `buil
 
 ## Base de validação
 
-Os schemas XSD distribuídos com o aplicativo são extraídos do pacote oficial da Calculadora de
-Tributos da RFB. Quando a fonte oficial for atualizada, uma nova versão do aplicativo deverá trazer
-a base correspondente. Para manutenção do projeto, a task abaixo refaz essa extração e usa rede
-somente durante essa operação manual — nunca durante a validação do usuário:
+A base atualmente embarcada é o perfil `010e_v1.02`; seu payload foi transportado do espelho ACBr
+SVN r47146 e identificado por hashes registrados no aplicativo. O runtime de schemas foi projetado
+para aceitar somente releases completas, curadas e assinadas pelo canal próprio do projeto; SVRS e
+ACBr são pesquisa/proveniência, nunca fallback runtime. O canal publicado usa GitHub Pages,
+manifesto Ed25519 e releases imutáveis; a ativação continua exigindo validação local e só terá
+efeito no boot seguinte. A tabela fiscal segue no canal SVRS independente.
 
-```bash
-./gradlew updateSchemas
-```
+As tasks Gradle históricas `updateSchemas` e `updateFiscalTables` estão intencionalmente bloqueadas:
+elas não são a atualização do usuário final e não podem sobrescrever `src/main/resources`. Uma
+alteração de base embarcada é manutenção de release: obter candidata do acervo curado em staging,
+validar, revisar o diff e atualizar manifesto/proveniência no mesmo change.
 
 Os detalhes de arquitetura, decisões e proveniência dos artefatos estão em
 [`docs/`](./docs/). Para a estrutura do projeto, consulte também

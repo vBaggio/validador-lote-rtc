@@ -46,9 +46,48 @@ adapter da v1. Views atrás de interface + `ProgressListener` neutro = frontend 
 
 ## Schemas oficiais
 
-`src/main/resources/schemas/{nfe,nfce}/` — extraídos do JAR oficial da Calculadora
-(proveniência em `schemas-version.properties`; atualização via `./gradlew updateSchemas`).
+`src/main/resources/schemas/{nfe,nfce}/` — closure embarcada do perfil NF-e 010e_v1.02, com
+proveniência e hashes em `schemas-version.properties` (D-047). O runtime de schemas só consulta o
+canal próprio curado e assinado de D-051; SVRS e ACBr não são fontes runtime nem fallback.
 Entrypoint de validação: `/schemas/nfe/nota.xsd` (declara `NFe`, `nfeProc`, `enviNFe`;
 cobre modelos 55 e 65). Includes relativos resolvem via systemId de URL do classpath.
 O contrato real da Calculadora (endpoints, quirks) está documentado em
 [`calculadora/contrato-validar-xml.md`](./calculadora/contrato-validar-xml.md).
+
+Bases atualizadas ficam em `~/.validador-lote-rtc/artifacts/`, nunca junto da instalação. A
+referência local só é usada após hash/estrutura/compilação; falha abre com a base embarcada. Esse
+controle detecta corrupção operacional, mas não autentica alterações feitas por outro processo sob
+a mesma conta — ver D-046.
+
+O coordenador consulta schemas e tabelas fora da EDT, uma vez após o boot e depois no intervalo
+operacional. O ciclo é `check → prepare → confirm → activate → restart`: `check` adquire e valida;
+`prepare` grava uma candidata íntegra em staging, sem tocar `current`; uma única confirmação do
+usuário autoriza `activate`; e somente o próximo processo carrega as novas bases nos engines. O
+schema verifica manifesto Ed25519, `releaseSequence`, hash e closure antes de preparar; a tabela
+fiscal mantém o canal SVRS próprio. Uma fonte pode falhar sem bloquear a candidata válida da outra,
+sempre preservando a referência ativa anterior. O endpoint e a chave pública do canal são escolhas
+embarcadas no `App`; indisponibilidade do canal preserva a última `current` íntegra ou o fallback
+embarcado.
+
+`ExternalSourcesUseCase` agrega os eventos em snapshots imutáveis com revisão monotônica e é a
+única fonte de estado para presenter, rodapé e diálogo; observadores não são chamados sob lock e
+uma entrega obsoleta não pode sobrescrever estado novo na EDT. Consulta pode coexistir com o lote,
+mas a admissão de validação e ativação é atômica: reservada uma ativação, não começa worker de
+validação; a reserva é liberada também se o executor a recusar. A falha de um listener não impede
+os demais nem o evento terminal, inclusive se ela acontecer ao publicar `CHECKING`. A abertura do
+diálogo application-modal é adiada para o próximo ciclo da EDT, depois do dreno de snapshots, para
+que o modal nunca bloqueie a entrega do estado terminal. Se `activate` já retornou,
+`RESTART_REQUIRED` permanece latched até encerrar o processo mesmo que persista/publicar o evento
+terminal falhe; a candidata não é reaplicada sem uma consulta fresca.
+
+O transporte HTTPS tem prazo único para conexão, resposta e leitura completa do corpo. A leitura é
+assíncrona, limitada e cancelável: timeout cancela requisição e assinatura, e corpo acima do limite
+é recusado durante o streaming. Uma falha parcial é agregada como `FAILED` mesmo com outra fonte
+`UP_TO_DATE`; a tela pode oferecer nova consulta. Se o executor rejeitar o agendamento de uma
+ativação, a reserva é desfeita e o presenter informa a falha sem repetir a confirmação.
+
+A tela **Fontes externas** pode forçar a consulta, mas o gate do coordenador recusa duplicação
+enquanto ela está em curso. `ExternalSourcesUseCase` só expõe manifestos e estado local ao
+presenter; não recebe XMLs, chaves ou CNPJ. Os engines do lote são montados uma vez no bootstrap e
+nunca trocados em memória. O catálogo também inventaria a Calculadora para v1, sem
+download/execução no v0.

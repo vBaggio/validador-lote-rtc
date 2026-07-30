@@ -4,6 +4,129 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-051 — Schemas runtime vêm de canal próprio, curado e assinado (30/07/2026)
+
+O runtime de schemas NF-e/NFC-e aceita somente releases completas do canal público próprio,
+curadas e assinadas pelo projeto. O rótulo “pacote mais recente” de uma fonte externa não prova
+closure, compatibilidade nem vigência; a curadoria revisa o diff e compila a closure antes de
+publicá-la. A base embarcada e a última `current` íntegra permanecem os fallbacks. Esta decisão
+substitui D-047 e D-049 **somente no canal runtime de schemas**: SVRS continua fonte de pesquisa e
+proveniência, e a tabela fiscal conserva seu canal SVRS independente.
+
+O manifesto assinado com Ed25519 autentica o conteúdo aprovado, não apenas o host HTTPS. A
+`releaseSequence` estritamente crescente é a ordem anti-rollback; `publishedAt` é auditoria, não
+critério de confiança. Assinatura inválida, hash divergente, redirect não permitido, ZIP inseguro,
+estrutura incompatível, sequência menor ou sequência igual com identidade assinada divergente
+falham antes de substituir `current`. Sequência igual só significa “em dia” quando hash do ZIP e
+identidade canônica de `signed` coincidem com a release ativa.
+
+O ACBr é evidência manual de curadoria, nunca transporte nem fallback runtime. Para verificar que
+a revisão observada toca o diretório relevante, o curador executa exatamente:
+
+```bash
+svn log --xml -v -l 1 https://svn.code.sf.net/p/acbr/code/trunk2/Exemplos/ACBrDFe/Schemas/NFe/
+```
+
+Uma revisão em outra área do ACBr não prova mudança nesse diretório. O bootstrap inicial foi
+publicado em `vBaggio/validador-lote-rtc-bases`: endpoint GitHub Pages, ZIP, `stable.json`,
+`keyId` `schemas-2026-01` e chave pública Ed25519 foram revisados e embarcados. A manutenção do
+canal continua exigindo revisão humana de cada nova release; não há fallback para SVRS.
+
+## D-050 — Consulta prepara; usuário ativa; engines mudam após reinício (30/07/2026)
+
+Schemas e tabelas são consultados e validados independentemente em staging. Uma confirmação global
+ativa todas as candidatas válidas; falha de uma fonte preserva sua base anterior sem impedir a
+outra. Consulta pode coexistir com validação de documentos, mas confirmação e ativação aguardam o
+fim do lote. Rodapé e diálogo observam o mesmo snapshot, e engines só carregam as novas bases no
+reinício para que uma sessão nunca misture referências.
+
+A exclusão entre ativação e validação é uma **admissão atômica**, não uma suposição baseada no
+próximo evento visual: ao reservar uma aplicação, nenhuma nova validação inicia até a operação
+terminar, inclusive se o executor recusar o trabalho. Snapshots têm revisão monotônica; entrega
+fora de ordem e callbacks de observadores com falha não podem fazer a interface regredir nem ficar
+em `APPLYING` sem evento terminal.
+
+A abertura do diálogo application-modal é enfileirada para um ciclo posterior da EDT. Assim, ela
+não reentra nem bloqueia a drenagem síncrona que entrega o snapshot `APPLYING` e seus terminais;
+o mesmo snapshot segue sendo a única entrada do rodapé e do diálogo. Falha de listener já no
+evento `CHECKING` também é terminalizada e não deixa o coordenador ocupado: a fonte mostra o erro
+recuperável e pode receber uma nova consulta.
+
+O prazo HTTP cobre conexão, cabeçalhos **e o corpo inteiro**. Ao expirar, a leitura assíncrona do
+corpo e a requisição são canceladas; exceder o limite de tamanho também cancela a assinatura antes
+de manter o restante da resposta em memória. Falha de uma fonte fica visível mesmo se a outra está
+em dia, e a rejeição do executor ao iniciar a ativação vira feedback recuperável, sem novo prompt
+automático nem operação fantasma.
+
+O retorno bem-sucedido de `apply` significa que a referência física `current` já mudou. Por isso o
+reinício fica latched até o processo encerrar mesmo se persistir ou publicar o evento terminal
+falhar; a falha continua visível, a candidata não é reaplicada cegamente e uma nova tentativa exige
+consulta fresca. Essa assimetria deliberada privilegia continuidade e transparência: uma fonte que
+falha conserva a última base íntegra, enquanto uma ativação consumada jamais é escondida do usuário.
+
+## D-049 — SVRS como pesquisa histórica de schemas; canal runtime substituído por D-051 (30/07/2026)
+
+O Portal de Documentos da SVRS foi investigado como fonte de pesquisa: `NFE/Documentos` lista
+pacotes e `NFE/DownloadArquivoEstatico` entrega ZIPs HTTPS. Ele **não** é canal operacional nem
+fallback runtime para schemas desde D-051. A descoberta continua útil para comparar disponibilidade
+e documentar proveniência, sem autorizar download ou ativação pelo aplicativo.
+
+Essa mudança não confunde disponibilidade com vigência. Em 30/07/2026, a SVRS ainda lista como
+pacote completo mais novo o `PL_010b_NT2025_002_v1.30`, anterior ao perfil `010e_v1.02` embarcado.
+Logo, uma entrada só é candidata se declarar um perfil NF-e/NFC-e compatível e estritamente mais
+novo que a base ativa; pacote antigo, nome inesperado, ZIP vazio ou closure inválida é consulta
+sem atualização, nunca downgrade. A aplicação continua com a última base íntegra.
+
+Nesta versão, “compatível” significa exclusivamente a família `010e`. Uma futura família, como
+`010f`, não é silenciosamente promovida por ordenação de nome: exige curadoria e task de manutenção
+para conferir roots, closure, fixtures e vigência antes de uma release assinada do canal próprio.
+
+O SVN do ACBr continua espelho técnico para inspeção humana. Ele não declara vigência nem perfil
+oficial, portanto não ativa schemas automaticamente. O canal próprio com manifesto assinado e
+promoção humana, então considerado futuro, é a política adotada por D-051. A base embarcada já é o
+fallback offline aprovado.
+
+## D-048 — Atualização externa é consultiva no lote; sem fallback automático para schemas (29/07/2026)
+
+O rodapé abre a tela discreta **Fontes externas**, que mostra somente metadados locais de schemas,
+tabelas e da Calculadora futura: versão/snapshot ativo, origem, hash abreviado, datas de atualização
+e consulta e resultado recuperável. A ação manual força a mesma rotina de background do boot, mas
+o coordenador aceita somente uma execução por vez. Ela não mostra nem transmite XML, chave, CNPJ
+ou conteúdo da área de trabalho; falha é estado consultável, nunca modal que interrompe o lote.
+
+Uma candidata que passa o canal autorizado é instalada para uso no **próximo boot**. O lote atual
+conserva os engines que foram montados no bootstrap, impedindo que documentos de uma mesma sessão
+recebam bases diferentes. Para schemas, D-051 define o canal curado e assinado; ACBr e SVRS servem
+somente para pesquisa/proveniência e não autorizam fallback automático, transporte SVN silencioso
+ou ativação local.
+
+As tasks Gradle históricas de sobrescrever resources ficaram bloqueadas de propósito. Elas não são
+um caminho de atualização do usuário: qualquer nova base embarcada é manutenção de release, feita
+em staging, validada e revisada por diff antes de alterar `src/main/resources`. A Calculadora é
+apenas inventário para a v1 no catálogo; não é baixada, executada nem fonte de schemas no v0.
+
+## D-047 — Proveniência da closure embarcada 010e_v1.02; runtime substituído por D-051 (29/07/2026)
+
+O Portal Nacional lista `010e_v1.02` (NT 2025.002 v1.40, NT 2026.002/003), publicado em
+10/07/2026, como versão oficial em uso. Seu download não pôde ser recuperado diretamente por
+502/captcha. A closure mínima usada pelo produto foi transportada do SVN ACBr r47146 (13/07/2026),
+com hashes gravados no manifesto; ACBr é espelho técnico, não autoridade. Portanto o repositório
+registra a vigência do Portal e a identidade do payload ACBr, sem alegar equivalência byte a byte
+ao ZIP oficial. É registro da base embarcada, não política de aquisição runtime: D-051 a substitui
+somente nesse ponto. A atualização preserva somente NFe/nfeProc/enviNFe e não muda regras de
+negócio nem a decisão D-040 sobre modelos.
+
+## D-046 — Catálogo local detecta corrupção operacional, não autentica escrita da mesma conta (29/07/2026)
+
+O canal de artefatos instala candidatos por staging, compila a árvore XSD com resolver confinado e
+guarda manifesto/hash para auditoria e detecção de corrupção acidental. No boot, uma base local só
+é aberta se a referência, a árvore e a compilação permanecerem válidas; qualquer falha devolve a
+base embarcada. Isso não autentica um payload contra quem possui escrita na mesma área de dados:
+essa pessoa pode alterar XSD e manifesto juntos. Sem assinatura verificável do publicador ou
+keystore fora dessa permissão, malware local está fora do modelo de ameaça. A aquisição posterior
+continua responsável por TLS, allowlist e proveniência da fonte; hash local jamais é alegado como
+prova de autoria.
+
 ## D-045 — Área de trabalho antes da validação; documentos como visão primária (29/07/2026)
 
 A tela deixa de validar no instante em que recebe a seleção. Importar uma pasta ou XML individual

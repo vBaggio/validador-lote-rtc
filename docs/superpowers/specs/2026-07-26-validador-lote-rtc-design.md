@@ -31,7 +31,7 @@ Na fase 2 (v1), soma a **conferência de valores**: recalcula IBS/CBS de cada it
 
 | Princípio | Consequência |
 |---|---|
-| Nenhum dado sai da máquina **por padrão** | Sem telemetria, sem rede em runtime no v0. Exceções na v1, ambas por ação explícita: download do motor oficial de URL da RFB (se D-012 decidir) e relatório narrativo por IA opcional com credenciais do próprio usuário (D-014) — nunca envio automático de dados |
+| Nenhum dado fiscal sai da máquina **por padrão** | Sem telemetria e sem envio de XML, CNPJ ou chave. D-048 permite, no v0, consulta pós-boot de metadados e artefatos normativos: no máximo a cada 24 h ou por ação manual, somente às fontes oficiais e sem impacto no lote corrente. Na v1, o download do motor oficial (se D-012 decidir) e o relatório narrativo por IA (D-014) continuam dependentes de ação explícita — nunca envio automático de dados fiscais |
 | A ferramenta nunca decide tributo | Julgamento vem de artefato oficial: XSDs extraídos do pacote da RFB; na v1, números do motor oficial. Nós coletamos, agrupamos e apresentamos |
 | Zero pré-requisitos de instalação | Sem Java na máquina, sem Docker; instalador nativo com runtime embarcado |
 | Não sugerir chancela oficial | Nome, textos e README explicitam: ferramenta independente, sem vínculo com RFB/SEFAZ |
@@ -297,7 +297,7 @@ docs/
 | CA-2 | Lote de 500 XMLs processa sem intervenção; arquivo corrompido no meio não interrompe |
 | CA-3 | N ocorrências da mesma causa aparecem como 1 linha com contador de documentos |
 | CA-4 | CSVs abrem corretamente no Excel pt-BR (UTF-8 BOM, `;`, acentos) |
-| CA-5 | Nenhuma requisição de rede em runtime (verificável por captura de tráfego) |
+| CA-5 | A validação do lote não faz requisição de rede nem transmite XML, CNPJ, chave ou telemetria. A única rede do v0 é a consulta consultiva pós-boot de artefatos normativos, no máximo a cada 24 h ou por ação manual, às fontes configuradas pelo B6 e sem alterar a base do lote corrente (verificável por captura de tráfego) |
 | CA-6 | Versão da base de schemas aparece na UI e no CSV |
 | CA-7 | 500 arquivos concluem em < 2 min em hardware modesto |
 | CA-8 | Toggle pré-emissão separa ruído de assinatura dos erros reais |

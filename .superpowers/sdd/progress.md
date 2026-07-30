@@ -5,6 +5,67 @@
 > `docs/decisions.md` pelo número D-0XX, não duplicados. Nada foi perdido: o texto completo
 > original está no histórico do git deste arquivo (`git log -p -- .superpowers/sdd/progress.md`).
 
+## Bloco 6 (canal de artefatos externos, branch `bloco/6-canal-schemas`)
+
+Task 30 (b6): complete (commit 974817d, revisão independente PASS após 2 fix loops) — catálogo
+local e instalação transacional da primeira base de schemas. Candidata só atualiza `current` depois
+de staging, cópia sem symlink/extras e compilação confinada; corrupção/erro de abertura volta à base
+embarcada. ACHADO: manifesto+hash no diretório do usuário não autenticam malware sob a mesma conta;
+D-046 declara o modelo de ameaça e restringe a promessa a integridade operacional. DÉBITO/Task 31:
+proveniência/assinatura da aquisição oficial e atualização da base NF-e/NFC-e.
+
+Task 31 (b6): complete (commit ebfb4ae, revisão independente PASS após fix loop) — atualiza a
+closure NF-e/NFC-e para 010e_v1.02 e torna a proveniência auditável: Portal Nacional é autoridade,
+ACBr r47146 é transporte explicitamente limitado; manifesto lista paths/hashes e hash canônico,
+testado contra os bytes embarcados. ACHADO: README ainda apontava a Calculadora e o manifesto não
+identificava a closure completa; ambos corrigidos. DÉBITO/Task 32: tabelas SVRS cuja URL antiga já
+retorna 404 precisam do mesmo armazenamento transacional.
+
+Task 32 (b6): complete (commit 1d0a12c, revisão independente PASS após fix loop) — normaliza a
+página atual SVRS, atualiza tabelas em staging via HTTPS allowlist/limites e carrega a última tabela
+íntegra com fallback. ACHADO: cobertura por cardinalidade aceitava troca de códigos; corrigida para
+interseção >=80% de CST e cClassTrib, com mutação. Manifesto/Gradle apontam para a rota vigente e
+separam última consulta de extração. Próximo: rotina de atualização e UI.
+
+Task 33 (b6): complete (commit 068c868, revisão independente PASS após fix loop) — descobre só o
+perfil 010e ativo do Portal, baixa ZIP confinado e agenda atualização após a UI. ACHADOS: grafia
+oficial `v.1.02` não era reconhecida e intervalo 24h era só memória; normalização canônica e estado
+persistente corrigem ambos. ZIP com atributo symlink também é rejeitado/testado. Próximo: UI/ACBr.
+
+Fechamento local (b6): complete (commit e237ef6, revisão transversal PASS após fix loop) — B6
+fechado localmente. Verificação final: `clean test` 376/0, `jpackageImage` e `git diff --check`
+verdes. ACHADOS de fechamento: docs de privacidade omitiram consulta automática e a UI offline
+omitia proveniência embarcada; corrigidos. Pesquisa marcou 010e_v1.01 como superada e harness foi
+reconciliado com os commits amendados. A revisão adicional autorizada depois identificou a omissão
+de `java.net.http` no runtime jlink e a spec histórica ainda sem a exceção D-048; Task 35 corrige
+ambos antes do PR.
+
+Task 35 (b6): complete (commit de correção da Task 35, revisão independente PASS/PASS) — adiciona
+`java.net.http` ao runtime jpackage e um teste que falha se o módulo sair da configuração.
+`clean test` passou com 377 testes; `jpackageImage` passou, o runtime lista o módulo e o launcher
+ficou ativo por 12 s sem `NoClassDefFoundError`. A spec passa a declarar a exceção D-048 e CA-5
+mede o comportamento real: nenhuma rede/dado fiscal no lote e somente consulta normativa pós-boot
+consultiva. ACHADO CRÍTICO corrigido: o launcher da imagem falhava antes do Swing pela ausência do
+módulo HTTP. ACHADO MÉDIO corrigido: a spec histórica contradizia D-048. A revisão confirmou
+configuração, artefato gerado, smoke e coerência documental, sem novos débitos.
+
+Task 36 (b6): complete (commit da Task 36, revisão independente PASS após fix loop) — substitui o
+canal runtime de schemas do Portal Nacional pelo catálogo público e download estático da SVRS. Só
+um pacote `010e` estritamente mais novo pode ser instalado; o pacote `010b` hoje publicado resulta
+em “base local mantida”, sem downgrade e sem falso erro HTTPS. O parser limita-se à seção Schemas,
+o URL é construído com nome publicado/allowlist e o resultado persistido aparece na tela Fontes
+externas; erro de transporte identifica o host. ACHADOS DA REVISÃO: família sucessora não pode ser
+aceita por ordenação; D-049 declara `010e` como limite deliberado e exige task/fixtures para uma
+família nova. `clean test` (377), `jpackageImage` e re-revisão ficaram verdes. DÉBITOS: espelho
+próprio versionado/assinado, promoção humana, Curadoria dos XMLs IBS/CBS externos, Calculadora e
+demais DF-e ficam fora deste bloco, registrados na pesquisa de artefatos.
+
+### PARADA — 30/07/2026, Task 36 concluída
+
+Task 36 publicada em `origin/bloco/6-canal-schemas` por autorização do dono; árvore limpa. O fix
+do canal SVRS está implementado, testado e revisado. Próximo passo: validação do dono no Windows e,
+se aprovada, atualizar/abrir o PR do B6.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.
@@ -643,3 +704,127 @@ Task 28 (b5): complete — autorização do dono recebida; branch publicada, PR 
 check `build` verde e mergeado em `main` no commit `96f501f`. `main` local foi sincronizado com
 `origin/main`. Task 29 permanece o único gate: tag/release pública e smoke de MSI em Windows real;
 não iniciada sem confirmação explícita para publicar a versão.
+
+Task 34 (b6): complete (commit `16080b3`, revisão pendente da Task 35) — 376 testes.
+  ENTREGUE: rodapé abre diálogo não modal **Fontes externas**, com estado por artefato, origem,
+  versão/snapshot, hash abreviado, atualização, consulta e aviso recuperável. “Verificar agora”
+  usa o mesmo coordenador em background, força uma consulta mas é protegido por gate atômico:
+  cliques repetidos durante a execução não geram download duplicado. Os engines usados pelo lote
+  não mudam em memória; candidata instalada só vale no próximo boot. D-048 fixa Portal como
+  autoridade e ACBr somente como espelho de inspeção/disponibilidade, sem fallback automático ou
+  SVN silencioso. `updateSchemas`/`updateFiscalTables` foram bloqueadas antes de rede/escrita;
+  base embarcada só muda por manutenção de release em staging e diff revisado.
+  Sonda de mutação: removido o gate `compareAndSet`; o teste de clique duplicado caiu sozinho;
+  restauração e `./gradlew clean test --console=plain` (376) verdes. DÉBITO: retenção/poda de
+  versões e telemetria local de espelho ACBr permanecem fora do escopo, sem autorizar ativação.
+
+Task 37 (b6): complete (commit `6c007e0`, revisão independente PASS/PASS após 1 fix loop) —
+separa preparação de ativação para schemas e tabelas: `prepare` mantém `current`, `activate`
+revalida a versão confinada antes do movimento atômico e os updaters expõem `check`/`apply` com
+candidata tipada. ACHADO: `publishedAt` volátil impedia repetir a preparação da tabela; a
+identidade estável reutiliza a candidata íntegra antes da confirmação. Sonda do guard de
+`artifactId` derrubou os dois testes negativos.
+
+Task 38 (b6): complete (commit `e3997d1`, revisão independente PASS/PASS) — falhas HTTP tipadas,
+timeout, duas tentativas somente transitórias, aplicação parcial e persistência por identidade de
+canal. A remoção de `action.apply` derrubou dois testes. DIVERGÊNCIA JULGADA: falha de ativação
+mantém a candidata para diagnóstico, mas exige nova consulta antes de nova aplicação; não há
+repetição cega.
+
+Task 39 (b6): complete (commit `774c117`, revisão independente PASS/PASS após 1 fix loop) —
+snapshot imutável único, fila de publicação monotônica sem observador sob lock, descarte de revisão
+obsoleta na EDT, gate de validação e latch de reinício por sessão. ACHADOS corrigidos: snapshots
+concorrentes fora de ordem, prompt duplicado e `RESTART_REQUIRED` apagável por consulta posterior.
+A sonda que removia a conservação de `CHECKING` voltou a abrir confirmações intermediárias e caiu.
+
+Task 40 (b6): complete (commit `0d7ed20`, revisão independente PASS/PASS após fix loop) — rodapé,
+spinner e diálogo adaptável compartilham o snapshot; o modal bloqueia fechamento em `APPLYING`.
+ACHADOS corrigidos: timers de spinner órfãos e filtro da Calculadora por texto em vez de identidade
+estável. `clean test` (424), `jpackageImage` e `git diff --check` passaram. DIVERGÊNCIA: a captura
+gráfica do ambiente retornou framebuffer preto; a inspeção visual de Windows/DPI permanece manual.
+
+Task 42 (b6): complete (commit `0ada78b`, revisão independente PASS/PASS após 1 fix loop) —
+endurece a orquestração autorizada pelo dono: a admissão atômica impede validação entre reserva e
+início de ativação; snapshots preservam reinício se `current` mudou antes de falhar persistência;
+e listeners/completion listeners que falham não deixam a fonte em `APPLYING`. A falha terminal
+bloqueia reaplicação até consulta fresca e mantém a base anterior quando `apply` não venceu.
+Sondas das guardas de admissão e transição terminal derrubaram testes determinísticos. `clean test`
+passou com 434 testes, `ArchitectureTest` e `git diff --check` verdes.
+
+Task 41 (b6): complete (commit `944e932`) — D-050, arquitetura, estratégia de testes, pesquisa e
+harness registraram o ciclo confirmado e as garantias até a Task 42. Os refinamentos posteriores
+foram registrados pela Task 45; o commit não é evidência de inspeção visual no Windows.
+
+Task 43 (b6): complete (commit `7fa9a73`) — o presenter adia a abertura do diálogo
+application-modal para o próximo ciclo da EDT. Assim, o modal não reentra nem bloqueia o dreno
+síncrono do snapshot `APPLYING` e dos eventos terminais. Teste determinístico segura a sequência.
+
+Task 44 (b6): complete (commit `0d5750c`) — listener defeituoso já em `CHECKING` produz término e
+permite nova consulta; falha parcial permanece visível com a outra fonte em dia; a leitura HTTP do
+corpo tem prazo, cancelamento e limite em streaming; e rejeição do executor ao aplicar vira erro
+recuperável sem loop de prompt. Os testes determinísticos incluem servidor que envia cabeçalhos e
+interrompe o corpo.
+
+Task 45 (b6): implementada no commit semântico local, revisão pendente — D-050, contexto,
+arquitetura, testes e planos registram as garantias das Tasks 43/44 e seus hashes finais: T37
+`6c007e0`, T38 `e3997d1`, T39 `774c117`, T40 `0d7ed20`, T42 `0ada78b`, T43 `7fa9a73`, T44
+`0d5750c`, T41 `944e932`. DÉBITO/GATE HUMANO: checklist visual do Windows (100%, 125%, 150%,
+rolagem, ícones, consulta/retry, parcial, bloqueio de fechamento e reinício) permanece pendente;
+não publicar, abrir PR ou fazer merge sem o dono.
+
+### PARADA — 30/07/2026, fechamento técnico do refinamento B6
+
+HEAD e árvore devem ser conferidos contra o git após o commit documental. Tasks 37–45 estão
+implementadas localmente; a Task 45 aguarda revisão independente. Nada deve ser enviado ao remoto.
+Depois da revisão, o próximo passo autorizado é somente o smoke manual do dono no Windows e a
+decisão explícita de publicação/PR.
+
+Task 1 (b7): complete (commit `44e6d70`, revisão independente PASS/PASS após 1 fix loop) —
+458 testes. ENTREGUE: contrato JSON estrito, canonicalização de `signed` e verificação Ed25519
+somente por `keyId`/chave pública injetados. ACHADO: `version` aceitava segmentos de diretório
+especiais/bordas inseguras e `minimumAppVersion` podia escapar do comparador; os formatos foram
+fechados e cobertos, inclusive contra coerção escalar e assinatura alterada.
+
+Task 2 (b7): complete (commit `ab603e9`, revisão independente PASS/PASS após 1 fix loop) —
+470 testes. ENTREGUE: `releaseSequence`, canal, proveniência, hash do ZIP e identidade canônica
+assinada persistidos; `prepare`/`activate` revalidam integridade e anti-rollback sem tocar
+`current` em falha. ACHADOS: uma release antiga já preparada ainda podia ser ativada sobre outra
+mais nova, e sequências iguais distintas eram ambíguas; a ativação passou a recomparar a base
+ativa e a idempotência exige versão, ZIP e identidade assinada iguais.
+
+Task 3 (b7): complete (commit `94a5790`, revisão independente PASS/PASS após 1 fix loop) —
+488 testes. ENTREGUE: aquisição somente por manifesto assinado e políticas HTTPS independentes,
+com gates de artefato/app/sequência, hash constante, extração segura e preparo sem ativação.
+ACHADO: falhas locais do staging/cleanup eram classificadas como conteúdo hostil ou mascaravam a
+falha primária; agora são `LOCAL_STORAGE`, e cleanup secundário fica suprimido.
+
+Task 4 (b7): complete (commit `854c3f4`, revisão independente PASS/PASS após 1 fix loop) —
+494 testes. ENTREGUE: runtime de schemas saiu da SVRS, incompatibilidade ganhou estado próprio e
+não bloqueia tabela fiscal; sem bootstrap real, o canal fica visivelmente desabilitado. ACHADO:
+o card da base embarcada ainda atribuía origem à antiga página SVRS; passou a usar a proveniência
+de `schemas-version.properties`.
+
+Task 5 (b7): implementação local complete (commit `0ab189c`; revisão ampla com correções em
+re-revisão) — D-051 e os guias registram curadoria manual, Ed25519, `releaseSequence`, checklist
+de publicação e aceite runtime. D-047/D-049 foram substituídas somente no transporte runtime de
+schemas; tabela fiscal continua no SVRS e SVRS/ACBr são apenas pesquisa/proveniência.
+REVISÃO AMPLA `d569f0f..0ab189c`: quatro achados Important foram corrigidos no fechamento local:
+(1) sequência ativa igual só é `UP_TO_DATE` quando `zipSha256` e SHA-256 canônico de `signed`
+coincidem; divergência vira `INVALID_CONTENT`; (2) o boot seleciona engine e proveniência da mesma
+`current` íntegra para rodapé e `BatchReport`, e o texto desabilitado distingue base curada/local
+da embarcada; (3) este ledger e `CURRENT.md` passaram a registrar Tasks 1–5 e a parada; (4)
+README/contexto passaram de 24 horas/fontes oficiais para 4 horas, canal curado e SVRS da tabela.
+O fechamento roda 497 testes. Bootstrap externo concluído em 30/07/2026: repositório público
+`vBaggio/validador-lote-rtc-bases`, endpoint GitHub Pages, `keyId` `schemas-2026-01`, chave pública
+Ed25519 e release `010e_v1.02-r2` no canal `nfe-schemas` foram publicados e conferidos contra a
+canonicalização do cliente; o ZIP carrega a árvore XSD completa.
+O aplicativo passa a consultar somente esse canal; não há fallback SVRS/ACBr.
+
+### PARADA — 30/07/2026, entrega B7 validada em runtime
+
+Branch `bloco/7-canal-proprio-schemas`; o bootstrap do repositório de bases, a configuração do
+cliente e o smoke runtime manual foram verificados. O dono confirmou a primeira instalação da
+release `010e_v1.02-r2`, ativação confirmada e uso após reinício; detalhes locais em
+`tmp/runtime-smoke-canal-curado-2026-07-30.md`. As pendências evolutivas e o gate visual do
+instalador Windows foram registrados em `docs/operacao-canal-schemas-curados.md`. Em 30/07/2026,
+o dono autorizou push, abertura de PR e merge do aplicativo.

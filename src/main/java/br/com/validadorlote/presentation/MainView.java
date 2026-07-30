@@ -1,5 +1,7 @@
 package br.com.validadorlote.presentation;
 
+import br.com.validadorlote.application.ExternalSourcesSnapshot;
+
 import java.nio.file.Path;
 import java.util.List;
 
@@ -13,4 +15,11 @@ public interface MainView {
 
     void showError(String message);
 
+    void showExternalSources(ExternalSourcesSnapshot snapshot);
+
+    void openExternalSourcesDialog();
+
+    boolean confirmExternalSourcesUpdate(ExternalSourcesSnapshot snapshot);
+
+    void showRestartRequired(ExternalSourcesSnapshot snapshot);
 }
