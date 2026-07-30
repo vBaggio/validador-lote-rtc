@@ -25,6 +25,7 @@ final class ExternalSourcesDialog extends JDialog {
     ExternalSourcesDialog(Window owner, Runnable checkNow, Runnable applyAvailable, Runnable retry,
             Runnable closeApplication) {
         super(owner, "Atualização de bases", Dialog.ModalityType.APPLICATION_MODAL);
+        setType(Window.Type.UTILITY);
         setDefaultCloseOperation(HIDE_ON_CLOSE);
         setResizable(false);
         panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry, closeApplication);
