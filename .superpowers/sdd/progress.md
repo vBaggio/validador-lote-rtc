@@ -49,6 +49,24 @@ consultiva. ACHADO CRÍTICO corrigido: o launcher da imagem falhava antes do Swi
 módulo HTTP. ACHADO MÉDIO corrigido: a spec histórica contradizia D-048. A revisão confirmou
 configuração, artefato gerado, smoke e coerência documental, sem novos débitos.
 
+Task 36 (b6): complete (commit da Task 36, revisão independente PASS após fix loop) — substitui o
+canal runtime de schemas do Portal Nacional pelo catálogo público e download estático da SVRS. Só
+um pacote `010e` estritamente mais novo pode ser instalado; o pacote `010b` hoje publicado resulta
+em “base local mantida”, sem downgrade e sem falso erro HTTPS. O parser limita-se à seção Schemas,
+o URL é construído com nome publicado/allowlist e o resultado persistido aparece na tela Fontes
+externas; erro de transporte identifica o host. ACHADOS DA REVISÃO: família sucessora não pode ser
+aceita por ordenação; D-049 declara `010e` como limite deliberado e exige task/fixtures para uma
+família nova. `clean test` (377), `jpackageImage` e re-revisão ficaram verdes. DÉBITOS: espelho
+próprio versionado/assinado, promoção humana, Curadoria dos XMLs IBS/CBS externos, Calculadora e
+demais DF-e ficam fora deste bloco, registrados na pesquisa de artefatos.
+
+### PARADA — 30/07/2026, Task 36 concluída
+
+HEAD da Task 36 em `bloco/6-canal-schemas`, um commit à frente de
+`origin/bloco/6-canal-schemas`; árvore limpa. O fix do canal SVRS está implementado, testado e
+revisado. Próximo passo: validação do dono no Windows e, se aprovada, publicar o commit e atualizar
+o PR do B6. Não houve push desta task.
+
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
 agente + CI + GPL-3.0 + README.

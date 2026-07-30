@@ -21,8 +21,14 @@
   spec ainda proibia toda rede em runtime. **Task 35 concluída e revisada:** inclui o
   módulo necessário, teste de regressão e a exceção D-048 na spec. `clean test` passou com 377
   testes; `jpackageImage` passou, o runtime lista `java.net.http` e o launcher permaneceu 12 s sem
-  erro de módulo. A revisão independente deu PASS/PASS, sem achados. Próximo passo: validação do
-  dono e abertura/publicação do PR; não houve push. A pesquisa provisória
+  erro de módulo. A revisão independente deu PASS/PASS, sem achados. **Task 36 concluída e
+  revisada** nesta task: o catálogo e download público da SVRS substituem o Portal Nacional no
+  runtime, com allowlist, staging, parser restrito à seção Schemas e sem downgrade. Hoje a SVRS só
+  publica `010b`, logo a tela comunica “pacote compatível mais novo” ausente e mantém `010e` sem
+  erro HTTPS. D-049 limita deliberadamente a atualização automática à família `010e`; sucessor
+  exige task que revise roots/fixtures. `clean test` (377) e `jpackageImage` passaram e a
+  re-revisão foi PASS. O branch está um commit à frente do remoto; próximo passo é validação do
+  dono no Windows e, se aprovada, publicar/atualizar o PR. A pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre

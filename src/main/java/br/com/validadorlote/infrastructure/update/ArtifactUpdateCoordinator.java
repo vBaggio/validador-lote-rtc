@@ -81,9 +81,9 @@ public final class ArtifactUpdateCoordinator {
             if (!force && !isDue(action.artifact(), now)) continue;
             publish(action.artifact(), ArtifactUpdateEvent.Status.STARTED, now, null);
             try {
-                boolean updated = action.updateIfNew();
-                publishAndPersist(action.artifact(), updated ? ArtifactUpdateEvent.Status.UPDATED
-                        : ArtifactUpdateEvent.Status.UNCHANGED, clock.instant(), null);
+                ArtifactUpdateResult result = action.updateIfNew();
+                publishAndPersist(action.artifact(), result.updated() ? ArtifactUpdateEvent.Status.UPDATED
+                        : ArtifactUpdateEvent.Status.UNCHANGED, clock.instant(), result.detail());
             } catch (RuntimeException e) {
                 publishAndPersist(action.artifact(), ArtifactUpdateEvent.Status.FAILED, clock.instant(),
                         e.getMessage());

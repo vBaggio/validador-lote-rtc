@@ -17,7 +17,7 @@ public final class SafeHttpsClient {
 
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(15);
     public static final int SVRS_MAX_BYTES = 6 * 1024 * 1024;
-    public static final int PORTAL_SCHEMA_MAX_BYTES = 32 * 1024 * 1024;
+    public static final int SCHEMA_MAX_BYTES = 32 * 1024 * 1024;
     private static final int MAX_REDIRECTS = 3;
 
     private final Set<String> allowedHosts;
@@ -41,9 +41,9 @@ public final class SafeHttpsClient {
                 SVRS_MAX_BYTES, new JdkTransport(SVRS_MAX_BYTES));
     }
 
-    public static SafeHttpsClient forNationalPortal() {
-        return new SafeHttpsClient(Set.of("www.nfe.fazenda.gov.br", "nfe.fazenda.gov.br"),
-                DEFAULT_TIMEOUT, PORTAL_SCHEMA_MAX_BYTES, new JdkTransport(PORTAL_SCHEMA_MAX_BYTES));
+    public static SafeHttpsClient forSvrsSchemas() {
+        return new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"), DEFAULT_TIMEOUT,
+                SCHEMA_MAX_BYTES, new JdkTransport(SCHEMA_MAX_BYTES));
     }
 
     /** Retorna sempre UTF-8; a página da fonte é pública e não dita o charset ao aplicativo. */
@@ -62,7 +62,7 @@ public final class SafeHttpsClient {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("Consulta HTTPS interrompida", e);
             } catch (IOException e) {
-                throw new IllegalStateException("Não foi possível consultar a fonte HTTPS", e);
+                throw new IllegalStateException("Não foi possível consultar " + current.getHost(), e);
             }
             validate(response.uri());
             if (response.body().length > maxBytes) {

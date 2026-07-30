@@ -171,7 +171,9 @@ class MainPresenterTest {
     void externalSourcesAreShownAndManualCheckReportsProgressWithoutAnErrorModal(@TempDir Path dir) {
         ArtifactUpdateAction action = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
-            @Override public boolean updateIfNew() { return false; }
+            @Override public br.com.validadorlote.infrastructure.update.ArtifactUpdateResult updateIfNew() {
+                return br.com.validadorlote.infrastructure.update.ArtifactUpdateResult.unchanged(null);
+            }
         };
         var state = new ArtifactUpdateStateStore(dir);
         var coordinator = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),

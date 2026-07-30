@@ -2,6 +2,7 @@ package br.com.validadorlote.infrastructure.tables;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateResult;
 
 import java.net.URI;
 import java.time.Instant;
@@ -32,13 +33,13 @@ public final class SvrsTableUpdater {
         return store.install(candidate, version, SOURCE.toString(), Instant.now());
     }
 
-    /** @return {@code true} se instalou base nova; consulta idêntica não troca {@code current}. */
-    public boolean updateIfNew() {
+    /** Consulta idêntica não troca {@code current}. */
+    public ArtifactUpdateResult updateIfNew() {
         JsonNode raw = extractor.extract(https.getUtf8(SOURCE));
         byte[] candidate = normalizer.normalize(raw);
         String version = "svrs-" + FiscalTableArtifactStore.sha256(candidate).substring(0, 12);
-        if (store.isActiveVersion(version)) return false;
+        if (store.isActiveVersion(version)) return ArtifactUpdateResult.unchanged("Tabela fiscal já está atualizada");
         store.install(candidate, version, SOURCE.toString(), Instant.now());
-        return true;
+        return ArtifactUpdateResult.updated("Tabela fiscal atualizada");
     }
 }

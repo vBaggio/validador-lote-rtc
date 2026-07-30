@@ -11,8 +11,10 @@ pelo subsistema de atualização de artefatos normativos.
 ## Escopo deliberado
 
 - Suportar os roots já aceitos pelo produto: `NFe`, `nfeProc` e `enviNFe`.
-- Usar o Portal Nacional da NF-e como fonte canônica da árvore de schemas. O pacote contém muito
-  mais XSDs, mas o produto só ativa a closure exigida pelos documentos fiscais que suporta.
+- Usar a página de Documentos da SVRS como canal operacional oficial para descobrir e baixar
+pacotes publicados. O produto só ativa a closure exigida pelos documentos fiscais que suporta e
+  nunca troca uma base por perfil anterior ou incompatível (D-049). Nesta implementação,
+  compatível significa `010e`; família sucessora requer task explícita de suporte.
 - Atualizar as tabelas fiscais que já alimentam o `RuleEngine` por sua fonte oficial, usando o
   mesmo mecanismo transacional e as guardas estruturais já exigidas na ingestão manual.
 - Registrar o motor da Calculadora no catálogo como artefato futuro, com fonte e política de
@@ -32,9 +34,9 @@ interpretações fiscais novas.
 
 ## Fonte e cadeia de confiança
 
-1. O cliente consulta somente URLs HTTPS dos hosts oficiais permitidos do Portal Nacional.
-2. Descobre exclusivamente links que a página classifica como versões oficiais em uso e seleciona
-   o perfil de NF-e/NFC-e compatível com a aplicação.
+1. O cliente consulta somente URLs HTTPS do host oficial permitido da SVRS.
+2. Descobre exclusivamente pacotes de schema publicados pela página e seleciona o perfil
+   NF-e/NFC-e compatível e mais novo que a base ativa.
 3. O download é feito em staging com limites de tamanho, quantidade de entradas, caminho
    normalizado e proibição de zip-slip. Redirecionamentos só podem permanecer na allowlist.
 4. A árvore extraída precisa conter os entrypoints e includes esperados; os XSDs são compilados
@@ -42,7 +44,7 @@ interpretações fiscais novas.
 5. Só então o diretório recebe um manifesto SHA-256 e vira a base ativa por troca atômica. Falha
    mantém a última base válida e é comunicada sem bloquear o uso offline.
 
-Não há API oficial ou manifesto assinado de versões encontrado no Portal Nacional. HTTPS, allowlist,
+Não há API oficial ou manifesto assinado de versões encontrado na SVRS. HTTPS, allowlist,
 validação estrutural, hash auditável e rollback reduzem o risco de transporte, mas não transformam
 uma publicação nova em julgamento fiscal automático. Por isso, a automação de repositório também
 continuará detectando e revisando as mudanças antes de elas virarem a base embarcada de uma release.
@@ -57,7 +59,7 @@ fiscal; ele apenas resolve qual artefato íntegro está ativo e mantém históri
 
 | Artefato | Fonte canônica | Uso no v0 | Política de ativação |
 |---|---|---|---|
-| Schemas NF-e/NFC-e | Portal Nacional da NF-e | `SchemaValidatorEngine` | Compilação segura dos três roots + fixtures + hash |
+| Schemas NF-e/NFC-e | Portal de Documentos da SVRS | `SchemaValidatorEngine` | Compilação segura dos três roots + fixtures + hash |
 | Tabelas CST/cClassTrib | Fonte oficial SVRS já usada pelo projeto | `RuleEngine` | Validação estrutural, unicidade e guarda contra regressão de cobertura |
 | Calculadora | endpoint oficial da RFB já documentado | nenhum, até v1 | apenas inventariada; não baixa 250 MB nem decide tributo no v0 |
 
@@ -80,12 +82,11 @@ manifesto; uma referência pequena e atômica escolhe a ativa. Nunca se sobrescr
 5. A tela de fontes externas expõe, por artefato, versão ativa, fonte, hash abreviado, última
    atualização, última verificação e erro recuperável. O rodapé mantém apenas o resumo compacto.
 
-### Portal Nacional e ACBr
+### SVRS e ACBr
 
-O Portal Nacional é autoridade normativa. A consulta deve reconhecer somente a seção de versões
-oficiais em uso, não “o maior nome de arquivo” ou a data mais recente de uma lista heterogênea.
-O pacote pode trazer perfis paralelos, logo a seleção é por perfil suportado e closure dos roots,
-nunca por ordenação lexicográfica de `PL`.
+O Portal de Documentos da SVRS é o canal operacional oficial. A consulta reconhece somente
+pacotes de schema que ela publicou, nunca nomes adivinhados; perfis paralelos ou anteriores não
+entram por ordenação lexicográfica de `PL`.
 
 O SVN público do ACBr foi conferido em 29/07/2026: a pasta
 `Exemplos/ACBrDFe/Schemas/NFe` na revisão 47477 contém os cinco arquivos necessários à closure da
@@ -93,12 +94,12 @@ nota com SHA-256 idêntico ao acervo local `tmp/Schemas/NFe`. Ele é um espelho 
 atualizações e reduzir indisponibilidade, mas não publica uma assinatura ou declaração oficial de
 vigência. A proposta é usá-lo assim:
 
-- quando Portal e ACBr concordarem nos hashes, qualquer um pode servir de transporte;
+- quando SVRS e ACBr concordarem nos hashes, o segundo serve de evidência técnica adicional;
 - se o ACBr adiantar/divergir, registrar “candidata não confirmada” e não ativar automaticamente;
-- se o Portal estiver indisponível, manter a última base oficial e informar a indisponibilidade,
+- se a SVRS estiver indisponível, manter a última base oficial e informar a indisponibilidade,
   em vez de trocar confiança por disponibilidade sem aviso.
 
-Esse desenho não promete uma impossibilidade: sem API/manifesto assinado do Portal, não existe
+Esse desenho não promete uma impossibilidade: sem API/manifesto assinado da SVRS, não existe
 forma de provar automaticamente que um artefato novo é fiscalmente vigente. Ele maximiza
 atualidade sem aceitar uma fonte não oficial como autoridade silenciosa.
 
@@ -134,7 +135,7 @@ verificação, origem e erro recuperável. Nenhum XML é lido, enviado ou retido
 
 ### Task 34 — Espelho ACBr, manutenção e documentação
 
-Investigar o endpoint SVN do ACBr por revisão e atraso em relação ao Portal Nacional. Implementar
+Investigar o endpoint SVN do ACBr por revisão e atraso em relação à SVRS. Implementar
 somente a política aprovada: telemetria local de discrepância e contingência condicionada a hash
 oficial conhecido; nunca aceitação cega. Substituir as tasks Gradle isoladas por uma ferramenta de
 manutenção que baixa, verifica, faz diff e exige revisão antes de alterar resources. Documentar a
@@ -145,6 +146,17 @@ Calculadora como artefato futuro do catálogo, sem introduzi-la no runtime fisca
 Revisão independente, testes completos, verificação de mutação dos caminhos de troca/rollback,
 documentação canônica, atualização do harness e preparação de PR. A tag pública e o smoke real do
 MSI continuam o gate humano herdado da Task 29.
+
+### Task 36 — Correção do canal de schemas após validação em campo
+
+O Portal Nacional falha a validação TLS em instalações Java usuais e o erro genérico impede o
+usuário de entender a continuidade segura. Substituir a aquisição runtime por adaptador do catálogo
+SVRS: extrair apenas entradas de schema publicadas, construir o download estático a partir do nome
+extraído, restringir host/tamanho/ZIP como no canal existente e recusar perfil anterior ou
+incompatível. Enquanto a SVRS não publicar `010e` ou sucessor suportado, registrar consulta
+concluída sem candidata, mantendo a base atual. ACBr permanece inspeção/contingência, sem ativação
+automática. Cobrir a listagem, URL encoding, ZIP vazio/antigo, candidata nova e a mensagem
+recuperável na tela de Fontes externas.
 
 ## Critérios de aceite
 

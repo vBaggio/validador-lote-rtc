@@ -16,12 +16,12 @@ import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
-import br.com.validadorlote.infrastructure.xml.PortalSchemaCatalogParser;
-import br.com.validadorlote.infrastructure.xml.PortalSchemaUpdater;
 import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
 import br.com.validadorlote.infrastructure.xml.SchemaZipExtractor;
 import br.com.validadorlote.infrastructure.xml.SchemasVersion;
+import br.com.validadorlote.infrastructure.xml.SvrsSchemaCatalogParser;
+import br.com.validadorlote.infrastructure.xml.SvrsSchemaUpdater;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor;
 import br.com.validadorlote.infrastructure.xml.XmlMetadataParser;
 import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
@@ -67,8 +67,9 @@ public final class App {
 
     private static ArtifactUpdateCoordinator updateCoordinator(SchemaArtifactStore schemaStore,
             FiscalTableArtifactStore tableStore, ArtifactUpdateStateStore updateState) {
-        var schemas = new PortalSchemaUpdater(SafeHttpsClient.forNationalPortal(),
-                new PortalSchemaCatalogParser(), new SchemaZipExtractor(), schemaStore);
+        var schemas = new SvrsSchemaUpdater(SafeHttpsClient.forSvrsSchemas(),
+                new SvrsSchemaCatalogParser(), new SchemaZipExtractor(), schemaStore,
+                SchemasVersion.metadata().profile());
         var tables = new SvrsTableUpdater(SafeHttpsClient.forSvrs(), new SvrsTableExtractor(),
                 new SvrsTableNormalizer(), tableStore);
         var executor = Executors.newSingleThreadExecutor(r -> {
@@ -82,10 +83,13 @@ public final class App {
                 updateState);
     }
 
-    private static ArtifactUpdateAction action(ArtifactId artifact, java.util.function.BooleanSupplier update) {
+    private static ArtifactUpdateAction action(ArtifactId artifact,
+            java.util.function.Supplier<br.com.validadorlote.infrastructure.update.ArtifactUpdateResult> update) {
         return new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return artifact; }
-            @Override public boolean updateIfNew() { return update.getAsBoolean(); }
+            @Override public br.com.validadorlote.infrastructure.update.ArtifactUpdateResult updateIfNew() {
+                return update.get();
+            }
         };
     }
 }

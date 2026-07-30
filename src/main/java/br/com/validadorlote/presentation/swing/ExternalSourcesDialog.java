@@ -82,7 +82,7 @@ final class ExternalSourcesDialog extends JDialog {
         return switch (source.result()) {
             case "STARTED" -> "Verificando";
             case "UPDATED" -> "Atualização instalada (próximo boot)";
-            case "UNCHANGED" -> "Sem atualização";
+            case "UNCHANGED" -> source.detail() == null ? "Sem atualização" : source.detail();
             default -> "Resultado indisponível";
         };
     }

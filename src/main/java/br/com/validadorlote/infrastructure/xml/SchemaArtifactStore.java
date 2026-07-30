@@ -60,7 +60,7 @@ public final class SchemaArtifactStore {
         }
     }
 
-    /** Permite evitar download/reinstalação quando o Portal declara a mesma versão já ativa. */
+    /** Permite evitar download/reinstalação quando a fonte declara a mesma versão já ativa. */
     public boolean isActiveVersion(String version) {
         Path active = activePathOrNull();
         if (active == null) return false;

@@ -161,3 +161,51 @@ verificação manual. A consulta não carrega dados de lote, não bloqueia a int
 candidatas apenas para o próximo boot. A Calculadora permanece inventariada para a v1, sem download
 nem execução no v0. As antigas tasks Gradle de atualização direta de resources foram bloqueadas:
 uma alteração embarcada exige staging, validação e revisão humana do diff como manutenção de release.
+
+## Adendo de fontes — SVRS e alternativas pesquisadas (30/07/2026)
+
+### Portal de Documentos da SVRS
+
+A hipótese foi confirmada tecnicamente. A página
+[`NFE/Documentos`](https://dfe-portal.svrs.rs.gov.br/NFe/Documentos) contém a listagem pública e
+cada item usa o endpoint de download estático:
+
+```
+https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/
+  ?sistema=NFE&tipoArquivo=2&nomeArquivo=<nome-publicado>
+```
+
+O ZIP `PL_010b_NT2025_002_v1.30.zip` foi baixado sem sessão e conferido como arquivo ZIP válido,
+contendo a closure NF-e. Portanto a SVRS é um canal operacional mais estável que o Portal Nacional
+para **descobrir e baixar itens que ela publica**. Não se deve adivinhar nomes nem consultar URLs
+não listadas: o nome precisa vir do catálogo recém-baixado e o host continua restrito.
+
+Há uma limitação decisiva: em 30/07/2026 a listagem ainda não traz o pacote completo `010e_v1.02`.
+Ela traz o evento 211110 da NT 2025.002 v1.40, mas o pacote NF-e/NFC-e completo mais novo é o
+`010b v1.30`. Esse ZIP não pode substituir a base `010e_v1.02` atual. A política correta é aceitar
+apenas perfis compatíveis e mais novos; a ausência de candidata vira resultado explícito da
+consulta, não erro de TLS, e jamais downgrade.
+
+O runtime suporta automaticamente apenas evoluções dentro da família `010e`. Uma futura família
+de pacote precisa de manutenção deliberada do aplicativo para revisar entrypoints e fixtures; ela
+não será aceita pelo simples fato de ter letra/versão maior.
+
+### Repositórios comunitários avaliados
+
+| Fonte | Veredito para runtime | Material reaproveitável |
+| --- | --- | --- |
+| ACBr SVN | Melhor espelho técnico; atualizado e com closure compatível, mas sem declaração oficial de vigência. | Comparação de hashes e diagnóstico de disponibilidade. |
+| nfephp-org/sped-nfe | Não usar: schemas publicados chegam ao `PL_010_V1.30`. | Referência de integração. |
+| Samuel-Oliveira/Java_NFe | Não usar: XSDs brutos, porém anteriores ao `010e`. | Quatro fixtures IBS/CBS: regular, diferimento e monofásico, candidatas a testes após curadoria. |
+| ZeusAutomacao/DFe.NET | Não usar: atualização encontrada em `010d`. | Referência cross-stack de modelos e serialização. |
+| NFeWizard-io, node-sped-nfe, PyNFe, ERP Brasil/nfelib | Não usar: árvores legadas ou incompletas para RTC atual. | Alguns exemplos são eventos/fragments, não NF-e completas. |
+| ERP Brasil/edoc e NewtonMan/emissor-nfe | Não são fontes de árvore XSD atualizável. | Sem reaproveitamento direto para este canal. |
+
+### Fora do escopo deste bloco
+
+- Espelho próprio remoto com bundles versionados, manifestos assinados e promoção humana.
+- Download/execução do motor da Calculadora e validação de valores (v1).
+- Suporte semântico às demais famílias de DF-e presentes em `tmp/Schemas`.
+- Curadoria e incorporação das fixtures IBS/CBS externas ao corpus de regressão.
+- Suporte automático a uma nova família de perfil de schemas (por exemplo, `010f`), que requer
+  revisão de contrato e fixtures antes de ampliar a seleção.

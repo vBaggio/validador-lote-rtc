@@ -22,7 +22,7 @@ import java.time.Instant;
 /** Consulta e atualiza metadados de artefatos; não toca XMLs nem troca engines já em uso. */
 public final class ExternalSourcesUseCase {
 
-    private static final String PORTAL_NACIONAL = "https://www.nfe.fazenda.gov.br/";
+    private static final String SVRS_DOCUMENTS = "https://dfe-portal.svrs.rs.gov.br/NFe/Documentos";
     private static final String SVRS = "https://dfe-portal.svrs.rs.gov.br/";
     private static final String CALCULATOR = "https://piloto-cbs.tributos.gov.br/";
     private final ArtifactUpdateCoordinator coordinator;
@@ -44,7 +44,7 @@ public final class ExternalSourcesUseCase {
 
     public List<ExternalSourceStatus> status() {
         return List.of(status(ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
-                        schemas.activeManifestOrNull(), embeddedSchemas.sourceUrl(), embeddedSchemas.profile(),
+                        schemas.activeManifestOrNull(), SVRS_DOCUMENTS, embeddedSchemas.profile(),
                         embeddedSchemas.closureSha256(), at(embeddedSchemas.incorporatedAt()), null, false),
                 status(ArtifactId.FISCAL_TABLES, "Tabela CST/cClassTrib",
                         tables.activeManifestOrNull(), embeddedTables.source(),

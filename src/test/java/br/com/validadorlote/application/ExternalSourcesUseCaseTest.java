@@ -30,7 +30,7 @@ class ExternalSourcesUseCaseTest {
 
         ExternalSourceStatus schemas = source(sources, ArtifactId.NFE_SCHEMAS);
         assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02 (embarcada)");
-        assertThat(schemas.origin()).contains("nfe.fazenda.gov.br");
+        assertThat(schemas.origin()).contains("dfe-portal.svrs.rs.gov.br/NFe/Documentos");
         assertThat(schemas.abbreviatedHash()).isEqualTo("1c7401d64600…");
         assertThat(schemas.updatedAt()).isEqualTo(Instant.parse("2026-07-29T00:00:00Z"));
         assertThat(schemas.checkedAt()).isNull();

@@ -90,11 +90,12 @@ no Windows, o resultado é um instalador MSI. Os artefatos são criados em `buil
 
 ## Base de validação
 
-O Portal Nacional da NF-e é a autoridade da base vigente. A base atualmente embarcada é o perfil
-`010e_v1.02`; seu payload foi transportado do espelho ACBr SVN r47146 e identificado por hashes
-registrados no aplicativo. O ACBr é somente espelho técnico para inspeção/disponibilidade: não há
-fallback automático quando diverge ou quando o Portal está indisponível. O canal B6 conserva a
-proveniência e só ativa atualização após validação local, no boot seguinte.
+A base atualmente embarcada é o perfil `010e_v1.02`; seu payload foi transportado do espelho ACBr
+SVN r47146 e identificado por hashes registrados no aplicativo. Em execução, o canal consulta o
+portal público da SVRS para descobrir e baixar somente pacotes de schemas que ele próprio publique.
+Ele nunca aceita perfil anterior ou incompatível; se não houver candidata, a base local continua em
+uso. O ACBr é somente espelho técnico para inspeção/disponibilidade, sem fallback automático. O
+canal conserva a proveniência e só ativa atualização após validação local, no boot seguinte.
 
 As tasks Gradle históricas `updateSchemas` e `updateFiscalTables` estão intencionalmente bloqueadas:
 elas não são a atualização do usuário final e não podem sobrescrever `src/main/resources`. Uma

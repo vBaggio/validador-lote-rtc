@@ -3,6 +3,7 @@ package br.com.validadorlote.infrastructure.tables;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -51,6 +52,14 @@ class SafeHttpsClientTest {
                 (uri, timeout) -> response(200, uri, Map.of(), "12345"));
         assertThatThrownBy(() -> tooLarge.getUtf8(SVRS)).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("limite");
+    }
+
+    @Test
+    void identifiesTheSourceHostWhenTransportFails() {
+        SafeHttpsClient client = client((uri, timeout) -> { throw new IOException("certificado"); });
+
+        assertThatThrownBy(() -> client.getUtf8(SVRS)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("dfe-portal.svrs.rs.gov.br");
     }
 
     private SafeHttpsClient client(HttpsTransport transport) {

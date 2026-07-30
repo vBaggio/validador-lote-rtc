@@ -29,11 +29,11 @@ class ArtifactUpdateCoordinatorTest {
         CountDownLatch completed = new CountDownLatch(1);
         ArtifactUpdateAction action = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
-            @Override public boolean updateIfNew() {
+            @Override public ArtifactUpdateResult updateIfNew() {
                 worker.set(Thread.currentThread().getName());
                 calls.incrementAndGet();
                 completed.countDown();
-                return true;
+                return ArtifactUpdateResult.updated("atualizada");
             }
         };
         var executor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> new Thread(r, "artifact-test"));
@@ -63,7 +63,7 @@ class ArtifactUpdateCoordinatorTest {
     void turnsSourceFailureIntoAnEventWithoutRethrowing() {
         ArtifactUpdateAction failing = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.FISCAL_TABLES; }
-            @Override public boolean updateIfNew() { throw new IllegalStateException("fonte indisponível"); }
+            @Override public ArtifactUpdateResult updateIfNew() { throw new IllegalStateException("fonte indisponível"); }
         };
         List<ArtifactUpdateEvent> events = new ArrayList<>();
         ArtifactUpdateStateStore state = new ArtifactUpdateStateStore(temp);
@@ -83,7 +83,10 @@ class ArtifactUpdateCoordinatorTest {
         AtomicInteger calls = new AtomicInteger();
         ArtifactUpdateAction action = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
-            @Override public boolean updateIfNew() { return calls.incrementAndGet() == 1; }
+            @Override public ArtifactUpdateResult updateIfNew() {
+                return calls.incrementAndGet() == 1 ? ArtifactUpdateResult.updated(null)
+                        : ArtifactUpdateResult.unchanged("sem candidata");
+            }
         };
         ArtifactUpdateStateStore state = new ArtifactUpdateStateStore(temp);
         Instant start = Instant.parse("2026-07-29T12:00:00Z");
@@ -109,6 +112,7 @@ class ArtifactUpdateCoordinatorTest {
                 .containsExactly(ArtifactUpdateEvent.Status.STARTED, ArtifactUpdateEvent.Status.UNCHANGED);
         assertThat(state.read(ArtifactId.NFE_SCHEMAS).result())
                 .isEqualTo(ArtifactUpdateEvent.Status.UNCHANGED);
+        assertThat(state.read(ArtifactId.NFE_SCHEMAS).detail()).isEqualTo("sem candidata");
     }
 
     @Test
@@ -117,7 +121,10 @@ class ArtifactUpdateCoordinatorTest {
         List<Runnable> queued = new ArrayList<>();
         ArtifactUpdateAction action = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
-            @Override public boolean updateIfNew() { calls.incrementAndGet(); return false; }
+            @Override public ArtifactUpdateResult updateIfNew() {
+                calls.incrementAndGet();
+                return ArtifactUpdateResult.unchanged(null);
+            }
         };
         var coordinator = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),
                 Clock.systemUTC(), queued::add, event -> { }, new ArtifactUpdateStateStore(temp));

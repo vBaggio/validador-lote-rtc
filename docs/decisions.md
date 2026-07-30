@@ -4,6 +4,31 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-049 — SVRS passa a ser o canal oficial operacional de schemas; sem downgrade e sem confiança cega no espelho (30/07/2026)
+
+O Portal de Documentos da SVRS publica a listagem e os ZIPs da NF-e em URLs HTTPS estáveis. A
+consulta comprovou que `NFE/Documentos` entrega a relação de schemas e que o endpoint
+`NFE/DownloadArquivoEstatico` entrega o ZIP sem exigir cookie, certificado de cliente ou redirect para
+outro host. Ele substitui o Portal Nacional como **canal operacional** do aplicativo: a página
+descobre o arquivo e o download só pode ser construído a partir de uma entrada nela publicada.
+
+Essa mudança não confunde disponibilidade com vigência. Em 30/07/2026, a SVRS ainda lista como
+pacote completo mais novo o `PL_010b_NT2025_002_v1.30`, anterior ao perfil `010e_v1.02` embarcado.
+Logo, uma entrada só é candidata se declarar um perfil NF-e/NFC-e compatível e estritamente mais
+novo que a base ativa; pacote antigo, nome inesperado, ZIP vazio ou closure inválida é consulta
+sem atualização, nunca downgrade. A aplicação continua com a última base íntegra.
+
+Nesta versão, “compatível” significa exclusivamente a família `010e`. Uma futura família, como
+`010f`, não é silenciosamente promovida por ordenação de nome: exige task de manutenção para
+conferir roots, closure, fixtures e vigência antes de ser suportada. Essa limitação consciente evita
+que “sempre atualizado” transforme uma mudança de contrato fiscal em troca automática não auditada.
+
+O SVN do ACBr continua espelho técnico para comparar disponibilidade e investigar uma candidata.
+Ele não declara vigência nem perfil oficial, portanto não ativa schemas automaticamente. Um espelho
+versionado pelo próprio projeto, manifesto assinado e fluxo de promoção humana foram considerados,
+mas ficam fora do B6: adicionariam infraestrutura e política de publicação que o produto ainda não
+possui. A base embarcada já é o fallback offline aprovado.
+
 ## D-048 — Atualização externa é consultiva no lote; Portal é autoridade e ACBr não faz fallback automático (29/07/2026)
 
 O rodapé abre a tela discreta **Fontes externas**, que mostra somente metadados locais de schemas,
