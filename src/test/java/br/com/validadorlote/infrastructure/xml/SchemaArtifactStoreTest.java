@@ -1,12 +1,14 @@
 package br.com.validadorlote.infrastructure.xml;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,11 +72,26 @@ class SchemaArtifactStoreTest {
         SchemaArtifactStore store = new SchemaArtifactStore(temp);
         Path candidate = copyEmbedded("hostile");
         Files.delete(candidate.resolve("originais/tiposBasico_v4.00.xsd"));
-        Files.createSymbolicLink(candidate.resolve("originais/tiposBasico_v4.00.xsd"), Path.of("/etc/passwd"));
+        try {
+            Files.createSymbolicLink(candidate.resolve("originais/tiposBasico_v4.00.xsd"),
+                    Path.of("outside.xsd"));
+        } catch (UnsupportedOperationException unsupported) {
+            Assumptions.abort("Sistema de arquivos não permite criar links simbólicos neste teste.");
+        } catch (java.nio.file.FileSystemException failure) {
+            if (!isMissingSymlinkPrivilege(failure)) throw failure;
+            Assumptions.abort("A conta atual não tem privilégio para criar links simbólicos.");
+        }
 
         assertThatThrownBy(() -> store.install(candidate, "hostile", "https://fonte.exemplo/hostile", Instant.EPOCH))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(store.activeOrNull()).isNull();
+    }
+
+    private boolean isMissingSymlinkPrivilege(java.nio.file.FileSystemException failure) {
+        String reason = failure.getReason() == null ? "" : failure.getReason()
+                .toLowerCase(Locale.ROOT);
+        return reason.contains("privil") || reason.contains("operation not permitted")
+                || reason.contains("operation not supported");
     }
 
     private Path copyEmbedded(String name) throws IOException {
