@@ -137,9 +137,9 @@ public final class ArtifactUpdateCoordinator {
             if (!force && !isDue(action, now)) {
                 continue;
             }
-            publish(new ArtifactUpdateEvent(action.artifact(),
-                    ArtifactUpdateEvent.Status.CHECKING, now, null, null, null));
             try {
+                publish(new ArtifactUpdateEvent(action.artifact(),
+                        ArtifactUpdateEvent.Status.CHECKING, now, null, null, null));
                 ArtifactCheckResult result = retryPolicy.execute(action::check);
                 publishCheckResult(action, result);
             } catch (RuntimeException e) {

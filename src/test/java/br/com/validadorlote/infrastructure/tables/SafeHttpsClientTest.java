@@ -4,8 +4,11 @@ import br.com.validadorlote.infrastructure.update.ArtifactFailureKind;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateException;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.URI;
 import java.net.http.HttpTimeoutException;
 import javax.net.ssl.SSLHandshakeException;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +16,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,6 +144,87 @@ class SafeHttpsClientTest {
                     });
         } finally {
             Thread.interrupted();
+        }
+    }
+
+    @Test
+    void jdkTransportTimesOutWhenTheServerSendsHeadersAndStopsTheBody() throws Exception {
+        CountDownLatch headersSent = new CountDownLatch(1);
+        CountDownLatch releaseBody = new CountDownLatch(1);
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        try (ServerSocket server = new ServerSocket(0, 1,
+                InetAddress.getByName("127.0.0.1"))) {
+            workers.submit(() -> {
+                try (var socket = server.accept()) {
+                    consumeRequestHeaders(socket.getInputStream());
+                    socket.getOutputStream().write(("""
+                            HTTP/1.1 200 OK\r
+                            Content-Length: 4\r
+                            Connection: close\r
+                            \r
+                            """).getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().flush();
+                    headersSent.countDown();
+                    releaseBody.await(5, TimeUnit.SECONDS);
+                }
+                return null;
+            });
+            URI uri = URI.create("http://127.0.0.1:" + server.getLocalPort() + "/artifact");
+            HttpsTransport transport = new SafeHttpsClient.JdkTransport(32);
+            Future<HttpsTransport.Response> response = workers.submit(
+                    () -> transport.get(uri, Duration.ofMillis(500)));
+
+            assertThat(headersSent.await(2, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> response.get(3, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(HttpTimeoutException.class);
+        } finally {
+            releaseBody.countDown();
+            workers.shutdownNow();
+            assertThat(workers.awaitTermination(2, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void jdkTransportRejectsTheBodyAsSoonAsTheStreamingLimitIsExceeded() throws Exception {
+        ExecutorService serverWorker = Executors.newSingleThreadExecutor();
+        try (ServerSocket server = new ServerSocket(0, 1,
+                InetAddress.getByName("127.0.0.1"))) {
+            Future<?> responseWriter = serverWorker.submit(() -> {
+                try (var socket = server.accept()) {
+                    consumeRequestHeaders(socket.getInputStream());
+                    socket.getOutputStream().write(("""
+                            HTTP/1.1 200 OK\r
+                            Content-Length: 5\r
+                            Connection: close\r
+                            \r
+                            12345""").getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().flush();
+                }
+                return null;
+            });
+            URI uri = URI.create("http://127.0.0.1:" + server.getLocalPort() + "/artifact");
+            HttpsTransport transport = new SafeHttpsClient.JdkTransport(4);
+
+            assertThatThrownBy(() -> transport.get(uri, Duration.ofSeconds(2)))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Resposta da fonte excede o limite de tamanho");
+            responseWriter.get(2, TimeUnit.SECONDS);
+        } finally {
+            serverWorker.shutdownNow();
+            assertThat(serverWorker.awaitTermination(2, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private static void consumeRequestHeaders(InputStream input) throws IOException {
+        byte[] marker = "\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
+        int matched = 0;
+        while (matched < marker.length) {
+            int value = input.read();
+            if (value == -1) {
+                throw new IOException("Requisição HTTP terminou antes dos cabeçalhos");
+            }
+            matched = value == marker[matched] ? matched + 1 : value == marker[0] ? 1 : 0;
         }
     }
 

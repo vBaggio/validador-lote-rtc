@@ -34,10 +34,13 @@ public final class MainPresenter {
     private long latestExternalSourcesRevision = -1;
     private boolean applyingDialogRequested;
     private boolean externalSourcesDialogOpenPending;
+    private boolean externalSourcesApplicationRequested;
     private boolean restartRequiredShown;
 
     private static final String ACTIVATION_IN_PROGRESS =
             "Aguarde a atualização das bases terminar antes de validar o lote.";
+    private static final String APPLICATION_START_FAILED =
+            "Não foi possível iniciar a atualização das bases: ";
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
         this(useCase, uiThread, background, null);
@@ -172,7 +175,7 @@ public final class MainPresenter {
     /** Aplica apenas candidatas já confirmadas e deixa o coordenador publicar o progresso. */
     public void applyExternalSourcesRequested() {
         if (externalSources == null) return;
-        externalSources.applyAvailable();
+        requestExternalSourcesApplication();
         ExternalSourcesSnapshot snapshot = externalSources.snapshot();
         uiThread.execute(() -> publishExternalSources(snapshot));
     }
@@ -306,15 +309,33 @@ public final class MainPresenter {
         }
         applyingDialogRequested = false;
         if (snapshot.phase() == ExternalSourcesPhase.UPDATES_AVAILABLE
+                && !externalSourcesApplicationRequested
                 && snapshot.revision() != lastOfferedExternalSourcesRevision) {
             lastOfferedExternalSourcesRevision = snapshot.revision();
             if (attachedView.confirmExternalSourcesUpdate(snapshot)) {
-                externalSources.applyAvailable();
+                requestExternalSourcesApplication();
             }
         } else if (snapshot.phase() == ExternalSourcesPhase.RESTART_REQUIRED
                 && !restartRequiredShown) {
             restartRequiredShown = true;
             attachedView.showRestartRequired(snapshot);
+        }
+    }
+
+    private void requestExternalSourcesApplication() {
+        if (externalSourcesApplicationRequested) {
+            return;
+        }
+        externalSourcesApplicationRequested = true;
+        try {
+            externalSources.applyAvailable();
+        } catch (RuntimeException failure) {
+            lastOfferedExternalSourcesRevision = Math.max(lastOfferedExternalSourcesRevision,
+                    externalSources.snapshot().revision());
+            uiThread.execute(() -> requireView().showError(
+                    APPLICATION_START_FAILED + messageFor(failure)));
+        } finally {
+            externalSourcesApplicationRequested = false;
         }
     }
 

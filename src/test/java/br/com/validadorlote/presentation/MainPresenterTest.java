@@ -1,6 +1,7 @@
 package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.ExternalSourcesPhase;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.domain.RootCauseGrouper;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -396,6 +398,79 @@ class MainPresenterTest {
         assertThat(calls).anySatisfy(call ->
                 assertThat(call).isEqualTo("sources 2 RESTART_REQUIRED"));
         assertThat(recordingUiThread.executions).isPositive();
+    }
+
+    @Test
+    void manualApplicationSchedulingFailureIsShownOnUiThreadWithoutANewPrompt(
+            @TempDir Path dir) {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        AtomicBoolean reject = new AtomicBoolean();
+        Executor updateBackground = action -> {
+            if (reject.get()) {
+                throw new RejectedExecutionException("executor encerrado");
+            }
+            action.run();
+        };
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), updateBackground,
+                event -> { }, new ArtifactUpdateStateStore(dir));
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        recordingUiThread = new RecordingUiThread();
+        presenter = new MainPresenter(useCase(), recordingUiThread, Runnable::run, observedSources);
+        presenter.attach(fakeView);
+        sourcesPublishUpdateAvailable();
+        calls.clear();
+        reject.set(true);
+
+        presenter.applyExternalSourcesRequested();
+
+        assertThat(calls).contains(
+                "error: Não foi possível iniciar a atualização das bases: executor encerrado");
+        assertThat(calls).doesNotContain("confirm-update");
+        assertThat(fakeView.errorOnUiThread).isTrue();
+        assertThat(schemasAction.applyCalls).isZero();
+        assertThat(observedSources.snapshot().phase())
+                .isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
+        assertThat(observedSources.tryStartValidation()).isTrue();
+    }
+
+    @Test
+    void automaticApplicationSchedulingFailureIsShownOnceWithoutPromptLoop(
+            @TempDir Path dir) {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        AtomicInteger submissions = new AtomicInteger();
+        Executor rejectSecondSubmission = action -> {
+            if (submissions.incrementAndGet() == 2) {
+                throw new RejectedExecutionException("executor encerrado");
+            }
+            action.run();
+        };
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(),
+                rejectSecondSubmission, event -> { }, new ArtifactUpdateStateStore(dir));
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        recordingUiThread = new RecordingUiThread();
+        presenter = new MainPresenter(useCase(), recordingUiThread, Runnable::run, observedSources);
+        presenter.attach(fakeView);
+        fakeView.acceptUpdate = true;
+        calls.clear();
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
+        assertThat(calls).filteredOn(call -> call.equals(
+                        "error: Não foi possível iniciar a atualização das bases: "
+                                + "executor encerrado"))
+                .hasSize(1);
+        assertThat(fakeView.errorOnUiThread).isTrue();
+        assertThat(schemasAction.applyCalls).isZero();
+        assertThat(observedSources.snapshot().phase())
+                .isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
+        assertThat(observedSources.tryStartValidation()).isTrue();
     }
 
     @Test

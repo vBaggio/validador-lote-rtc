@@ -253,7 +253,7 @@ public final class ExternalSourcesUseCase {
             return validationActive ? ExternalSourcesPhase.WAITING_FOR_VALIDATION
                     : ExternalSourcesPhase.UPDATES_AVAILABLE;
         }
-        if (all(states, ExternalSourcePhase.FAILED)) {
+        if (has(states, ExternalSourcePhase.FAILED)) {
             return ExternalSourcesPhase.FAILED;
         }
         if (all(states, ExternalSourcePhase.UP_TO_DATE)) {

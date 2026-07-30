@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -88,6 +89,41 @@ class ArtifactUpdateCoordinatorTest {
 
         assertThat(transientAction.checkCalls).hasValue(2);
         assertThat(invalidAction.checkCalls).hasValue(1);
+    }
+
+    @Test
+    void checkingListenerFailureEndsTerminallyAndAllowsANewCheck() {
+        TestAction action = action(ArtifactId.NFE_SCHEMAS, "schemas-v1");
+        List<ArtifactUpdateEvent> events = new ArrayList<>();
+        AtomicBoolean failCheckingOnce = new AtomicBoolean(true);
+        var coordinator = coordinator(List.of(action), Runnable::run, events);
+        coordinator.addListener(event -> {
+            if (event.status() == ArtifactUpdateEvent.Status.CHECKING
+                    && failCheckingOnce.compareAndSet(true, false)) {
+                throw new IllegalStateException("observador indisponível");
+            }
+        });
+
+        assertThat(coordinator.checkNow()).isTrue();
+
+        assertThat(action.checkCalls).hasValue(0);
+        assertThat(events).extracting(ArtifactUpdateEvent::status)
+                .containsExactly(ArtifactUpdateEvent.Status.CHECKING,
+                        ArtifactUpdateEvent.Status.FAILED);
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS))
+                .satisfies(state -> {
+                    assertThat(state.result()).isEqualTo(ArtifactUpdateEvent.Status.FAILED);
+                    assertThat(state.failureKind()).isEqualTo(ArtifactFailureKind.UNKNOWN);
+                });
+        assertThat(coordinator.isRunning()).isFalse();
+
+        assertThat(coordinator.checkNow()).isTrue();
+
+        assertThat(action.checkCalls).hasValue(1);
+        assertThat(events).extracting(ArtifactUpdateEvent::status)
+                .endsWith(ArtifactUpdateEvent.Status.CHECKING,
+                        ArtifactUpdateEvent.Status.UP_TO_DATE);
+        assertThat(coordinator.isRunning()).isFalse();
     }
 
     @Test

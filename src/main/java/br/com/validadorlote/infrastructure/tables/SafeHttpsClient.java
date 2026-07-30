@@ -5,16 +5,24 @@ import br.com.validadorlote.infrastructure.update.ArtifactUpdateException;
 import javax.net.ssl.SSLException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** HTTPS restrito para artefatos normativos: sem hosts implícitos ou redirects abertos. */
 public final class SafeHttpsClient {
@@ -117,41 +125,133 @@ public final class SafeHttpsClient {
     }
 
     /** Implementação de produção; redirects ficam deliberadamente desligados no JDK. */
-    private static final class JdkTransport implements HttpsTransport {
+    static final class JdkTransport implements HttpsTransport {
         private final int maxBytes;
         private final HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
 
-        private JdkTransport(int maxBytes) {
+        JdkTransport(int maxBytes) {
             this.maxBytes = maxBytes;
         }
 
         @Override
         public Response get(URI uri, Duration timeout) throws IOException, InterruptedException {
             HttpRequest request = HttpRequest.newBuilder(uri).timeout(timeout).GET().build();
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            try (InputStream body = response.body()) {
+            LimitedBodySubscriber subscriber = new LimitedBodySubscriber(maxBytes);
+            CompletableFuture<HttpResponse<byte[]>> exchange = client.sendAsync(request,
+                    ignored -> subscriber);
+            try {
+                HttpResponse<byte[]> response = exchange.get(timeout.toNanos(),
+                        TimeUnit.NANOSECONDS);
                 return new Response(response.statusCode(), response.uri(), response.headers().map(),
-                        readLimited(body, maxBytes));
+                        response.body());
+            } catch (TimeoutException e) {
+                subscriber.cancel();
+                exchange.cancel(true);
+                HttpTimeoutException failure =
+                        new HttpTimeoutException("Leitura do corpo HTTP excedeu o tempo limite");
+                failure.initCause(e);
+                throw failure;
+            } catch (ExecutionException e) {
+                throw transportFailure(e.getCause());
+            } catch (InterruptedException e) {
+                subscriber.cancel();
+                exchange.cancel(true);
+                throw e;
             }
         }
 
-        private byte[] readLimited(InputStream input, int limit) throws IOException {
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                if (output.size() + read > limit) {
-                    throw new ResponseTooLargeException();
-                }
-                output.write(buffer, 0, read);
+        private static IOException transportFailure(Throwable cause) {
+            while (cause instanceof CompletionException && cause.getCause() != null) {
+                cause = cause.getCause();
             }
-            return output.toByteArray();
+            if (cause instanceof IOException failure) {
+                return failure;
+            }
+            if (cause instanceof RuntimeException failure) {
+                throw failure;
+            }
+            if (cause instanceof Error failure) {
+                throw failure;
+            }
+            return new IOException("Falha no transporte HTTP", cause);
+        }
+    }
+
+    private static final class LimitedBodySubscriber
+            implements HttpResponse.BodySubscriber<byte[]> {
+
+        private final int maxBytes;
+        private final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        private final CompletableFuture<byte[]> body = new CompletableFuture<>();
+        private volatile Flow.Subscription subscription;
+
+        private LimitedBodySubscriber(int maxBytes) {
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public CompletionStage<byte[]> getBody() {
+            return body;
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            if (this.subscription != null) {
+                subscription.cancel();
+                return;
+            }
+            this.subscription = Objects.requireNonNull(subscription);
+            if (body.isDone()) {
+                subscription.cancel();
+                return;
+            }
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> buffers) {
+            if (body.isDone()) {
+                return;
+            }
+            for (ByteBuffer buffer : buffers) {
+                int length = buffer.remaining();
+                if (length > maxBytes - output.size()) {
+                    subscription.cancel();
+                    body.completeExceptionally(new ResponseTooLargeException());
+                    return;
+                }
+                byte[] bytes = new byte[length];
+                buffer.get(bytes);
+                output.writeBytes(bytes);
+            }
+        }
+
+        @Override
+        public void onError(Throwable failure) {
+            body.completeExceptionally(failure);
+        }
+
+        @Override
+        public void onComplete() {
+            body.complete(output.toByteArray());
+        }
+
+        private void cancel() {
+            body.cancel(false);
+            Flow.Subscription current = subscription;
+            if (current != null) {
+                current.cancel();
+            }
         }
     }
 
     private static final class ResponseTooLargeException extends IOException {
+
+        private ResponseTooLargeException() {
+            super("Resposta da fonte excede o limite de tamanho");
+        }
     }
 }

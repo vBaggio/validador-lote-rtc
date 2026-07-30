@@ -90,6 +90,24 @@ class ExternalSourcesUseCaseTest {
     }
 
     @Test
+    void exposesPartialFailureWhenTheOtherSourceIsUpToDate() {
+        schemasAction.checkReturns(ArtifactCheckResult.upToDate("Schemas atualizados"));
+        tablesAction.checkFails(ArtifactUpdateException.connection(
+                "Não foi possível consultar a tabela", null));
+
+        coordinator.checkNow();
+
+        ExternalSourcesSnapshot snapshot = sources.snapshot();
+        assertThat(snapshot.phase()).isEqualTo(ExternalSourcesPhase.FAILED);
+        assertThat(snapshot.availableCount()).isZero();
+        assertThat(snapshot.failedCount()).isOne();
+        assertThat(source(ArtifactId.NFE_SCHEMAS).phase())
+                .isEqualTo(ExternalSourcePhase.UP_TO_DATE);
+        assertThat(source(ArtifactId.FISCAL_TABLES).phase())
+                .isEqualTo(ExternalSourcePhase.FAILED);
+    }
+
+    @Test
     void validationTurnsAvailableIntoWaitingAndRestoresItWhenValidationEnds() {
         schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
         coordinator.checkNow();
