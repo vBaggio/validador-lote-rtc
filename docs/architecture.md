@@ -59,8 +59,23 @@ controle detecta corrupção operacional, mas não autentica alterações feitas
 a mesma conta — ver D-046.
 
 O coordenador consulta schemas e tabelas fora da EDT, uma vez após o boot e depois no intervalo
-operacional. `ExternalSourcesUseCase` só expõe manifestos e estado local ao presenter; não recebe
-XMLs, chaves ou CNPJ. A tela **Fontes externas** pode forçar uma consulta, mas o gate do
-coordenador recusa duplicação enquanto há uma em curso. Candidatas instaladas permanecem para o
-próximo boot: os engines do lote são montados uma vez no bootstrap e nunca trocados em memória.
-O catálogo também inventaria a Calculadora para v1, sem download/execução no v0.
+operacional. O ciclo é `check → prepare → confirm → activate → restart`: `check` adquire e valida;
+`prepare` grava uma candidata íntegra em staging, sem tocar `current`; uma única confirmação do
+usuário autoriza `activate`; e somente o próximo processo carrega as novas bases nos engines. Uma
+fonte pode falhar sem bloquear a candidata válida da outra, sempre preservando a referência ativa
+anterior.
+
+`ExternalSourcesUseCase` agrega os eventos em snapshots imutáveis com revisão monotônica e é a
+única fonte de estado para presenter, rodapé e diálogo; observadores não são chamados sob lock e
+uma entrega obsoleta não pode sobrescrever estado novo na EDT. Consulta pode coexistir com o lote,
+mas a admissão de validação e ativação é atômica: reservada uma ativação, não começa worker de
+validação; a reserva é liberada também se o executor a recusar. A falha de um listener não impede
+os demais nem o evento terminal. Se `activate` já retornou, `RESTART_REQUIRED` permanece latched
+até encerrar o processo mesmo que persista/publicar o evento terminal falhe; a candidata não é
+reaplicada sem uma consulta fresca.
+
+A tela **Fontes externas** pode forçar a consulta, mas o gate do coordenador recusa duplicação
+enquanto ela está em curso. `ExternalSourcesUseCase` só expõe manifestos e estado local ao
+presenter; não recebe XMLs, chaves ou CNPJ. Os engines do lote são montados uma vez no bootstrap e
+nunca trocados em memória. O catálogo também inventaria a Calculadora para v1, sem
+download/execução no v0.

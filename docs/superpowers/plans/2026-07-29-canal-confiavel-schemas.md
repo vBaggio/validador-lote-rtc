@@ -67,7 +67,13 @@ O diretório de dados é separado da instalação, por exemplo
 `~/.validador-lote-rtc/artifacts/<id>/<versão>/`. Cada versão contém o payload imutável e o
 manifesto; uma referência pequena e atômica escolhe a ativa. Nunca se sobrescreve a versão em uso.
 
-### Rotina de atualização
+### Rotina de atualização (proposta original, superada no runtime)
+
+Os itens 1–5 abaixo preservam a proposta de 29/07/2026. Eles foram superados pelo adendo de
+30/07/2026 e pela D-050: a janela de 24 horas limita apenas o agendamento automático (a ação
+manual não a usa); `check` e `prepare` não alteram `current`; uma única confirmação global ativa
+todas as candidatas válidas; e os engines só adotam as bases ativadas no próximo processo, sem
+hot reload. O texto histórico permanece para registrar o desenho que foi refinado.
 
 1. No primeiro boot após a instalação, a aplicação começa funcional com os artefatos embarcados e
    dispara a checagem em segundo plano. Assim, instalador e primeiro uso permanecem possíveis sem
@@ -166,6 +172,17 @@ ativação, compartilhar o estado entre rodapé e diálogo, adiar a aplicação 
 corrigir a experiência do modal está em
 [`2026-07-30-fluxo-observavel-atualizacao-bases.md`](./2026-07-30-fluxo-observavel-atualizacao-bases.md).
 Esse adendo governa o refinamento final do B6.
+
+### Fechamento do refinamento (30/07/2026)
+
+Tasks 37–40 foram concluídas e revisadas independentemente: `6c007e0` separa preparação de
+ativação; `e3997d1` introduz falhas tipadas, retentativa limitada e coordenação resiliente;
+`774c117` consolida snapshots, gate de validação e latch de reinício; `0d7ed20` entrega rodapé e
+diálogo adaptável. A Task 42 adicional (`0ada78b`) endurece a orquestração após a revisão: admissão
+atômica entre validação e ativação, snapshots monotônicos, evento terminal mesmo sob listener com
+falha e reinício latched se a ativação física vencer a persistência. A Task 41 registra a decisão,
+as verificações e o handoff. O smoke visual manual no Windows permanece gate do dono antes de
+publicação/PR; não há merge automático.
 
 ## Critérios de aceite
 

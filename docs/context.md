@@ -15,8 +15,11 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 ## Princípios
 
 1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após o
-   boot, no máximo uma vez a cada 24 horas, o canal B6 pode consultar metadados e artefatos
-   normativos nas fontes oficiais; a validação do lote continua local.
+   boot, o agendamento automático do canal B6 pode consultar metadados e artefatos normativos nas
+   fontes oficiais no máximo uma vez a cada 24 horas; a ação manual **Verificar agora** não se
+   submete a essa janela. A validação do lote continua local. A consulta só prepara candidatas: a
+   ativação exige confirmação global do usuário, ocorre fora de uma validação e entra nos engines
+   somente após reinício.
 2. **A ferramenta nunca decide tributo** — julgamento vem de artefato oficial (schemas; na v1, motor `regime-geral`).
 3. **Zero pré-requisitos** — instalador nativo com runtime embarcado.
 4. **Vida útil curta declarada** — simplicidade > extensibilidade.

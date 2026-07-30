@@ -164,6 +164,14 @@ uma alteração embarcada exige staging, validação e revisão humana do diff c
 
 ## Adendo de fontes — SVRS e alternativas pesquisadas (30/07/2026)
 
+### Correção do estado de consulta
+
+O erro HTTPS persistido pela implementação anterior pertencia ao canal antigo e não é evidência
+contra a consulta atual. O estado de consulta passou a ser associado à identidade estável do canal;
+ao trocar Portal Nacional pelo catálogo operacional da SVRS, um erro legado deixa de adiar ou
+mascarar a nova consulta. Falha da fonte atual continua visível e recuperável, sem alterar a última
+base íntegra.
+
 ### Portal de Documentos da SVRS
 
 A hipótese foi confirmada tecnicamente. A página

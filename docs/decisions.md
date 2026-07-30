@@ -4,6 +4,26 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-050 — Consulta prepara; usuário ativa; engines mudam após reinício (30/07/2026)
+
+Schemas e tabelas são consultados e validados independentemente em staging. Uma confirmação global
+ativa todas as candidatas válidas; falha de uma fonte preserva sua base anterior sem impedir a
+outra. Consulta pode coexistir com validação de documentos, mas confirmação e ativação aguardam o
+fim do lote. Rodapé e diálogo observam o mesmo snapshot, e engines só carregam as novas bases no
+reinício para que uma sessão nunca misture referências.
+
+A exclusão entre ativação e validação é uma **admissão atômica**, não uma suposição baseada no
+próximo evento visual: ao reservar uma aplicação, nenhuma nova validação inicia até a operação
+terminar, inclusive se o executor recusar o trabalho. Snapshots têm revisão monotônica; entrega
+fora de ordem e callbacks de observadores com falha não podem fazer a interface regredir nem ficar
+em `APPLYING` sem evento terminal.
+
+O retorno bem-sucedido de `apply` significa que a referência física `current` já mudou. Por isso o
+reinício fica latched até o processo encerrar mesmo se persistir ou publicar o evento terminal
+falhar; a falha continua visível, a candidata não é reaplicada cegamente e uma nova tentativa exige
+consulta fresca. Essa assimetria deliberada privilegia continuidade e transparência: uma fonte que
+falha conserva a última base íntegra, enquanto uma ativação consumada jamais é escondida do usuário.
+
 ## D-049 — SVRS passa a ser o canal oficial operacional de schemas; sem downgrade e sem confiança cega no espelho (30/07/2026)
 
 O Portal de Documentos da SVRS publica a listagem e os ZIPs da NF-e em URLs HTTPS estáveis. A

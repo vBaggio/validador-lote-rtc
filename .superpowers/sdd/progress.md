@@ -718,32 +718,49 @@ Task 34 (b6): complete (commit `16080b3`, revisão pendente da Task 35) — 376 
   restauração e `./gradlew clean test --console=plain` (376) verdes. DÉBITO: retenção/poda de
   versões e telemetria local de espelho ACBr permanecem fora do escopo, sem autorizar ativação.
 
-Task 37 (b6): complete (commit `68f05e5`, revisão independente PASS/PASS após 1 fix loop) —
+Task 37 (b6): complete (commit `6c007e0`, revisão independente PASS/PASS após 1 fix loop) —
 separa preparação de ativação para schemas e tabelas: `prepare` mantém `current`, `activate`
-revalida a versão confinada (hash/formato e compilação ou reload) antes do movimento atômico, e
-os updaters expõem `check`/`apply` com candidata tipada. ACHADO IMPORTANTE: uma nova consulta da
-mesma tabela preparada falhava porque `publishedAt` era volátil; a equivalência passou a usar a
-identidade estável do artefato e o teste prova duas consultas antes de ativar. Suíte completa e
-quatro suites focadas verdes; sonda de mutação do guard de artifactId derrubou os dois testes
-negativos. Próximo: Task 38.
+revalida a versão confinada antes do movimento atômico e os updaters expõem `check`/`apply` com
+candidata tipada. ACHADO: `publishedAt` volátil impedia repetir a preparação da tabela; a
+identidade estável reutiliza a candidata íntegra antes da confirmação. Sonda do guard de
+`artifactId` derrubou os dois testes negativos.
 
-### PARADA — 30/07/2026, Task 37 concluída
+Task 38 (b6): complete (commit `e3997d1`, revisão independente PASS/PASS) — falhas HTTP tipadas,
+timeout, duas tentativas somente transitórias, aplicação parcial e persistência por identidade de
+canal. A remoção de `action.apply` derrubou dois testes. DIVERGÊNCIA JULGADA: falha de ativação
+mantém a candidata para diagnóstico, mas exige nova consulta antes de nova aplicação; não há
+repetição cega.
 
-HEAD `68f05e5` em `bloco/6-canal-schemas`; árvore limpa antes do registro deste handoff. Task 37
-está commitada e revisada; nenhum trabalho staged. Próximo passo: Task 38 — falhas tipadas,
-retentativa e coordenador observável.
+Task 39 (b6): complete (commit `774c117`, revisão independente PASS/PASS após 1 fix loop) —
+snapshot imutável único, fila de publicação monotônica sem observador sob lock, descarte de revisão
+obsoleta na EDT, gate de validação e latch de reinício por sessão. ACHADOS corrigidos: snapshots
+concorrentes fora de ordem, prompt duplicado e `RESTART_REQUIRED` apagável por consulta posterior.
+A sonda que removia a conservação de `CHECKING` voltou a abrir confirmações intermediárias e caiu.
 
-Task 38 (b6): complete (commit `a64edf9`, revisão independente PASS/PASS) — falhas HTTP
-tipadas, timeout, política de duas tentativas transitórias e coordenador observável com aplicação
-parcial, exclusão mútua e persistência por identidade de canal. `./gradlew test` passou com 399
-testes; a sonda que remove `action.apply` derrubou dois testes. DÉBITOS MENORES: construtores de
-`ArtifactUpdateException` ainda permitem combinação categoria/retentativa incoerente; o overload
-transitório de leitura sem `channelId` permanece até a migração do consumidor na Task 39.
+Task 40 (b6): complete (commit `0d7ed20`, revisão independente PASS/PASS após fix loop) — rodapé,
+spinner e diálogo adaptável compartilham o snapshot; o modal bloqueia fechamento em `APPLYING`.
+ACHADOS corrigidos: timers de spinner órfãos e filtro da Calculadora por texto em vez de identidade
+estável. `clean test` (424), `jpackageImage` e `git diff --check` passaram. DIVERGÊNCIA: a captura
+gráfica do ambiente retornou framebuffer preto; a inspeção visual de Windows/DPI permanece manual.
 
-Task 39 (b6): complete (commit `b7bf7e9`, revisão independente PASS/PASS após 1 fix loop) —
-snapshot imutável único, fila de publicação monotônica sem observer sob lock, descarte de revisão
-obsoleta na EDT, gate de validação e latch de reinício por sessão. A correção provou por mutação
-que prompts duplicados voltariam sem manter CHECKING até a conclusão. `./gradlew test` passou com
-414 testes. ACHADOS IMPORTANTES corrigidos: snapshots concorrentes fora de ordem e
-RESTART_REQUIRED apagável por consulta posterior. DÉBITO/T42: impedir validação durante ativação e
-preservar reinício pendente se a ativação física vencer mas a persistência do evento falhar.
+Task 42 (b6): complete (commit `0ada78b`, revisão independente PASS/PASS após 1 fix loop) —
+endurece a orquestração autorizada pelo dono: a admissão atômica impede validação entre reserva e
+início de ativação; snapshots preservam reinício se `current` mudou antes de falhar persistência;
+e listeners/completion listeners que falham não deixam a fonte em `APPLYING`. A falha terminal
+bloqueia reaplicação até consulta fresca e mantém a base anterior quando `apply` não venceu.
+Sondas das guardas de admissão e transição terminal derrubaram testes determinísticos. `clean test`
+passou com 434 testes, `ArchitectureTest` e `git diff --check` verdes.
+
+Task 41 (b6): implementada, aguardando revisão independente — D-050, arquitetura, estratégia de
+testes, pesquisa e harness registram o ciclo confirmado e as garantias da Task 42. `clean test`,
+`jpackageImage`, `git diff --check` e smoke seguro das fontes foram executados conforme o relatório
+local. DÉBITO/GATE HUMANO: checklist visual do Windows (100%, 125%, 150%, rolagem, ícones,
+consulta/retry, parcial, bloqueio de fechamento e reinício) permanece pendente; não publicar,
+abrir PR ou fazer merge sem o dono.
+
+### PARADA — 30/07/2026, fechamento técnico do refinamento B6
+
+HEAD e árvore devem ser conferidos contra o git após o commit documental. Tasks 37–42 estão
+concluídas localmente; a Task 41 aguarda revisão independente. Nada deve ser enviado ao remoto.
+Depois da revisão, o próximo passo autorizado é somente o smoke manual do dono no Windows e a
+decisão explícita de publicação/PR.
