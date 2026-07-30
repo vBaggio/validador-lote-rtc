@@ -27,4 +27,9 @@ public record ExternalSourceState(
         Objects.requireNonNull(origin);
         Objects.requireNonNull(phase);
     }
+
+    /** Identifica o item de inventário futuro sem expor sua identidade à camada Swing. */
+    public boolean isCalculator() {
+        return artifact == ArtifactId.CALCULATOR;
+    }
 }

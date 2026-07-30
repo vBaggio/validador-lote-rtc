@@ -6,13 +6,12 @@ import br.com.validadorlote.presentation.WorkspaceDocument;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
 
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import java.awt.CardLayout;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.WindowEvent;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -23,28 +22,23 @@ public final class MainFrame extends JFrame implements MainView {
     private final JPanel root = new JPanel(cards);
     private final ResultsPanel resultsPanel;
     private final ExternalSourcesDialog externalSourcesDialog;
+    private final ExternalSourcesStatusBar externalSourcesStatusBar;
 
     public MainFrame(MainPresenter presenter, String schemasVersion) {
         super("Validador de XML em Lote - Reforma Tributária");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setIconImage(AppIcon.image());
         resultsPanel = new ResultsPanel(presenter);
-        externalSourcesDialog = new ExternalSourcesDialog(this, presenter::checkExternalSourcesRequested);
+        externalSourcesDialog = new ExternalSourcesDialog(this, presenter::checkExternalSourcesRequested,
+                presenter::applyExternalSourcesRequested, presenter::checkExternalSourcesRequested,
+                () -> dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING)));
+        externalSourcesStatusBar = new ExternalSourcesStatusBar("0.1.0", schemasVersion,
+                presenter::externalSourcesRequested, presenter::checkExternalSourcesRequested);
         root.add(new DropZonePanel(presenter::inputChosen), "drop");
         root.add(resultsPanel, "results");
         JPanel content = new JPanel(new BorderLayout());
         content.add(root, BorderLayout.CENTER);
-        JPanel footer = new JPanel(new BorderLayout());
-        JLabel version = new JLabel("  v0.1.0  •  " + schemasVersion);
-        version.setBorder(javax.swing.BorderFactory.createEmptyBorder(7, 12, 7, 12));
-        version.setForeground(new java.awt.Color(150, 150, 150));
-        JButton sources = new JButton("Fontes externas");
-        sources.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        sources.setForeground(new java.awt.Color(170, 170, 170));
-        sources.addActionListener(event -> presenter.externalSourcesRequested());
-        footer.add(version, BorderLayout.WEST);
-        footer.add(sources, BorderLayout.EAST);
-        content.add(footer, BorderLayout.SOUTH);
+        content.add(externalSourcesStatusBar, BorderLayout.SOUTH);
         setContentPane(content);
         setMinimumSize(new Dimension(1000, 720));
         setSize(1200, 800);
@@ -82,13 +76,14 @@ public final class MainFrame extends JFrame implements MainView {
 
     @Override
     public void showExternalSources(ExternalSourcesSnapshot snapshot) {
+        externalSourcesStatusBar.showSnapshot(snapshot);
         externalSourcesDialog.showSnapshot(snapshot);
     }
 
     @Override
     public void openExternalSourcesDialog() {
         externalSourcesDialog.setLocationRelativeTo(this);
-        externalSourcesDialog.setVisible(true);
+        externalSourcesDialog.open();
     }
 
     @Override

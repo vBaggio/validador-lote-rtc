@@ -150,6 +150,14 @@ public final class MainPresenter {
         uiThread.execute(() -> publishExternalSources(snapshot));
     }
 
+    /** Aplica apenas candidatas já confirmadas e deixa o coordenador publicar o progresso. */
+    public void applyExternalSourcesRequested() {
+        if (externalSources == null) return;
+        externalSources.applyAvailable();
+        ExternalSourcesSnapshot snapshot = externalSources.snapshot();
+        uiThread.execute(() -> publishExternalSources(snapshot));
+    }
+
     private void importInput(Path input, long generation) {
         try {
             ImportedBatch imported = useCase.importDocuments(input);

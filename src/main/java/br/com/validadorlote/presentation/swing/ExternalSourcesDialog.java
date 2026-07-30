@@ -1,90 +1,98 @@
 package br.com.validadorlote.presentation.swing;
 
-import br.com.validadorlote.application.ExternalSourceState;
 import br.com.validadorlote.application.ExternalSourcesPhase;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.ListSelectionModel;
-import javax.swing.table.DefaultTableModel;
-import java.awt.BorderLayout;
+import javax.swing.KeyStroke;
 import java.awt.Dialog;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
+import java.awt.GraphicsConfiguration;
+import java.awt.Insets;
+import java.awt.Toolkit;
 import java.awt.Window;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 
-/** Diálogo consultivo: mostra metadados locais das bases, nunca dados do lote. */
+/** Hospeda o painel de bases e aplica a política de modalidade e fechamento. */
 final class ExternalSourcesDialog extends JDialog {
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
-            .withZone(ZoneId.systemDefault());
-    private final DefaultTableModel model = new DefaultTableModel(new Object[] { "Fonte",
-            "Base no próximo boot", "Origem", "Atualizada", "Verificada", "Resultado", "Hash" }, 0) {
-        @Override public boolean isCellEditable(int row, int column) { return false; }
-    };
-    private final JButton checkNow = new JButton("Verificar agora");
-    private final JLabel notice = new JLabel("Atualizações concluídas entram em uso somente no próximo boot.");
+    private static final String ESCAPE_CLOSE = "close-external-sources";
+    private final ExternalSourcesPanel panel;
 
-    ExternalSourcesDialog(Window owner, Runnable onCheckNow) {
-        super(owner, "Fontes externas", Dialog.ModalityType.MODELESS);
+    ExternalSourcesDialog(Window owner, Runnable checkNow, Runnable applyAvailable, Runnable retry,
+            Runnable closeApplication) {
+        super(owner, "Atualização de bases", Dialog.ModalityType.APPLICATION_MODAL);
         setDefaultCloseOperation(HIDE_ON_CLOSE);
-        JTable table = new JTable(model);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setRowHeight(28);
-        table.setAutoCreateRowSorter(false);
-        JScrollPane scroll = new JScrollPane(table);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        notice.setForeground(new java.awt.Color(160, 160, 160));
-        checkNow.addActionListener(event -> onCheckNow.run());
-        actions.add(notice);
-        actions.add(checkNow);
-        JPanel content = new JPanel(new BorderLayout(12, 12));
-        content.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-        content.add(scroll, BorderLayout.CENTER);
-        content.add(actions, BorderLayout.SOUTH);
-        setContentPane(content);
-        setMinimumSize(new Dimension(980, 300));
-        setSize(1080, 350);
+        setResizable(false);
+        panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry, closeApplication);
+        panel.setCloseDialog(() -> setVisible(false));
+        setContentPane(panel);
+        getRootPane().getActionMap().put(ESCAPE_CLOSE, new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent event) {
+                if (canCloseCurrentPhase()) setVisible(false);
+            }
+        });
+        installEscapeCloseBinding();
+        pack();
+        limitToUsableScreen();
         setLocationRelativeTo(owner);
     }
 
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
-        model.setRowCount(0);
-        for (ExternalSourceState source : snapshot.sources()) {
-            model.addRow(new Object[] { source.name(), source.activeVersion(), source.origin(),
-                    format(source.updatedAt()), format(source.checkedAt()), result(source),
-                    source.abbreviatedHash() == null ? "—" : source.abbreviatedHash() });
+        panel.showSnapshot(snapshot);
+        applyClosePolicy(snapshot.phase());
+        pack();
+        limitToUsableScreen();
+    }
+
+    void open() {
+        setLocationRelativeTo(getOwner());
+        setVisible(true);
+    }
+
+    boolean isOpen() {
+        return isVisible();
+    }
+
+    static boolean canClose(ExternalSourcesPhase phase) {
+        return phase != ExternalSourcesPhase.APPLYING;
+    }
+
+    private boolean canCloseCurrentPhase() {
+        return getDefaultCloseOperation() != DO_NOTHING_ON_CLOSE;
+    }
+
+    private void applyClosePolicy(ExternalSourcesPhase phase) {
+        if (canClose(phase)) {
+            setDefaultCloseOperation(HIDE_ON_CLOSE);
+            installEscapeCloseBinding();
+        } else {
+            setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+            getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                    .remove(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0));
         }
-        boolean checking = snapshot.phase() == ExternalSourcesPhase.CHECKING;
-        checkNow.setEnabled(!checking);
-        checkNow.setText(checking ? "Verificando…" : "Verificar agora");
-        notice.setText(checking ? "Consultando fontes em segundo plano; o lote permanece local."
-                : "Atualizações concluídas entram em uso somente no próximo boot.");
     }
 
-    private static String format(Instant instant) {
-        return instant == null ? "—" : DATE.format(instant);
+    private void installEscapeCloseBinding() {
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), ESCAPE_CLOSE);
     }
 
-    private static String result(ExternalSourceState source) {
-        return switch (source.phase()) {
-            case NOT_CHECKED -> "Ainda não verificada";
-            case CHECKING -> "Verificando";
-            case UP_TO_DATE -> source.detail() == null ? "Sem atualização" : source.detail();
-            case UPDATE_AVAILABLE -> "Atualização disponível: " + source.candidateVersion();
-            case APPLYING -> "Aplicando atualização";
-            case APPLIED -> "Atualização instalada (próximo boot)";
-            case FAILED -> "Aviso: " + (source.detail() == null ? "fonte indisponível" : source.detail());
-        };
+    private void limitToUsableScreen() {
+        GraphicsConfiguration configuration = getGraphicsConfiguration();
+        if (configuration == null) return;
+        java.awt.Rectangle bounds = configuration.getBounds();
+        Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(configuration);
+        int usableWidth = Math.max(1, bounds.width - insets.left - insets.right);
+        int usableHeight = Math.max(1, bounds.height - insets.top - insets.bottom);
+        int maxWidth = (int) (usableWidth * .85d);
+        int maxHeight = (int) (usableHeight * .85d);
+        Dimension current = getSize();
+        if (current.width > maxWidth || current.height > maxHeight) {
+            setSize(Math.min(current.width, maxWidth), Math.min(current.height, maxHeight));
+        }
     }
 }
