@@ -13,10 +13,10 @@ manifesto em `https://vbaggio.github.io/validador-lote-rtc-bases/stable.json`, `
 `schemas-2026-01` e chave pública Ed25519 embarcada. Indisponibilidade, assinatura inválida ou
 conteúdo incompatível não substitui a última `current` íntegra nem o fallback embarcado.
 
-O bootstrap precisa publicar uma release real revisada no repositório de bases, por exemplo
-`vBaggio/validador-lote-rtc-bases`, contendo `stable.json`, ZIP de fixture/release, manifesto e
-assinatura verificáveis pela chave pública que será embarcada. Não inventar endpoint, host, `keyId`
-ou chave no código para contornar este gate.
+O bootstrap já foi publicado como a release `010e_v1.02-r1`, sequência `1`, com ZIP imutável,
+manifesto e assinatura verificáveis pela chave pública embarcada. O teste offline do aplicativo
+preserva o `stable.json` publicado como fixture para detectar alteração acidental de `keyId` ou da
+chave confiada. Novas releases seguem o checklist abaixo e não alteram esse bootstrap.
 
 ## Contrato da release
 

@@ -5,6 +5,7 @@ import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
 import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.CuratedSchemaChannelManifest;
+import br.com.validadorlote.infrastructure.xml.CuratedSchemaManifestParser;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
 import br.com.validadorlote.infrastructure.xml.SchemasVersion;
 import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
@@ -12,16 +13,30 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AppTest {
+
+    @Test
+    void verifiesThePublishedManifestWithTheProductionTrustAnchor() throws IOException {
+        CuratedSchemaManifestParser parser = new CuratedSchemaManifestParser();
+        CuratedSchemaChannelManifest manifest = parser.parse(publishedManifest());
+
+        App.schemaManifestVerifier().verify(manifest.keyId(), parser.canonicalSignedBytes(manifest),
+                manifest.signature());
+
+        assertThat(manifest.keyId()).isEqualTo("schemas-2026-01");
+        assertThat(manifest.signed().version()).isEqualTo("010e_v1.02-r1");
+    }
 
     @Test
     void configuresThePublishedCuratedSchemaChannel(@TempDir Path temp) {
@@ -103,5 +118,12 @@ class AppTest {
             }
         }
         return target;
+    }
+
+    private static byte[] publishedManifest() throws IOException {
+        try (InputStream input = Objects.requireNonNull(AppTest.class.getResourceAsStream(
+                "/fixtures/update/curated-schemas/published-stable.json"))) {
+            return input.readAllBytes();
+        }
     }
 }

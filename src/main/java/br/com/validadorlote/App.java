@@ -116,9 +116,14 @@ public final class App {
                 SafeHttpsClient.forCuratedSchemaManifest(Set.of(SCHEMA_MANIFEST_URI.getHost())),
                 SafeHttpsClient.forCuratedSchemaZip(Set.of(SCHEMA_MANIFEST_URI.getHost())),
                 new CuratedSchemaManifestParser(),
-                new Ed25519ManifestVerifier(Map.of(SCHEMA_KEY_ID, SCHEMA_PUBLIC_KEY)),
+                schemaManifestVerifier(),
                 new br.com.validadorlote.infrastructure.xml.SchemaZipExtractor(), store,
                 SCHEMA_CHANNEL_ID, SCHEMA_MANIFEST_URI, APP_VERSION));
+    }
+
+    /** Verificador do único trust anchor de manifests de schemas publicado pelo aplicativo. */
+    static Ed25519ManifestVerifier schemaManifestVerifier() {
+        return new Ed25519ManifestVerifier(Map.of(SCHEMA_KEY_ID, SCHEMA_PUBLIC_KEY));
     }
 
     static List<ArtifactUpdateAction> updateActions(Optional<CuratedSchemaUpdater> schemas,
