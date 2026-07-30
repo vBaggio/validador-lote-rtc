@@ -74,22 +74,61 @@ public final class ExternalSourcesUseCase {
 
     /** Aplica as candidatas confirmadas somente fora de uma validação de lote. */
     public boolean applyAvailable() {
+        boolean accepted;
+        boolean drain;
+        RuntimeException schedulingFailure = null;
         synchronized (stateLock) {
-            if (validationActive) {
+            if (validationActive || applyingOperation) {
                 return false;
             }
-            return coordinator.applyAvailable();
+            applyingOperation = true;
+            try {
+                accepted = coordinator.applyAvailable();
+            } catch (RuntimeException e) {
+                accepted = false;
+                schedulingFailure = e;
+            }
+            if (!accepted) {
+                applyingOperation = false;
+            }
+            drain = enqueue(updateSnapshot());
         }
+        if (drain) {
+            drainPublications();
+        }
+        if (schedulingFailure != null) {
+            throw schedulingFailure;
+        }
+        return accepted;
     }
 
-    /** Publica a entrada ou saída do gate compartilhado com a validação do lote. */
-    public void validationStateChanged(boolean active) {
+    /** Reserva o gate da validação sem disputar uma ativação já iniciada. */
+    public boolean tryStartValidation() {
         boolean drain;
         synchronized (stateLock) {
-            if (validationActive == active) {
+            if (applyingOperation) {
+                return false;
+            }
+            if (validationActive) {
+                return true;
+            }
+            validationActive = true;
+            drain = enqueue(updateSnapshot());
+        }
+        if (drain) {
+            drainPublications();
+        }
+        return true;
+    }
+
+    /** Libera o gate compartilhado ao terminar ou cancelar a validação do lote. */
+    public void validationFinished() {
+        boolean drain;
+        synchronized (stateLock) {
+            if (!validationActive) {
                 return;
             }
-            validationActive = active;
+            validationActive = false;
             drain = enqueue(updateSnapshot());
         }
         if (drain) {

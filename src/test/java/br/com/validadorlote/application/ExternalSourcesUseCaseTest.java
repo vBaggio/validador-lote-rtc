@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -93,11 +94,11 @@ class ExternalSourcesUseCaseTest {
         schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
         coordinator.checkNow();
 
-        sources.validationStateChanged(true);
+        assertThat(sources.tryStartValidation()).isTrue();
         assertThat(sources.snapshot().phase())
                 .isEqualTo(ExternalSourcesPhase.WAITING_FOR_VALIDATION);
 
-        sources.validationStateChanged(false);
+        sources.validationFinished();
         assertThat(sources.snapshot().phase())
                 .isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
     }
@@ -136,7 +137,7 @@ class ExternalSourcesUseCaseTest {
         Thread check = Thread.ofPlatform().start(coordinator::checkNow);
         assertThat(availablePublicationStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
-        sources.validationStateChanged(true);
+        assertThat(sources.tryStartValidation()).isTrue();
         releaseAvailablePublication.countDown();
         check.join(5_000);
         assertThat(check.isAlive()).isFalse();
@@ -190,10 +191,127 @@ class ExternalSourcesUseCaseTest {
     void validationPreventsApplyingAnAvailableCandidate() {
         schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
         coordinator.checkNow();
-        sources.validationStateChanged(true);
+        assertThat(sources.tryStartValidation()).isTrue();
 
         assertThat(sources.applyAvailable()).isFalse();
         assertThat(schemasAction.applyCalls).isZero();
+    }
+
+    @Test
+    void applyingReservationRejectsValidationUntilTheOperationCompletes() {
+        List<Runnable> updateQueue = new ArrayList<>();
+        coordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                Duration.ofHours(24), Clock.fixed(NOW, ZoneOffset.UTC), updateQueue::add,
+                event -> { }, new ArtifactUpdateStateStore(temp));
+        sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp));
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        assertThat(coordinator.checkNow()).isTrue();
+        updateQueue.removeFirst().run();
+
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.APPLYING);
+        assertThat(sources.tryStartValidation()).isFalse();
+        assertThat(sources.snapshot().validationActive()).isFalse();
+
+        updateQueue.removeFirst().run();
+        assertThat(sources.tryStartValidation()).isTrue();
+        sources.validationFinished();
+    }
+
+    @Test
+    void rejectedApplicationSchedulingReleasesTheReservationForValidation() {
+        AtomicBoolean reject = new AtomicBoolean();
+        coordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                Duration.ofHours(24), Clock.fixed(NOW, ZoneOffset.UTC), action -> {
+                    if (reject.get()) {
+                        throw new RejectedExecutionException("executor encerrado");
+                    }
+                    action.run();
+                }, event -> { }, new ArtifactUpdateStateStore(temp));
+        sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp));
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        coordinator.checkNow();
+        reject.set(true);
+
+        assertThatThrownBy(sources::applyAvailable)
+                .isInstanceOf(RejectedExecutionException.class)
+                .hasMessage("executor encerrado");
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
+        assertThat(sources.tryStartValidation()).isTrue();
+        sources.validationFinished();
+        assertThat(schemasAction.applyCalls).isZero();
+    }
+
+    @Test
+    void persistenceFailureAfterPhysicalActivationKeepsRestartVisibleAndRecoversWithoutReapply() {
+        FailAppliedWriteOnceStateStore stateStore = new FailAppliedWriteOnceStateStore(temp);
+        coordinator = coordinator(stateStore);
+        sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp));
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        coordinator.checkNow();
+
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(schemasAction.applyCalls).isOne();
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
+        assertThat(sources.snapshot().failedCount()).isOne();
+        assertThat(source(ArtifactId.NFE_SCHEMAS).phase()).isEqualTo(ExternalSourcePhase.FAILED);
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS))
+                .satisfies(state -> {
+                    assertThat(state.result()).isEqualTo(ArtifactUpdateEvent.Status.FAILED);
+                    assertThat(state.failureKind()).isEqualTo(ArtifactFailureKind.LOCAL_STORAGE);
+                });
+
+        schemasAction.checkReturns(ArtifactCheckResult.upToDate("Base ativa confirmada"));
+        coordinator.checkNow();
+
+        assertThat(sources.applyAvailable()).isFalse();
+        assertThat(schemasAction.applyCalls).isOne();
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
+    }
+
+    @Test
+    void applyingPublicationFailureEndsTerminallyAndAllowsRetryAfterAFreshCheck() {
+        AtomicBoolean failApplyingOnce = new AtomicBoolean(true);
+        coordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                Duration.ofHours(24), Clock.fixed(NOW, ZoneOffset.UTC), Runnable::run,
+                event -> {
+                    if (event.status() == ArtifactUpdateEvent.Status.APPLYING
+                            && failApplyingOnce.compareAndSet(true, false)) {
+                        throw ArtifactUpdateException.localStorage(
+                                "Não foi possível publicar o início da ativação", null);
+                    }
+                }, new ArtifactUpdateStateStore(temp));
+        sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp));
+        List<ArtifactUpdateEvent> observed = new ArrayList<>();
+        coordinator.addListener(observed::add);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        coordinator.checkNow();
+
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(schemasAction.applyCalls).isZero();
+        assertThat(coordinator.isRunning()).isFalse();
+        assertThat(observed).extracting(ArtifactUpdateEvent::status)
+                .containsSubsequence(ArtifactUpdateEvent.Status.APPLYING,
+                        ArtifactUpdateEvent.Status.FAILED);
+        assertThat(source(ArtifactId.NFE_SCHEMAS).phase()).isEqualTo(ExternalSourcePhase.FAILED);
+        assertThat(sources.snapshot().phase()).isNotEqualTo(ExternalSourcesPhase.APPLYING);
+        assertThat(sources.snapshot().failedCount()).isOne();
+        assertThat(sources.applyAvailable()).isFalse();
+
+        assertThat(coordinator.checkNow()).isTrue();
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(schemasAction.applyCalls).isOne();
+        assertThat(coordinator.isRunning()).isFalse();
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
     }
 
     @Test
@@ -294,6 +412,25 @@ class ExternalSourcesUseCaseTest {
             return new ArtifactManifest(candidate.artifact(), candidate.version(),
                     candidate.sourceUrl(), candidate.publishedAt(), candidate.sha256(),
                     NOW, NOW, "APPLIED");
+        }
+    }
+
+    private static final class FailAppliedWriteOnceStateStore extends ArtifactUpdateStateStore {
+
+        private boolean failed;
+
+        private FailAppliedWriteOnceStateStore(Path dataDirectory) {
+            super(dataDirectory);
+        }
+
+        @Override
+        public synchronized void write(String channelId, ArtifactUpdateEvent event) {
+            if (event.status() == ArtifactUpdateEvent.Status.APPLIED && !failed) {
+                failed = true;
+                throw ArtifactUpdateException.localStorage(
+                        "Não foi possível registrar a ativação", null);
+            }
+            super.write(channelId, event);
         }
     }
 }

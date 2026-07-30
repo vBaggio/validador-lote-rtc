@@ -35,6 +35,9 @@ public final class MainPresenter {
     private boolean applyingDialogOpened;
     private boolean restartRequiredShown;
 
+    private static final String ACTIVATION_IN_PROGRESS =
+            "Aguarde a atualização das bases terminar antes de validar o lote.";
+
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
         this(useCase, uiThread, background, null);
     }
@@ -81,17 +84,32 @@ public final class MainPresenter {
                 publishWorkspace();
                 return;
             }
+            if (externalSources != null && !externalSources.tryStartValidation()) {
+                uiThread.execute(() -> requireView().showError(ACTIVATION_IN_PROGRESS));
+                return;
+            }
             validating = true;
             processed = 0;
             total = pending.size();
             token = new CancellationToken();
             currentToken = token;
         }
-        if (externalSources != null) {
-            externalSources.validationStateChanged(true);
-        }
         publishWorkspace();
-        background.execute(() -> validatePending(pending, token));
+        try {
+            background.execute(() -> validatePending(pending, token));
+        } catch (RuntimeException e) {
+            synchronized (workspaceLock) {
+                validating = false;
+            }
+            if (externalSources != null) {
+                externalSources.validationFinished();
+            }
+            uiThread.execute(() -> {
+                requireView().showError(
+                        "Não foi possível iniciar a validação: " + messageFor(e));
+                publishOrShowIdle();
+            });
+        }
     }
 
     /** Solicita o cancelamento cooperativo da validação corrente. */
@@ -226,7 +244,7 @@ public final class MainPresenter {
             validating = false;
         }
         if (externalSources != null) {
-            externalSources.validationStateChanged(false);
+            externalSources.validationFinished();
         }
         publishOrShowIdle();
     }

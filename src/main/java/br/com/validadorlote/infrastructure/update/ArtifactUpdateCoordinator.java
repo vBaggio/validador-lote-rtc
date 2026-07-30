@@ -121,7 +121,7 @@ public final class ArtifactUpdateCoordinator {
                     operation.run();
                 } finally {
                     running.set(false);
-                    completionListeners.forEach(Runnable::run);
+                    notifyCompletionListeners();
                 }
             });
             return true;
@@ -190,10 +190,10 @@ public final class ArtifactUpdateCoordinator {
             if (candidate == null || !canApply(action.artifact())) {
                 continue;
             }
-            publish(new ArtifactUpdateEvent(action.artifact(),
-                    ArtifactUpdateEvent.Status.APPLYING, clock.instant(), candidate, null,
-                    candidate.detail()));
             try {
+                publish(new ArtifactUpdateEvent(action.artifact(),
+                        ArtifactUpdateEvent.Status.APPLYING, clock.instant(), candidate, null,
+                        candidate.detail()));
                 action.apply(candidate);
                 ArtifactUpdateEvent delivered = publishTerminal(action, new ArtifactUpdateEvent(
                         action.artifact(), ArtifactUpdateEvent.Status.APPLIED, clock.instant(),
@@ -242,14 +242,60 @@ public final class ArtifactUpdateCoordinator {
             delivered = new ArtifactUpdateEvent(action.artifact(),
                     ArtifactUpdateEvent.Status.FAILED, clock.instant(), event.candidate(),
                     failure.kind(), failure.getMessage());
+            if (event.status() == ArtifactUpdateEvent.Status.APPLIED) {
+                publish(event);
+            }
+            try {
+                stateStore.write(action.channelId(), delivered);
+            } catch (RuntimeException ignored) {
+                // The visible failure below remains the fallback when persistence stays unavailable.
+            }
         }
         publish(delivered);
         return delivered;
     }
 
     private void publish(ArtifactUpdateEvent event) {
-        events.accept(event);
-        listeners.forEach(listener -> listener.accept(event));
+        RuntimeException failure = null;
+        try {
+            events.accept(event);
+        } catch (RuntimeException e) {
+            failure = collect(failure, e);
+        }
+        for (Consumer<ArtifactUpdateEvent> listener : listeners) {
+            try {
+                listener.accept(event);
+            } catch (RuntimeException e) {
+                failure = collect(failure, e);
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private void notifyCompletionListeners() {
+        RuntimeException failure = null;
+        for (Runnable listener : completionListeners) {
+            try {
+                listener.run();
+            } catch (RuntimeException e) {
+                failure = collect(failure, e);
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private static RuntimeException collect(RuntimeException current, RuntimeException next) {
+        if (current == null) {
+            return next;
+        }
+        if (current != next) {
+            current.addSuppressed(next);
+        }
+        return current;
     }
 
     private static ArtifactUpdateException classify(RuntimeException failure) {

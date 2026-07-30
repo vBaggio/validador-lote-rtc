@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Properties;
 
 /** Estado operacional separado dos manifests imutáveis de cada versão instalada. */
-public final class ArtifactUpdateStateStore {
+public class ArtifactUpdateStateStore {
 
     private final Path file;
 

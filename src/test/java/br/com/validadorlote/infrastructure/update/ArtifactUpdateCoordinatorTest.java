@@ -145,6 +145,83 @@ class ArtifactUpdateCoordinatorTest {
     }
 
     @Test
+    void physicalActivationSurvivesTerminalPersistenceFailureWithoutBlindReapply() {
+        TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "schemas-v1");
+        schemas.checkBehavior = () -> ArtifactCheckResult.available(
+                candidate(ArtifactId.NFE_SCHEMAS, "schemas-v2"), "schemas disponíveis");
+        FailAppliedWriteOnceStateStore stateStore = new FailAppliedWriteOnceStateStore(temp);
+        List<ArtifactUpdateEvent> events = new ArrayList<>();
+        var coordinator = new ArtifactUpdateCoordinator(List.of(schemas), INTERVAL,
+                Clock.fixed(NOW, ZoneOffset.UTC), Runnable::run, events::add, stateStore, NO_DELAY);
+        coordinator.checkNow();
+
+        assertThat(coordinator.applyAvailable()).isTrue();
+
+        assertThat(schemas.applyCalls).hasValue(1);
+        assertThat(events).extracting(ArtifactUpdateEvent::status)
+                .containsSubsequence(ArtifactUpdateEvent.Status.APPLYING,
+                        ArtifactUpdateEvent.Status.APPLIED,
+                        ArtifactUpdateEvent.Status.FAILED);
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS))
+                .satisfies(state -> {
+                    assertThat(state.result()).isEqualTo(ArtifactUpdateEvent.Status.FAILED);
+                    assertThat(state.failureKind()).isEqualTo(ArtifactFailureKind.LOCAL_STORAGE);
+                    assertThat(state.candidateVersion()).isEqualTo("schemas-v2");
+                });
+        assertThat(coordinator.applyAvailable()).isFalse();
+        assertThat(schemas.applyCalls).hasValue(1);
+    }
+
+    @Test
+    void terminalPublicationFailureDoesNotHidePhysicalActivationFromOtherListeners() {
+        TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "schemas-v1");
+        schemas.checkBehavior = () -> ArtifactCheckResult.available(
+                candidate(ArtifactId.NFE_SCHEMAS, "schemas-v2"), "schemas disponíveis");
+        List<ArtifactUpdateEvent> observed = new ArrayList<>();
+        var coordinator = new ArtifactUpdateCoordinator(List.of(schemas), INTERVAL,
+                Clock.fixed(NOW, ZoneOffset.UTC), Runnable::run, event -> {
+                    if (event.status() == ArtifactUpdateEvent.Status.APPLIED) {
+                        throw ArtifactUpdateException.localStorage(
+                                "Não foi possível publicar o resultado", null);
+                    }
+                }, new ArtifactUpdateStateStore(temp), NO_DELAY);
+        coordinator.addListener(observed::add);
+        coordinator.checkNow();
+
+        assertThat(coordinator.applyAvailable()).isTrue();
+
+        assertThat(observed).extracting(ArtifactUpdateEvent::status)
+                .containsSubsequence(ArtifactUpdateEvent.Status.APPLYING,
+                        ArtifactUpdateEvent.Status.APPLIED,
+                        ArtifactUpdateEvent.Status.FAILED);
+        assertThat(schemas.applyCalls).hasValue(1);
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS))
+                .satisfies(state -> {
+                    assertThat(state.result()).isEqualTo(ArtifactUpdateEvent.Status.FAILED);
+                    assertThat(state.failureKind()).isEqualTo(ArtifactFailureKind.LOCAL_STORAGE);
+                });
+        assertThat(coordinator.applyAvailable()).isFalse();
+    }
+
+    @Test
+    void failingCompletionListenerDoesNotPreventLaterListenersFromLeavingTheRunningState() {
+        TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "schemas-v1");
+        var coordinator = coordinator(List.of(schemas), Runnable::run, new ArrayList<>());
+        AtomicInteger laterListenerCalls = new AtomicInteger();
+        coordinator.addCompletionListener(() -> {
+            throw new IllegalStateException("observador indisponível");
+        });
+        coordinator.addCompletionListener(laterListenerCalls::incrementAndGet);
+
+        assertThatThrownBy(coordinator::checkNow)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("observador indisponível");
+
+        assertThat(laterListenerCalls).hasValue(1);
+        assertThat(coordinator.isRunning()).isFalse();
+    }
+
+    @Test
     void rejectsCheckAndApplyWhileAnotherOperationIsRunning() {
         List<Runnable> queued = new ArrayList<>();
         TestAction action = action(ArtifactId.NFE_SCHEMAS, "schemas-v1");
@@ -265,6 +342,25 @@ class ArtifactUpdateCoordinatorTest {
         public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
             applyCalls.incrementAndGet();
             return applyBehavior.apply(candidate);
+        }
+    }
+
+    private static final class FailAppliedWriteOnceStateStore extends ArtifactUpdateStateStore {
+
+        private boolean failed;
+
+        private FailAppliedWriteOnceStateStore(Path dataDirectory) {
+            super(dataDirectory);
+        }
+
+        @Override
+        public synchronized void write(String channelId, ArtifactUpdateEvent event) {
+            if (event.status() == ArtifactUpdateEvent.Status.APPLIED && !failed) {
+                failed = true;
+                throw ArtifactUpdateException.localStorage(
+                        "Não foi possível registrar a ativação", null);
+            }
+            super.write(channelId, event);
         }
     }
 }

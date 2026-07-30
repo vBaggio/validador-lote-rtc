@@ -19,6 +19,8 @@ import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateEvent;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateException;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +36,8 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,6 +59,7 @@ class MainPresenterTest {
 
         private boolean acceptUpdate;
         private boolean confirmOnUiThread;
+        private boolean errorOnUiThread;
 
         @Override
         public void showIdle() {
@@ -76,6 +81,7 @@ class MainPresenterTest {
         @Override
         public void showError(String message) {
             calls.add("error: " + message);
+            errorOnUiThread = recordingUiThread != null && recordingUiThread.executing;
         }
 
         @Override
@@ -268,8 +274,8 @@ class MainPresenterTest {
 
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
 
-        observedSources.validationStateChanged(true);
-        observedSources.validationStateChanged(false);
+        assertThat(observedSources.tryStartValidation()).isTrue();
+        observedSources.validationFinished();
 
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(2);
     }
@@ -306,7 +312,7 @@ class MainPresenterTest {
         calls.clear();
 
         sourcesPublishUpdateAvailable();
-        observedSources.validationStateChanged(true);
+        assertThat(observedSources.tryStartValidation()).isTrue();
         queuedUi.runLast();
         queuedUi.runAll();
 
@@ -329,6 +335,114 @@ class MainPresenterTest {
         assertThat(calls).filteredOn("open-sources"::equals).hasSize(1);
         assertThat(schemasAction.applyCalls).isOne();
         assertThat(tablesAction.applyCalls).isOne();
+    }
+
+    @Test
+    void terminalFailureAfterActivationStillShowsRestartRequiredThroughUiThread(@TempDir Path dir) {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        var state = new ArtifactUpdateStateStore(dir);
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), Runnable::run,
+                event -> {
+                    if (event.status() == ArtifactUpdateEvent.Status.APPLIED) {
+                        throw ArtifactUpdateException.localStorage(
+                                "Não foi possível publicar o resultado", null);
+                    }
+                }, state);
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        recordingUiThread = new RecordingUiThread();
+        presenter = new MainPresenter(useCase(), recordingUiThread, Runnable::run, observedSources);
+        presenter.attach(fakeView);
+        fakeView.acceptUpdate = true;
+        calls.clear();
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(schemasAction.applyCalls).isOne();
+        assertThat(calls).contains("restart-required");
+        assertThat(calls).anySatisfy(call ->
+                assertThat(call).isEqualTo("sources 2 RESTART_REQUIRED"));
+        assertThat(recordingUiThread.executions).isPositive();
+    }
+
+    @Test
+    void validationRequestedWhileActivationIsReservedWaitsWithoutStartingAWorker(
+            @TempDir Path dir) throws IOException {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        List<Runnable> updateQueue = new ArrayList<>();
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), updateQueue::add,
+                event -> { }, new ArtifactUpdateStateStore(dir));
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        recordingUiThread = new RecordingUiThread();
+        queuedBackground = new ArrayList<>();
+        presenter = new MainPresenter(useCase(), recordingUiThread, queuedBackground::add,
+                observedSources);
+        presenter.attach(fakeView);
+        calls.clear();
+
+        copyFixture(dir, "nfe-valida-sem-assinatura.xml", "pendente.xml");
+        presenter.inputChosen(dir);
+        queuedBackground.removeFirst().run();
+        schemasAction.checkResult = ArtifactCheckResult.available(
+                new ArtifactUpdateCandidate(ArtifactId.NFE_SCHEMAS, "010e_v1.03",
+                        "https://dfe-portal.svrs.rs.gov.br/NFe/Documentos",
+                        Instant.parse("2026-07-30T12:00:00Z"), "0".repeat(64),
+                        "Schemas preparados"),
+                "Schemas preparados");
+        assertThat(updateCoordinator.checkNow()).isTrue();
+        updateQueue.removeFirst().run();
+
+        assertThat(observedSources.applyAvailable()).isTrue();
+        presenter.validateRequested();
+
+        assertThat(queuedBackground).isEmpty();
+        assertThat(observedSources.snapshot().validationActive()).isFalse();
+        assertThat(calls).contains(
+                "error: Aguarde a atualização das bases terminar antes de validar o lote.");
+        assertThat(fakeView.errorOnUiThread).isTrue();
+
+        updateQueue.removeFirst().run();
+        assertThat(schemasAction.applyCalls).isOne();
+    }
+
+    @Test
+    void validationSchedulingFailureReleasesTheExternalSourcesGate(@TempDir Path dir)
+            throws IOException {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), Runnable::run,
+                event -> { }, new ArtifactUpdateStateStore(dir));
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        recordingUiThread = new RecordingUiThread();
+        AtomicBoolean reject = new AtomicBoolean();
+        Executor rejectingBackground = action -> {
+            if (reject.get()) {
+                throw new RejectedExecutionException("executor encerrado");
+            }
+            action.run();
+        };
+        presenter = new MainPresenter(useCase(), recordingUiThread, rejectingBackground,
+                observedSources);
+        presenter.attach(fakeView);
+        calls.clear();
+        copyFixture(dir, "nfe-valida-sem-assinatura.xml", "pendente.xml");
+        presenter.inputChosen(dir);
+        reject.set(true);
+
+        presenter.validateRequested();
+
+        assertThat(observedSources.snapshot().validationActive()).isFalse();
+        assertThat(calls).contains(
+                "error: Não foi possível iniciar a validação: executor encerrado");
+        assertThat(fakeView.errorOnUiThread).isTrue();
+        assertThat(calls.getLast()).contains("workspace 1 false");
     }
 
     private void configureExternalSources(Path dir, boolean deferValidation) {
