@@ -43,6 +43,7 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 7. [`superpowers/specs/`](./superpowers/specs/) — spec de design aprovada
 8. [`superpowers/plans/`](./superpowers/plans/) — plano de implementação vigente
 9. [`operacao-atualizacao-bases.md`](./operacao-atualizacao-bases.md) — operação, falhas e aceite do canal de atualização
+10. [`operacao-canal-schemas-curados.md`](./operacao-canal-schemas-curados.md) — curadoria, publicação e aceite do canal assinado de schemas
 
 O projeto é desenvolvido por mais de uma ferramenta de agente. Tudo que vale para todas fica aqui em
 `docs/`; `CLAUDE.md` e `AGENTS.md` são adaptadores finos com o que é específico de cada uma.

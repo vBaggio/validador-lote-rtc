@@ -46,8 +46,9 @@ adapter da v1. Views atrás de interface + `ProgressListener` neutro = frontend 
 
 ## Schemas oficiais
 
-`src/main/resources/schemas/{nfe,nfce}/` — closure do perfil NF-e 010e_v1.02, com autoridade,
-transporte e hashes em `schemas-version.properties` (D-047).
+`src/main/resources/schemas/{nfe,nfce}/` — closure embarcada do perfil NF-e 010e_v1.02, com
+proveniência e hashes em `schemas-version.properties` (D-047). O runtime de schemas só consulta o
+canal próprio curado e assinado de D-051; SVRS e ACBr não são fontes runtime nem fallback.
 Entrypoint de validação: `/schemas/nfe/nota.xsd` (declara `NFe`, `nfeProc`, `enviNFe`;
 cobre modelos 55 e 65). Includes relativos resolvem via systemId de URL do classpath.
 O contrato real da Calculadora (endpoints, quirks) está documentado em
@@ -61,9 +62,11 @@ a mesma conta — ver D-046.
 O coordenador consulta schemas e tabelas fora da EDT, uma vez após o boot e depois no intervalo
 operacional. O ciclo é `check → prepare → confirm → activate → restart`: `check` adquire e valida;
 `prepare` grava uma candidata íntegra em staging, sem tocar `current`; uma única confirmação do
-usuário autoriza `activate`; e somente o próximo processo carrega as novas bases nos engines. Uma
-fonte pode falhar sem bloquear a candidata válida da outra, sempre preservando a referência ativa
-anterior.
+usuário autoriza `activate`; e somente o próximo processo carrega as novas bases nos engines. O
+schema verifica manifesto Ed25519, `releaseSequence`, hash e closure antes de preparar; a tabela
+fiscal mantém o canal SVRS próprio. Uma fonte pode falhar sem bloquear a candidata válida da outra,
+sempre preservando a referência ativa anterior. Enquanto endpoint/chave reais não forem publicados,
+o action de schemas é visivelmente desabilitado e a base embarcada continua em uso.
 
 `ExternalSourcesUseCase` agrega os eventos em snapshots imutáveis com revisão monotônica e é a
 única fonte de estado para presenter, rodapé e diálogo; observadores não são chamados sob lock e

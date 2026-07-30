@@ -1,8 +1,10 @@
 # Atualização de bases — operação, falhas e aceite
 
-Este guia descreve o comportamento operacional do canal de atualização de schemas NF-e/NFC-e e da
-tabela fiscal SVRS. Ele não envia XMLs, chaves, CNPJ ou telemetria: só consulta metadados e
-artefatos normativos nas origens oficiais permitidas.
+Este guia descreve o comportamento comum da atualização de schemas NF-e/NFC-e e da tabela fiscal.
+Schemas usam exclusivamente o canal próprio, curado e assinado (D-051); a tabela fiscal mantém o
+canal SVRS. Nenhuma consulta envia XMLs, chaves, CNPJ ou telemetria: ela alcança somente metadados
+e artefatos públicos permitidos. O contrato de publicação e o roteiro específico de schemas estão
+em [`operacao-canal-schemas-curados.md`](./operacao-canal-schemas-curados.md).
 
 ## Objetivo operacional
 
@@ -18,12 +20,15 @@ carregado no boot. O reinício é obrigatório para carregar as versões ativada
 
 ## Fluxo normal
 
-1. Depois de a janela ficar visível, a consulta automática verifica schemas e tabela. O intervalo
-   de 4 horas vale apenas para a consulta automática; **Verificar agora** é uma ação manual.
+1. Depois de a janela ficar visível, a consulta automática verifica as fontes configuradas. O
+   intervalo de 4 horas vale apenas para a consulta automática; **Verificar agora** é uma ação
+   manual. Enquanto o gate humano de endpoint/chave do canal curado não estiver concluído, schemas
+   aparecem explicitamente desabilitados e só a tabela fiscal pode ser consultada.
 2. Cada fonte é baixada somente por HTTPS allowlisted, com redirects controlados, limite de tamanho
    e prazo que cobre conexão, resposta e leitura do corpo.
 3. O artefato é validado em `versions/<versão>`: estrutura confinada, sem symlinks, hash e formato;
-   schemas são compilados e tabelas são recarregadas/validadas. `current` permanece intacto.
+   schemas também verificam assinatura Ed25519, `releaseSequence` e compilação da closure, enquanto
+   tabelas são recarregadas/validadas. `current` permanece intacto.
 4. Se houver candidata, o app pede uma confirmação única. Se houver validação de lote, espera seu
    término ou cancelamento; se uma ativação já estiver reservada/em andamento, uma nova validação é
    recusada de forma visível para não misturar referências.
@@ -75,7 +80,8 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
 1. Inicie o app com rede disponível e observe o rodapé: deve aparecer **Consultando** e depois um
    estado terminal.
 2. Abra **Bases e atualizações**; confirme que há apenas os cards de Schemas NF-e/NFC-e e Tabela
-   fiscal, com origem, versão e detalhes legíveis.
+   fiscal, com origem, versão e detalhes legíveis. Sem bootstrap publicado, o card de schemas deve
+   explicar que o canal curado está desabilitado e que a base embarcada continua ativa.
 3. Clique **Verificar agora** repetidamente durante a consulta: deve existir uma única operação,
    sem downloads duplicados, sem travar a janela e sem desaparecer o feedback.
 4. Simule indisponibilidade de uma fonte (rede/firewall) e mantenha a outra acessível. Confira que
@@ -86,8 +92,9 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
    todos os botões ficam indisponíveis, e o terminal não fica preso em spinner.
 7. Ao concluir, confira **Reinício necessário**. Feche e reabra o aplicativo; confirme no diálogo
    que a versão ativada passou a ser a referência em uso.
-8. Rode novamente sem atualização: a tabela idêntica deve ficar **verificada/atualizada**; schema
-   de família anterior (por exemplo 010b diante de 010e) não pode causar downgrade.
+8. Rode novamente sem atualização: a tabela idêntica deve ficar **verificada/atualizada**. Quando
+   o canal curado estiver configurado, uma sequência de schema menor ou repetida deve ser rejeitada
+   como rollback, nunca tratada como atualização ausente.
 
 ## Critérios de aceite
 
@@ -101,4 +108,8 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
 - [ ] retry não provoca reaplicação cega ou prompts repetidos;
 - [ ] escala Windows 100%, 125% e 150% não corta conteúdo; há rolagem, ícones e ações acessíveis;
 - [ ] nenhum XML do lote participa das requisições;
+- [ ] schemas não usam SVRS ou ACBr como transporte/fallback runtime; a tabela fiscal permanece
+  independente no SVRS;
+- [ ] sem endpoint e chave públicos reais, schemas permanecem visivelmente desabilitados, sem
+  sugerir que exista canal produtivo;
 - [ ] `./gradlew clean test`, `./gradlew jpackageImage` e `git diff --check` passam.

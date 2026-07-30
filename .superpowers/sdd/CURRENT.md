@@ -3,6 +3,15 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
+- **Bloco:** B7 — Canal próprio de schemas curados — está em `bloco/7-canal-proprio-schemas`;
+  plano em `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–4 foram
+  implementadas até `854c3f4`: manifesto Ed25519/`releaseSequence`, aquisição protegida e UI de
+  incompatibilidade, com tabela fiscal ainda no canal SVRS. **Task 5** documenta D-051, curadoria
+  e aceite; está em revisão independente. Gate humano obrigatório permanece aberto: ainda não há
+  repositório público, endpoint, `keyId` nem chave pública reais publicados. Assim, schemas ficam
+  visivelmente desabilitados no runtime, com a base embarcada ativa; não existe fallback SVRS/ACBr
+  nem canal produtivo disponível. Não fazer push, PR ou merge.
+
 - **Bloco:** B6 — Canal confiável de artefatos externos — está implementado em
   `bloco/6-canal-schemas`; o plano-base é
   `docs/superpowers/plans/2026-07-29-canal-confiavel-schemas.md` e o refinamento entregue está em

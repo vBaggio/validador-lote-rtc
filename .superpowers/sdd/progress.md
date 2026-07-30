@@ -778,3 +778,12 @@ HEAD e árvore devem ser conferidos contra o git após o commit documental. Task
 implementadas localmente; a Task 45 aguarda revisão independente. Nada deve ser enviado ao remoto.
 Depois da revisão, o próximo passo autorizado é somente o smoke manual do dono no Windows e a
 decisão explícita de publicação/PR.
+
+Task 5 (b7): implementada; aguardando revisão independente — decisão D-051 e operação do canal
+curado registram Ed25519, `releaseSequence`, curadoria manual por diff/compilação, checklist de
+release e aceite de runtime. D-047/D-049 foram substituídas somente para runtime de schemas: SVRS
+e ACBr ficam em pesquisa/proveniência, enquanto a tabela fiscal conserva SVRS. GATE HUMANO: não há
+repositório público de bases, endpoint estável, `keyId` ou chave pública reais; a consulta de
+schemas permanece explicitamente desabilitada e não há canal produtivo nem fallback SVRS. A Task
+5 só pode ser fechada como canal operacional depois de bootstrap externo revisado; a documentação
+e o commit local desta task não satisfazem esse gate.

@@ -1,5 +1,9 @@
 # Fluxo observável de atualização de bases — Plano de implementação
 
+> **Plano histórico:** referências a `SvrsSchemaUpdater` e ao canal SVRS de schemas descrevem o
+> B6 já substituído. D-051/B7 definem o canal curado e assinado para schemas; SVRS continua apenas
+> para tabelas fiscais.
+
 > **Para agentes implementadores:** SUB-SKILL OBRIGATÓRIO: use
 > `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para
 > executar este plano task a task. Os passos usam checkboxes (`- [ ]`) para acompanhamento.

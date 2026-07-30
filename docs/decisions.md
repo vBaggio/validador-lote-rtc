@@ -4,6 +4,33 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-051 — Schemas runtime vêm de canal próprio, curado e assinado (30/07/2026)
+
+O runtime de schemas NF-e/NFC-e aceita somente releases completas do canal público próprio,
+curadas e assinadas pelo projeto. O rótulo “pacote mais recente” de uma fonte externa não prova
+closure, compatibilidade nem vigência; a curadoria revisa o diff e compila a closure antes de
+publicá-la. A base embarcada e a última `current` íntegra permanecem os fallbacks. Esta decisão
+substitui D-047 e D-049 **somente no canal runtime de schemas**: SVRS continua fonte de pesquisa e
+proveniência, e a tabela fiscal conserva seu canal SVRS independente.
+
+O manifesto assinado com Ed25519 autentica o conteúdo aprovado, não apenas o host HTTPS. A
+`releaseSequence` estritamente crescente é a ordem anti-rollback; `publishedAt` é auditoria, não
+critério de confiança. Assinatura inválida, hash divergente, redirect não permitido, ZIP inseguro,
+estrutura incompatível ou sequência repetida/menor falham antes de substituir `current`.
+
+O ACBr é evidência manual de curadoria, nunca transporte nem fallback runtime. Para verificar que
+a revisão observada toca o diretório relevante, o curador executa exatamente:
+
+```bash
+svn log --xml -v -l 1 https://svn.code.sf.net/p/acbr/code/trunk2/Exemplos/ACBrDFe/Schemas/NFe/
+```
+
+Uma revisão em outra área do ACBr não prova mudança nesse diretório. A publicação produtiva ainda
+depende do gate humano: criar/revisar o repositório público de bases, publicar endpoint estável,
+ZIP e `stable.json`, e embarcar `keyId`/chave pública reais. Até isso acontecer, a consulta runtime
+de schemas fica explicitamente desabilitada; não existe canal produtivo disponível e não há
+fallback para SVRS.
+
 ## D-050 — Consulta prepara; usuário ativa; engines mudam após reinício (30/07/2026)
 
 Schemas e tabelas são consultados e validados independentemente em staging. Uma confirmação global
@@ -36,13 +63,12 @@ falhar; a falha continua visível, a candidata não é reaplicada cegamente e um
 consulta fresca. Essa assimetria deliberada privilegia continuidade e transparência: uma fonte que
 falha conserva a última base íntegra, enquanto uma ativação consumada jamais é escondida do usuário.
 
-## D-049 — SVRS passa a ser o canal oficial operacional de schemas; sem downgrade e sem confiança cega no espelho (30/07/2026)
+## D-049 — SVRS como pesquisa histórica de schemas; canal runtime substituído por D-051 (30/07/2026)
 
-O Portal de Documentos da SVRS publica a listagem e os ZIPs da NF-e em URLs HTTPS estáveis. A
-consulta comprovou que `NFE/Documentos` entrega a relação de schemas e que o endpoint
-`NFE/DownloadArquivoEstatico` entrega o ZIP sem exigir cookie, certificado de cliente ou redirect para
-outro host. Ele substitui o Portal Nacional como **canal operacional** do aplicativo: a página
-descobre o arquivo e o download só pode ser construído a partir de uma entrada nela publicada.
+O Portal de Documentos da SVRS foi investigado como fonte de pesquisa: `NFE/Documentos` lista
+pacotes e `NFE/DownloadArquivoEstatico` entrega ZIPs HTTPS. Ele **não** é canal operacional nem
+fallback runtime para schemas desde D-051. A descoberta continua útil para comparar disponibilidade
+e documentar proveniência, sem autorizar download ou ativação pelo aplicativo.
 
 Essa mudança não confunde disponibilidade com vigência. Em 30/07/2026, a SVRS ainda lista como
 pacote completo mais novo o `PL_010b_NT2025_002_v1.30`, anterior ao perfil `010e_v1.02` embarcado.
@@ -51,17 +77,15 @@ novo que a base ativa; pacote antigo, nome inesperado, ZIP vazio ou closure inv�
 sem atualização, nunca downgrade. A aplicação continua com a última base íntegra.
 
 Nesta versão, “compatível” significa exclusivamente a família `010e`. Uma futura família, como
-`010f`, não é silenciosamente promovida por ordenação de nome: exige task de manutenção para
-conferir roots, closure, fixtures e vigência antes de ser suportada. Essa limitação consciente evita
-que “sempre atualizado” transforme uma mudança de contrato fiscal em troca automática não auditada.
+`010f`, não é silenciosamente promovida por ordenação de nome: exige curadoria e task de manutenção
+para conferir roots, closure, fixtures e vigência antes de uma release assinada do canal próprio.
 
-O SVN do ACBr continua espelho técnico para comparar disponibilidade e investigar uma candidata.
-Ele não declara vigência nem perfil oficial, portanto não ativa schemas automaticamente. Um espelho
-versionado pelo próprio projeto, manifesto assinado e fluxo de promoção humana foram considerados,
-mas ficam fora do B6: adicionariam infraestrutura e política de publicação que o produto ainda não
-possui. A base embarcada já é o fallback offline aprovado.
+O SVN do ACBr continua espelho técnico para inspeção humana. Ele não declara vigência nem perfil
+oficial, portanto não ativa schemas automaticamente. O canal próprio com manifesto assinado e
+promoção humana, então considerado futuro, é a política adotada por D-051. A base embarcada já é o
+fallback offline aprovado.
 
-## D-048 — Atualização externa é consultiva no lote; Portal é autoridade e ACBr não faz fallback automático (29/07/2026)
+## D-048 — Atualização externa é consultiva no lote; sem fallback automático para schemas (29/07/2026)
 
 O rodapé abre a tela discreta **Fontes externas**, que mostra somente metadados locais de schemas,
 tabelas e da Calculadora futura: versão/snapshot ativo, origem, hash abreviado, datas de atualização
@@ -69,26 +93,27 @@ e consulta e resultado recuperável. A ação manual força a mesma rotina de ba
 o coordenador aceita somente uma execução por vez. Ela não mostra nem transmite XML, chave, CNPJ
 ou conteúdo da área de trabalho; falha é estado consultável, nunca modal que interrompe o lote.
 
-Uma candidata que passa o canal B6 é instalada para uso no **próximo boot**. O lote atual conserva
-os engines que foram montados no bootstrap, impedindo que documentos de uma mesma sessão recebam
-bases diferentes. O Portal Nacional continua a única autoridade de vigência dos schemas. O ACBr
-serve para disponibilidade e inspeção de espelho, mas divergência/indisponibilidade do Portal não
-autoriza fallback automático, transporte SVN silencioso ou ativação local.
+Uma candidata que passa o canal autorizado é instalada para uso no **próximo boot**. O lote atual
+conserva os engines que foram montados no bootstrap, impedindo que documentos de uma mesma sessão
+recebam bases diferentes. Para schemas, D-051 define o canal curado e assinado; ACBr e SVRS servem
+somente para pesquisa/proveniência e não autorizam fallback automático, transporte SVN silencioso
+ou ativação local.
 
 As tasks Gradle históricas de sobrescrever resources ficaram bloqueadas de propósito. Elas não são
 um caminho de atualização do usuário: qualquer nova base embarcada é manutenção de release, feita
 em staging, validada e revisada por diff antes de alterar `src/main/resources`. A Calculadora é
 apenas inventário para a v1 no catálogo; não é baixada, executada nem fonte de schemas no v0.
 
-## D-047 — Portal Nacional determina vigência; ACBr transporta a closure 010e_v1.02 identificada por hash (29/07/2026)
+## D-047 — Proveniência da closure embarcada 010e_v1.02; runtime substituído por D-051 (29/07/2026)
 
 O Portal Nacional lista `010e_v1.02` (NT 2025.002 v1.40, NT 2026.002/003), publicado em
 10/07/2026, como versão oficial em uso. Seu download não pôde ser recuperado diretamente por
 502/captcha. A closure mínima usada pelo produto foi transportada do SVN ACBr r47146 (13/07/2026),
 com hashes gravados no manifesto; ACBr é espelho técnico, não autoridade. Portanto o repositório
 registra a vigência do Portal e a identidade do payload ACBr, sem alegar equivalência byte a byte
-ao ZIP oficial. A atualização preserva somente NFe/nfeProc/enviNFe e não muda regras de negócio
-nem a decisão D-040 sobre modelos.
+ao ZIP oficial. É registro da base embarcada, não política de aquisição runtime: D-051 a substitui
+somente nesse ponto. A atualização preserva somente NFe/nfeProc/enviNFe e não muda regras de
+negócio nem a decisão D-040 sobre modelos.
 
 ## D-046 — Catálogo local detecta corrupção operacional, não autentica escrita da mesma conta (29/07/2026)
 

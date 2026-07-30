@@ -91,15 +91,17 @@ no Windows, o resultado é um instalador MSI. Os artefatos são criados em `buil
 ## Base de validação
 
 A base atualmente embarcada é o perfil `010e_v1.02`; seu payload foi transportado do espelho ACBr
-SVN r47146 e identificado por hashes registrados no aplicativo. Em execução, o canal consulta o
-portal público da SVRS para descobrir e baixar somente pacotes de schemas que ele próprio publique.
-Ele nunca aceita perfil anterior ou incompatível; se não houver candidata, a base local continua em
-uso. O ACBr é somente espelho técnico para inspeção/disponibilidade, sem fallback automático. O
-canal conserva a proveniência e só ativa atualização após validação local, no boot seguinte.
+SVN r47146 e identificado por hashes registrados no aplicativo. O runtime de schemas foi projetado
+para aceitar somente releases completas, curadas e assinadas pelo canal próprio do projeto; SVRS e
+ACBr são pesquisa/proveniência, nunca fallback runtime. O bootstrap humano de endpoint, `keyId` e
+chave pública reais ainda não foi publicado: nesta versão a consulta de schemas permanece
+explicitamente desabilitada e a base embarcada continua em uso. A tabela fiscal segue no canal SVRS
+independente. Quando o canal for publicado, a ativação continuará exigindo validação local e só
+terá efeito no boot seguinte.
 
 As tasks Gradle históricas `updateSchemas` e `updateFiscalTables` estão intencionalmente bloqueadas:
 elas não são a atualização do usuário final e não podem sobrescrever `src/main/resources`. Uma
-alteração de base embarcada é manutenção de release: obter candidata do Portal/SVRS em staging,
+alteração de base embarcada é manutenção de release: obter candidata do acervo curado em staging,
 validar, revisar o diff e atualizar manifesto/proveniência no mesmo change.
 
 Os detalhes de arquitetura, decisões e proveniência dos artefatos estão em

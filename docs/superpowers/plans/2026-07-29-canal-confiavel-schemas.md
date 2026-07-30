@@ -1,5 +1,8 @@
 # B6 — Canal confiável de atualização de schemas
 
+> **Plano histórico:** a aquisição runtime de schemas via SVRS descrita abaixo foi substituída por
+> D-051 e pelo plano B7. SVRS permanece o canal da tabela fiscal; ACBr permanece curadoria manual.
+
 ## Objetivo
 
 Atualizar a validação estrutural de NF-e/NFC-e para a árvore oficial vigente e introduzir um
@@ -11,10 +14,10 @@ pelo subsistema de atualização de artefatos normativos.
 ## Escopo deliberado
 
 - Suportar os roots já aceitos pelo produto: `NFe`, `nfeProc` e `enviNFe`.
-- Usar a página de Documentos da SVRS como canal operacional oficial para descobrir e baixar
-pacotes publicados. O produto só ativa a closure exigida pelos documentos fiscais que suporta e
-  nunca troca uma base por perfil anterior ou incompatível (D-049). Nesta implementação,
-  compatível significa `010e`; família sucessora requer task explícita de suporte.
+- O desenho B6 previa usar a página de Documentos da SVRS para descobrir e baixar pacotes
+  publicados. Essa aquisição foi substituída por D-051; o runtime atual só aceita o canal curado
+  assinado. A guarda histórica contra perfil anterior/incompatível passou a ser `releaseSequence` e
+  validação de closure no B7.
 - Atualizar as tabelas fiscais que já alimentam o `RuleEngine` por sua fonte oficial, usando o
   mesmo mecanismo transacional e as guardas estruturais já exigidas na ingestão manual.
 - Registrar o motor da Calculadora no catálogo como artefato futuro, com fonte e política de
@@ -34,8 +37,8 @@ interpretações fiscais novas.
 
 ## Fonte e cadeia de confiança
 
-1. O cliente consulta somente URLs HTTPS do host oficial permitido da SVRS.
-2. Descobre exclusivamente pacotes de schema publicados pela página e seleciona o perfil
+1. O cliente B6 consultava somente URLs HTTPS do host oficial permitido da SVRS.
+2. O desenho B6 descobria exclusivamente pacotes de schema publicados pela página e selecionava o perfil
    NF-e/NFC-e compatível e mais novo que a base ativa.
 3. O download é feito em staging com limites de tamanho, quantidade de entradas, caminho
    normalizado e proibição de zip-slip. Redirecionamentos só podem permanecer na allowlist.
@@ -90,9 +93,9 @@ hot reload. O texto histórico permanece para registrar o desenho que foi refina
 
 ### SVRS e ACBr
 
-O Portal de Documentos da SVRS é o canal operacional oficial. A consulta reconhece somente
-pacotes de schema que ela publicou, nunca nomes adivinhados; perfis paralelos ou anteriores não
-entram por ordenação lexicográfica de `PL`.
+No desenho B6, o Portal de Documentos da SVRS era o canal operacional. Essa regra não é ativa:
+D-051 exige manifesto curado e assinado. A restrição histórica de não adivinhar nomes e não ordenar
+perfis paralelos/anterior por `PL` foi substituída pela verificação de `releaseSequence`.
 
 O SVN público do ACBr foi conferido em 29/07/2026: a pasta
 `Exemplos/ACBrDFe/Schemas/NFe` na revisão 47477 contém os cinco arquivos necessários à closure da
@@ -153,16 +156,13 @@ Revisão independente, testes completos, verificação de mutação dos caminhos
 documentação canônica, atualização do harness e preparação de PR. A tag pública e o smoke real do
 MSI continuam o gate humano herdado da Task 29.
 
-### Task 36 — Correção do canal de schemas após validação em campo
+### Task 36 — Correção histórica do canal de schemas após validação em campo
 
-O Portal Nacional falha a validação TLS em instalações Java usuais e o erro genérico impede o
-usuário de entender a continuidade segura. Substituir a aquisição runtime por adaptador do catálogo
-SVRS: extrair apenas entradas de schema publicadas, construir o download estático a partir do nome
-extraído, restringir host/tamanho/ZIP como no canal existente e recusar perfil anterior ou
-incompatível. Enquanto a SVRS não publicar `010e` ou sucessor suportado, registrar consulta
-concluída sem candidata, mantendo a base atual. ACBr permanece inspeção/contingência, sem ativação
-automática. Cobrir a listagem, URL encoding, ZIP vazio/antigo, candidata nova e a mensagem
-recuperável na tela de Fontes externas.
+O Portal Nacional falhava a validação TLS em instalações Java usuais e o erro genérico impedia o
+usuário de entender a continuidade segura. Esta task histórica substituiu a aquisição por adaptador
+SVRS, mas o mecanismo foi posteriormente substituído por D-051/B7: o runtime atual não consulta
+SVRS para schemas e aceita somente o manifesto curado assinado. ACBr permanece inspeção humana,
+sem ativação automática.
 
 ### Tasks 37–45 — Fluxo observável, confirmação, aplicação e resiliência de bases
 

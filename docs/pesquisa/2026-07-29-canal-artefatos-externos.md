@@ -3,6 +3,10 @@
 Data da investigação: 29/07/2026. Este registro orienta o B6 e não substitui a decisão de
 produto nem a conferência da fonte oficial no momento de cada atualização.
 
+> **Registro histórico:** as hipóteses de transporte runtime desta pesquisa foram substituídas por
+> D-051. SVRS e ACBr permanecem pesquisa/proveniência; o runtime de schemas aceita somente o canal
+> curado e assinado do projeto.
+
 ## Síntese executiva
 
 O produto pode manter localmente schemas e tabelas atualizados sem enviar XMLs, CNPJ, chaves ou
