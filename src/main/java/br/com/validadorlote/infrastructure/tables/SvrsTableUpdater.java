@@ -1,7 +1,10 @@
 package br.com.validadorlote.infrastructure.tables;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
+import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateResult;
 
 import java.net.URI;
@@ -26,20 +29,36 @@ public final class SvrsTableUpdater {
         this.store = store;
     }
 
-    public ArtifactManifest update() {
-        JsonNode raw = extractor.extract(https.getUtf8(SOURCE));
-        byte[] candidate = normalizer.normalize(raw);
-        String version = "svrs-" + FiscalTableArtifactStore.sha256(candidate).substring(0, 12);
-        return store.install(candidate, version, SOURCE.toString(), Instant.now());
-    }
-
     /** Consulta idêntica não troca {@code current}. */
     public ArtifactUpdateResult updateIfNew() {
+        ArtifactCheckResult checked = check();
+        if (checked.status() == ArtifactCheckResult.Status.UP_TO_DATE) {
+            return ArtifactUpdateResult.unchanged(checked.detail());
+        }
+        apply(checked.candidate());
+        return ArtifactUpdateResult.updated(checked.detail());
+    }
+
+    /** Consulta a tabela pública e prepara uma candidata normalizada, sem alterar a ativa. */
+    public ArtifactCheckResult check() {
         JsonNode raw = extractor.extract(https.getUtf8(SOURCE));
         byte[] candidate = normalizer.normalize(raw);
         String version = "svrs-" + FiscalTableArtifactStore.sha256(candidate).substring(0, 12);
-        if (store.isActiveVersion(version)) return ArtifactUpdateResult.unchanged("Tabela fiscal já está atualizada");
-        store.install(candidate, version, SOURCE.toString(), Instant.now());
-        return ArtifactUpdateResult.updated("Tabela fiscal atualizada");
+        if (store.isActiveVersion(version)) {
+            return ArtifactCheckResult.upToDate("Tabela fiscal já está atualizada");
+        }
+        ArtifactManifest manifest = store.prepare(candidate, version, SOURCE.toString(), Instant.now());
+        String detail = "Tabela fiscal preparada pela SVRS";
+        return ArtifactCheckResult.available(new ArtifactUpdateCandidate(ArtifactId.FISCAL_TABLES,
+                manifest.version(), manifest.sourceUrl(), manifest.publishedAt(), manifest.sha256(), detail),
+                detail);
+    }
+
+    /** Ativa somente uma candidata de tabela que já passou pela preparação. */
+    public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
+        if (candidate == null || candidate.artifact() != ArtifactId.FISCAL_TABLES) {
+            throw new IllegalArgumentException("Candidata não corresponde à tabela fiscal");
+        }
+        return store.activate(candidate.version());
     }
 }

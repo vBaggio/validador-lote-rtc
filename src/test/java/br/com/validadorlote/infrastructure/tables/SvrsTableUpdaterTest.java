@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
+import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -16,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SvrsTableUpdaterTest {
 
@@ -23,7 +27,7 @@ class SvrsTableUpdaterTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test
-    void obtainsTheCurrentSvrsRouteWithoutNetworkAndInstallsOnlyTheNormalizedPayload() throws Exception {
+    void checkStagesTheCurrentSvrsRouteWithoutChangingTheActiveTable() throws Exception {
         String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
         SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
                 Duration.ofSeconds(1), 6 * 1024 * 1024,
@@ -31,16 +35,73 @@ class SvrsTableUpdaterTest {
                         html.getBytes(StandardCharsets.UTF_8)));
         FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
 
-        var manifest = new SvrsTableUpdater(https, new SvrsTableExtractor(),
-                new SvrsTableNormalizer(), store).update();
+        var updater = new SvrsTableUpdater(https, new SvrsTableExtractor(),
+                new SvrsTableNormalizer(), store);
 
-        assertThat(manifest.sourceUrl()).isEqualTo(SvrsTableUpdater.SOURCE.toString());
-        assertThat(manifest.version()).startsWith("svrs-");
+        ArtifactCheckResult result = updater.check();
+
+        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UPDATE_AVAILABLE);
+        assertThat(result.candidate().sourceUrl()).isEqualTo(SvrsTableUpdater.SOURCE.toString());
+        assertThat(result.candidate().version()).startsWith("svrs-");
+        assertThat(store.activeOrNull()).isNull();
+    }
+
+    @Test
+    void repeatedCheckReusesAnIdenticalPreparedCandidateBeforeActivation() throws Exception {
+        String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
+        SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
+                Duration.ofSeconds(1), 6 * 1024 * 1024,
+                (uri, timeout) -> new HttpsTransport.Response(200, uri, Map.of(),
+                        html.getBytes(StandardCharsets.UTF_8)));
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+        var updater = new SvrsTableUpdater(https, new SvrsTableExtractor(),
+                new SvrsTableNormalizer(), store);
+
+        ArtifactCheckResult first = updater.check();
+        ArtifactCheckResult second = updater.check();
+
+        assertThat(first.status()).isEqualTo(ArtifactCheckResult.Status.UPDATE_AVAILABLE);
+        assertThat(second.status()).isEqualTo(ArtifactCheckResult.Status.UPDATE_AVAILABLE);
+        assertThat(second.candidate()).isEqualTo(first.candidate());
+        assertThat(store.activeManifestOrNull()).isNull();
+    }
+
+    @Test
+    void applyActivatesExactlyTheCandidateReturnedByCheck() throws Exception {
+        String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
+        SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
+                Duration.ofSeconds(1), 6 * 1024 * 1024,
+                (uri, timeout) -> new HttpsTransport.Response(200, uri, Map.of(),
+                        html.getBytes(StandardCharsets.UTF_8)));
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+        var updater = new SvrsTableUpdater(https, new SvrsTableExtractor(),
+                new SvrsTableNormalizer(), store);
+        var candidate = updater.check().candidate();
+
+        var manifest = updater.apply(candidate);
+
+        assertThat(manifest.version()).isEqualTo(candidate.version());
         assertThat(store.activeOrNull().classTribCount()).isEqualTo(FiscalTables.load().classTribCount());
         Path active = temp.resolve("artifacts/FISCAL_TABLES/versions")
-                .resolve(manifest.version());
+                .resolve(candidate.version());
         assertThat(Files.readString(active.resolve("cst-cclasstrib.json")))
                 .doesNotContain("ClassificacoesTributarias").doesNotContain("IndExigeTrib");
+    }
+
+    @Test
+    void applyRejectsACandidateForAnotherArtifact() throws Exception {
+        String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
+        SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
+                Duration.ofSeconds(1), 6 * 1024 * 1024,
+                (uri, timeout) -> new HttpsTransport.Response(200, uri, Map.of(),
+                        html.getBytes(StandardCharsets.UTF_8)));
+        var updater = new SvrsTableUpdater(https, new SvrsTableExtractor(),
+                new SvrsTableNormalizer(), new FiscalTableArtifactStore(temp));
+        var schemaCandidate = new ArtifactUpdateCandidate(ArtifactId.NFE_SCHEMAS, "candidate-v2",
+                "https://dfe-portal.svrs.rs.gov.br/x", java.time.Instant.EPOCH, "0".repeat(64), "");
+
+        assertThatThrownBy(() -> updater.apply(schemaCandidate))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private String rawFromEmbedded() throws Exception {

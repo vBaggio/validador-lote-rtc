@@ -37,8 +37,12 @@
   `docs/superpowers/plans/2026-07-30-fluxo-observavel-atualizacao-bases.md`: consulta observável,
   staging antes da confirmação, sucesso parcial, ativação bloqueante e diálogo adaptável. O commit
   local `d399af9` é apenas o protótipo visual dos cards e ainda não foi publicado; ele será
-  substituído/incorporado na Task 40. Próximo passo: aprovação deste plano e execução da Task 37
-  com a cerimônia do bloco.
+  substituído/incorporado na Task 40. **Task 37 concluída e revisada** em `68f05e5`: schemas e
+  tabelas agora preparam candidatas sem alterar `current` e ativam somente versão revalidada;
+  correção de revisão torna a consulta repetida da tabela idempotente antes da confirmação.
+  Suítes focadas e completa passaram, e a revisão independente deu PASS/PASS após um fix loop.
+  Próximo passo: Task 38 do plano de 30/07, para falhas tipadas, retentativa e coordenador
+  observável.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final

@@ -13,6 +13,7 @@ import java.util.Properties;
 /** Instala árvores XSD candidatas sem substituir a base ativa antes de ela compilar. */
 public final class SchemaArtifactStore {
     private static final ArtifactId ID = ArtifactId.NFE_SCHEMAS;
+    private static final String MANIFEST_FILE = "manifest.properties";
     private final Path root;
 
     public SchemaArtifactStore(Path dataDirectory) { this.root = dataDirectory.resolve("artifacts").resolve(ID.name()); }
@@ -29,23 +30,53 @@ public final class SchemaArtifactStore {
     /** Registra separadamente a página oficial que declarou a versão e o ZIP que a transportou. */
     public ArtifactManifest install(Path candidate, String version, String discoveryUrl,
             String sourceUrl, Instant publishedAt) {
+        ArtifactManifest prepared = prepare(candidate, version, discoveryUrl, sourceUrl, publishedAt);
+        return activate(prepared.version());
+    }
+
+    public ArtifactManifest prepare(Path candidate, String version, String sourceUrl,
+            Instant publishedAt) {
+        return prepare(candidate, version, sourceUrl, sourceUrl, publishedAt);
+    }
+
+    /** Valida e guarda uma candidata, sem alterar a referência da base ativa. */
+    public ArtifactManifest prepare(Path candidate, String version, String discoveryUrl,
+            String sourceUrl, Instant publishedAt) {
         try {
-            Files.createDirectories(root.resolve("versions"));
+            prepareRoot();
+            validateVersion(version);
             Path stage = Files.createTempDirectory(root, "staging-");
             try {
                 copyTree(candidate, stage);
                 String hash = treeHash(stage);
                 new SchemaValidatorEngine(new XsdErrorTranslator(), stage); // gate antes de publicar
                 ArtifactManifest manifest = new ArtifactManifest(ID, version, sourceUrl, publishedAt, hash,
-                        Instant.now(), Instant.now(), "INSTALLED");
+                        Instant.now(), Instant.now(), "PREPARED");
                 writeManifest(stage, manifest, discoveryUrl);
-                Path target = root.resolve("versions").resolve(version);
-                if (Files.exists(target)) throw new IllegalArgumentException("Versão já instalada: " + version);
+                Path target = versionDirectory(version);
+                if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                    ArtifactManifest existing = verifiedPreparedManifest(target, version);
+                    if (samePreparedArtifact(existing, manifest)
+                            && discoveryUrl.equals(readDiscoveryUrl(target))) return existing;
+                    throw new IllegalArgumentException("Versão preparada diverge: " + version);
+                }
                 Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
-                replaceCurrent(version);
                 return manifest;
             } finally { if (Files.exists(stage)) deleteTree(stage); }
         } catch (IOException e) { throw new UncheckedIOException("Não foi possível instalar schemas", e); }
+    }
+
+    /** Revalida uma versão preparada e só então a publica como ativa. */
+    public ArtifactManifest activate(String version) {
+        try {
+            prepareRoot();
+            ArtifactManifest manifest = verifiedPreparedManifest(versionDirectory(version), version);
+            replaceCurrent(version);
+            return manifest;
+        } catch (IOException | RuntimeException e) {
+            if (e instanceof UncheckedIOException unchecked) throw unchecked;
+            throw new IllegalStateException("Não foi possível ativar schemas preparados", e);
+        }
     }
 
     /** Base local somente se referência, manifesto e conteúdo continuarem íntegros. */
@@ -113,6 +144,51 @@ public final class SchemaArtifactStore {
         Files.writeString(temp, version + "\n", StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
         Files.move(temp, root.resolve("current"), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
+
+    private void prepareRoot() throws IOException {
+        Files.createDirectories(root);
+        if (Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("Diretório de schemas inválido");
+        }
+        Path versions = root.resolve("versions");
+        Files.createDirectories(versions);
+        if (Files.isSymbolicLink(versions) || !Files.isDirectory(versions, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("Diretório de versões de schemas inválido");
+        }
+    }
+
+    private Path versionDirectory(String version) {
+        validateVersion(version);
+        Path versions = root.resolve("versions").normalize();
+        Path directory = versions.resolve(version).normalize();
+        if (!directory.startsWith(versions)) throw new IllegalArgumentException("Versão inválida: " + version);
+        return directory;
+    }
+
+    private static void validateVersion(String version) {
+        if (version == null || !version.matches("[A-Za-z0-9._-]{1,100}")) {
+            throw new IllegalArgumentException("Versão inválida: " + version);
+        }
+    }
+
+    private ArtifactManifest verifiedPreparedManifest(Path base, String version) throws IOException {
+        if (Files.isSymbolicLink(base) || !Files.isDirectory(base, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("Versão preparada de schemas inválida: " + version);
+        }
+        ArtifactManifest manifest = readManifest(base);
+        if (manifest.artifact() != ID || !manifest.version().equals(version)
+                || !manifest.sha256().equals(treeHash(base))) {
+            throw new IllegalStateException("Versão preparada de schemas perdeu integridade: " + version);
+        }
+        new SchemaValidatorEngine(new XsdErrorTranslator(), base);
+        return manifest;
+    }
+
+    private static boolean samePreparedArtifact(ArtifactManifest left, ArtifactManifest right) {
+        return left.artifact() == right.artifact() && left.version().equals(right.version())
+                && left.sourceUrl().equals(right.sourceUrl()) && left.publishedAt().equals(right.publishedAt())
+                && left.sha256().equals(right.sha256());
+    }
     private static void copyTree(Path source, Path target) throws IOException {
         if (Files.isSymbolicLink(source)) throw new IllegalArgumentException("Symlink não permitido: " + source);
         Path real = source.toRealPath();
@@ -132,7 +208,7 @@ public final class SchemaArtifactStore {
             try (var paths = Files.walk(root)) { for (Path file : paths.sorted().toList()) {
                 if (Files.isSymbolicLink(file)) throw new IOException("Symlink não permitido: " + file);
                 if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) continue;
-                if (file.getFileName().toString().equals("manifest.properties")) continue;
+                if (file.getFileName().toString().equals(MANIFEST_FILE)) continue;
                 digest.update(root.relativize(file).toString().replace('\\','/').getBytes(StandardCharsets.UTF_8)); digest.update((byte) 0);
                 digest.update(Files.readAllBytes(file)); digest.update((byte) 0);
             }} return java.util.HexFormat.of().formatHex(digest.digest());
@@ -140,7 +216,8 @@ public final class SchemaArtifactStore {
     }
     private static void writeManifest(Path base, ArtifactManifest m, String discoveryUrl) throws IOException { Properties p = new Properties();
         p.setProperty("artifact",m.artifact().name()); p.setProperty("version",m.version()); p.setProperty("discoveryUrl",discoveryUrl); p.setProperty("sourceUrl",m.sourceUrl()); p.setProperty("publishedAt",m.publishedAt().toString()); p.setProperty("sha256",m.sha256()); p.setProperty("lastCheckedAt",m.lastCheckedAt().toString()); p.setProperty("updatedAt",m.updatedAt().toString()); p.setProperty("result",m.result());
-        try (var out=Files.newOutputStream(base.resolve("manifest.properties"))) { p.store(out,"Artefato externo auditável"); }}
-    private static ArtifactManifest readManifest(Path base) throws IOException { Properties p=new Properties(); try(var in=Files.newInputStream(base.resolve("manifest.properties"))){p.load(in);} return new ArtifactManifest(ArtifactId.valueOf(p.getProperty("artifact")),p.getProperty("version"),p.getProperty("sourceUrl"),Instant.parse(p.getProperty("publishedAt")),p.getProperty("sha256"),Instant.parse(p.getProperty("lastCheckedAt")),Instant.parse(p.getProperty("updatedAt")),p.getProperty("result")); }
+        try (var out=Files.newOutputStream(base.resolve(MANIFEST_FILE))) { p.store(out,"Artefato externo auditável"); }}
+    private static ArtifactManifest readManifest(Path base) throws IOException { Path file = base.resolve(MANIFEST_FILE); if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)) throw new IOException("Manifesto inválido"); Properties p=new Properties(); try(var in=Files.newInputStream(file)){p.load(in);} return new ArtifactManifest(ArtifactId.valueOf(p.getProperty("artifact")),p.getProperty("version"),p.getProperty("sourceUrl"),Instant.parse(p.getProperty("publishedAt")),p.getProperty("sha256"),Instant.parse(p.getProperty("lastCheckedAt")),Instant.parse(p.getProperty("updatedAt")),p.getProperty("result")); }
+    private static String readDiscoveryUrl(Path base) throws IOException { Path file = base.resolve(MANIFEST_FILE); if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)) throw new IOException("Manifesto inválido"); Properties p=new Properties(); try(var in=Files.newInputStream(file)){p.load(in);} return p.getProperty("discoveryUrl"); }
     private static void deleteTree(Path path) throws IOException { try(var paths=Files.walk(path)){ for(Path p:paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p); } }
 }

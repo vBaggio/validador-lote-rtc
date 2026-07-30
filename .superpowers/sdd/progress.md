@@ -717,3 +717,18 @@ Task 34 (b6): complete (commit `16080b3`, revisão pendente da Task 35) — 376 
   Sonda de mutação: removido o gate `compareAndSet`; o teste de clique duplicado caiu sozinho;
   restauração e `./gradlew clean test --console=plain` (376) verdes. DÉBITO: retenção/poda de
   versões e telemetria local de espelho ACBr permanecem fora do escopo, sem autorizar ativação.
+
+Task 37 (b6): complete (commit `68f05e5`, revisão independente PASS/PASS após 1 fix loop) —
+separa preparação de ativação para schemas e tabelas: `prepare` mantém `current`, `activate`
+revalida a versão confinada (hash/formato e compilação ou reload) antes do movimento atômico, e
+os updaters expõem `check`/`apply` com candidata tipada. ACHADO IMPORTANTE: uma nova consulta da
+mesma tabela preparada falhava porque `publishedAt` era volátil; a equivalência passou a usar a
+identidade estável do artefato e o teste prova duas consultas antes de ativar. Suíte completa e
+quatro suites focadas verdes; sonda de mutação do guard de artifactId derrubou os dois testes
+negativos. Próximo: Task 38.
+
+### PARADA — 30/07/2026, Task 37 concluída
+
+HEAD `68f05e5` em `bloco/6-canal-schemas`; árvore limpa antes do registro deste handoff. Task 37
+está commitada e revisada; nenhum trabalho staged. Próximo passo: Task 38 — falhas tipadas,
+retentativa e coordenador observável.

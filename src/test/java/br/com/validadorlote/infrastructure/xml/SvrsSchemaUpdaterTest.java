@@ -3,6 +3,8 @@ package br.com.validadorlote.infrastructure.xml;
 import br.com.validadorlote.infrastructure.tables.HttpsTransport;
 import br.com.validadorlote.infrastructure.tables.SafeHttpsClient;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateResult;
+import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -43,6 +45,41 @@ class SvrsSchemaUpdaterTest {
         assertThat(new SchemaArtifactStore(temp).activeManifestOrNull().sourceUrl())
                 .startsWith("https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/");
         assertThat(downloads).hasValue(1);
+    }
+
+    @Test
+    void checkStagesNewReleaseWithoutChangingTheActiveVersion() throws Exception {
+        var updater = updater("PL_010e_NT2026_002_v1.03.zip", SchemaZipExtractorTest.zip(Map.of()),
+                new AtomicInteger());
+
+        ArtifactCheckResult result = updater.check();
+
+        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UPDATE_AVAILABLE);
+        assertThat(result.candidate().version()).isEqualTo("010e_v1.03");
+        assertThat(new SchemaArtifactStore(temp).activeManifestOrNull()).isNull();
+    }
+
+    @Test
+    void applyActivatesExactlyTheCandidateReturnedByCheck() throws Exception {
+        var updater = updater("PL_010e_NT2026_002_v1.03.zip", SchemaZipExtractorTest.zip(Map.of()),
+                new AtomicInteger());
+        var candidate = updater.check().candidate();
+
+        updater.apply(candidate);
+
+        assertThat(new SchemaArtifactStore(temp).activeManifestOrNull().version())
+                .isEqualTo(candidate.version());
+    }
+
+    @Test
+    void applyRejectsACandidateForAnotherArtifact() throws Exception {
+        var updater = updater("PL_010e_NT2026_002_v1.03.zip", SchemaZipExtractorTest.zip(Map.of()),
+                new AtomicInteger());
+        var tableCandidate = new ArtifactUpdateCandidate(ArtifactId.FISCAL_TABLES, "candidate-v2",
+                "https://dfe-portal.svrs.rs.gov.br/x", java.time.Instant.EPOCH, "0".repeat(64), "");
+
+        assertThatThrownBy(() -> updater.apply(tableCandidate))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

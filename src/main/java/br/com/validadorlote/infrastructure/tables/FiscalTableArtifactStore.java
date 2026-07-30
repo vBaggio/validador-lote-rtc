@@ -41,8 +41,16 @@ public final class FiscalTableArtifactStore {
      */
     public ArtifactManifest install(byte[] candidate, String version, String sourceUrl,
             Instant publishedAt) {
+        ArtifactManifest prepared = prepare(candidate, version, sourceUrl, publishedAt);
+        return activate(prepared.version());
+    }
+
+    /** Valida e guarda uma candidata, sem alterar a referência da tabela ativa. */
+    public ArtifactManifest prepare(byte[] candidate, String version, String sourceUrl,
+            Instant publishedAt) {
         try {
-            Files.createDirectories(root.resolve("versions"));
+            prepareRoot();
+            validateVersion(version);
             Path stage = Files.createTempDirectory(root, "staging-");
             try {
                 Files.write(stage.resolve(TABLE_FILE), candidate, StandardOpenOption.CREATE_NEW);
@@ -50,20 +58,40 @@ public final class FiscalTableArtifactStore {
                 FiscalTables active = activeOrNull();
                 ensureIdentityContinuity(tables, active == null ? FiscalTables.load() : active);
                 ArtifactManifest manifest = new ArtifactManifest(ID, version, sourceUrl, publishedAt,
-                        sha256(candidate), Instant.now(), Instant.now(), "INSTALLED");
+                        sha256(candidate), Instant.now(), Instant.now(), "PREPARED");
                 writeManifest(stage, manifest);
-                Path target = root.resolve("versions").resolve(version);
+                Path target = versionDirectory(version);
                 if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-                    throw new IllegalArgumentException("Versão já instalada: " + version);
+                    ArtifactManifest existing = verifiedPreparedManifest(target, version);
+                    if (samePreparedArtifact(existing, manifest)) return existing;
+                    throw new IllegalArgumentException("Versão preparada diverge: " + version);
                 }
                 Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
-                replaceCurrent(version);
                 return manifest;
             } finally {
                 if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) deleteTree(stage);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Não foi possível instalar a tabela fiscal", e);
+        }
+    }
+
+    /** Revalida uma versão preparada e só então a publica como ativa. */
+    public ArtifactManifest activate(String version) {
+        try {
+            prepareRoot();
+            Path base = versionDirectory(version);
+            ArtifactManifest manifest = verifiedPreparedManifest(base, version);
+            try (var input = Files.newInputStream(base.resolve(TABLE_FILE))) {
+                FiscalTables tables = FiscalTables.load(input);
+                FiscalTables active = activeOrNull();
+                ensureIdentityContinuity(tables, active == null ? FiscalTables.load() : active);
+            }
+            replaceCurrent(version);
+            return manifest;
+        } catch (IOException | RuntimeException e) {
+            if (e instanceof UncheckedIOException unchecked) throw unchecked;
+            throw new IllegalStateException("Não foi possível ativar tabela fiscal preparada", e);
         }
     }
 
@@ -154,6 +182,50 @@ public final class FiscalTableArtifactStore {
                 StandardCopyOption.REPLACE_EXISTING);
     }
 
+    private void prepareRoot() throws IOException {
+        Files.createDirectories(root);
+        if (Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("Diretório da tabela fiscal inválido");
+        }
+        Path versions = root.resolve("versions");
+        Files.createDirectories(versions);
+        if (Files.isSymbolicLink(versions) || !Files.isDirectory(versions, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("Diretório de versões da tabela fiscal inválido");
+        }
+    }
+
+    private Path versionDirectory(String version) {
+        validateVersion(version);
+        Path versions = root.resolve("versions").normalize();
+        Path directory = versions.resolve(version).normalize();
+        if (!directory.startsWith(versions)) throw new IllegalArgumentException("Versão inválida: " + version);
+        return directory;
+    }
+
+    private static void validateVersion(String version) {
+        if (version == null || !version.matches("[A-Za-z0-9._-]{1,100}")) {
+            throw new IllegalArgumentException("Versão inválida: " + version);
+        }
+    }
+
+    private ArtifactManifest verifiedPreparedManifest(Path base, String version) throws IOException {
+        if (Files.isSymbolicLink(base) || !Files.isDirectory(base, LinkOption.NOFOLLOW_LINKS)
+                || !hasOnlyExpectedFiles(base)) {
+            throw new IllegalStateException("Versão preparada de tabela inválida: " + version);
+        }
+        ArtifactManifest manifest = readManifest(base);
+        if (manifest.artifact() != ID || !manifest.version().equals(version)
+                || !manifest.sha256().equals(sha256(Files.readAllBytes(base.resolve(TABLE_FILE))))) {
+            throw new IllegalStateException("Versão preparada de tabela perdeu integridade: " + version);
+        }
+        return manifest;
+    }
+
+    private static boolean samePreparedArtifact(ArtifactManifest left, ArtifactManifest right) {
+        return left.artifact() == right.artifact() && left.version().equals(right.version())
+                && left.sourceUrl().equals(right.sourceUrl()) && left.sha256().equals(right.sha256());
+    }
+
     static String sha256(byte[] payload) {
         try {
             return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
@@ -179,7 +251,10 @@ public final class FiscalTableArtifactStore {
 
     private ArtifactManifest readManifest(Path base) throws IOException {
         Properties properties = new Properties();
-        try (var input = Files.newInputStream(base.resolve(MANIFEST_FILE))) {
+        Path manifest = base.resolve(MANIFEST_FILE);
+        if (!Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(manifest)) throw new IOException("Manifesto inválido");
+        try (var input = Files.newInputStream(manifest)) {
             properties.load(input);
         }
         return new ArtifactManifest(ArtifactId.valueOf(properties.getProperty("artifact")),

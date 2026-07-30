@@ -2,6 +2,7 @@ package br.com.validadorlote.infrastructure.tables;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,6 +29,36 @@ class FiscalTableArtifactStoreTest {
         assertThat(manifest.artifact()).isEqualTo(br.com.validadorlote.infrastructure.xml.ArtifactId.FISCAL_TABLES);
         assertThat(store.activeOrNull()).isNotNull();
         assertThat(store.activeOrNull().classTribCount()).isEqualTo(FiscalTables.load().classTribCount());
+    }
+
+    @Test
+    void prepareKeepsCurrentAndActivatePublishesThePreparedTable() throws IOException {
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+        byte[] candidate = embedded();
+        ArtifactManifest prepared = store.prepare(candidate, "candidate-v2",
+                "https://dfe-portal.svrs.rs.gov.br/DFE/TabelaClassificacaoTributaria",
+                Instant.parse("2026-07-30T12:00:00Z"));
+
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(prepared.version()).isEqualTo("candidate-v2");
+
+        store.activate("candidate-v2");
+
+        assertThat(store.activeManifestOrNull().version()).isEqualTo("candidate-v2");
+    }
+
+    @Test
+    void activateRejectsPreparedTableChangedAfterValidation() throws IOException {
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+        store.prepare(embedded(), "candidate-v2", "https://dfe-portal.svrs.rs.gov.br/x",
+                Instant.parse("2026-07-30T12:00:00Z"));
+        Files.writeString(temp.resolve(
+                "artifacts/FISCAL_TABLES/versions/candidate-v2/cst-cclasstrib.json"), "{}");
+
+        assertThatThrownBy(() -> store.activate("candidate-v2"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(temp.resolve("artifacts/FISCAL_TABLES/current")).doesNotExist();
     }
 
     @Test

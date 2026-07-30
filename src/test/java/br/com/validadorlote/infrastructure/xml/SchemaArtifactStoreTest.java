@@ -30,6 +30,40 @@ class SchemaArtifactStoreTest {
     }
 
     @Test
+    void prepareKeepsCurrentAndActivatePublishesThePreparedSchemas() throws IOException {
+        SchemaArtifactStore store = new SchemaArtifactStore(temp);
+        Path candidate = copyEmbedded("candidate");
+        Instant publishedAt = Instant.parse("2026-07-30T12:00:00Z");
+
+        ArtifactManifest prepared = store.prepare(candidate, "candidate-v2",
+                "https://dfe-portal.svrs.rs.gov.br/NFe/Documentos",
+                "https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico?Arquivo=x.zip",
+                publishedAt);
+
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(prepared.version()).isEqualTo("candidate-v2");
+
+        store.activate("candidate-v2");
+
+        assertThat(store.activeManifestOrNull().version()).isEqualTo("candidate-v2");
+    }
+
+    @Test
+    void activateRejectsPreparedSchemasChangedAfterValidation() throws IOException {
+        SchemaArtifactStore store = new SchemaArtifactStore(temp);
+        Path candidate = copyEmbedded("candidate");
+        store.prepare(candidate, "candidate-v2", "https://dfe-portal.svrs.rs.gov.br/x",
+                Instant.parse("2026-07-30T12:00:00Z"));
+        Files.writeString(temp.resolve("artifacts/NFE_SCHEMAS/versions/candidate-v2/nota.xsd"),
+                "<corrompido/>");
+
+        assertThatThrownBy(() -> store.activate("candidate-v2"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(temp.resolve("artifacts/NFE_SCHEMAS/current")).doesNotExist();
+    }
+
+    @Test
     void brokenCandidateDoesNotReplaceTheLastActiveBase() throws IOException {
         SchemaArtifactStore store = new SchemaArtifactStore(temp);
         store.install(copyEmbedded("good"), "good", "https://fonte.exemplo/good", Instant.EPOCH);
