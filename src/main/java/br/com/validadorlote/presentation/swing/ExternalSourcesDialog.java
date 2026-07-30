@@ -1,6 +1,8 @@
 package br.com.validadorlote.presentation.swing;
 
-import br.com.validadorlote.application.ExternalSourceStatus;
+import br.com.validadorlote.application.ExternalSourceState;
+import br.com.validadorlote.application.ExternalSourcesPhase;
+import br.com.validadorlote.application.ExternalSourcesSnapshot;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -19,15 +21,14 @@ import java.awt.Window;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
-/** Diálogo consultivo: mostra apenas metadados locais dos artefatos, nunca dados do lote. */
+/** Diálogo consultivo: mostra metadados locais das bases, nunca dados do lote. */
 final class ExternalSourcesDialog extends JDialog {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.systemDefault());
-    private final DefaultTableModel model = new DefaultTableModel(new Object[] { "Fonte", "Base no próximo boot",
-            "Origem", "Atualizada", "Verificada", "Resultado", "Hash" }, 0) {
+    private final DefaultTableModel model = new DefaultTableModel(new Object[] { "Fonte",
+            "Base no próximo boot", "Origem", "Atualizada", "Verificada", "Resultado", "Hash" }, 0) {
         @Override public boolean isCellEditable(int row, int column) { return false; }
     };
     private final JButton checkNow = new JButton("Verificar agora");
@@ -57,13 +58,14 @@ final class ExternalSourcesDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    void showStatus(List<ExternalSourceStatus> sources, boolean checking) {
+    void showSnapshot(ExternalSourcesSnapshot snapshot) {
         model.setRowCount(0);
-        for (ExternalSourceStatus source : sources) {
+        for (ExternalSourceState source : snapshot.sources()) {
             model.addRow(new Object[] { source.name(), source.activeVersion(), source.origin(),
                     format(source.updatedAt()), format(source.checkedAt()), result(source),
                     source.abbreviatedHash() == null ? "—" : source.abbreviatedHash() });
         }
+        boolean checking = snapshot.phase() == ExternalSourcesPhase.CHECKING;
         checkNow.setEnabled(!checking);
         checkNow.setText(checking ? "Verificando…" : "Verificar agora");
         notice.setText(checking ? "Consultando fontes em segundo plano; o lote permanece local."
@@ -74,16 +76,15 @@ final class ExternalSourcesDialog extends JDialog {
         return instant == null ? "—" : DATE.format(instant);
     }
 
-    private static String result(ExternalSourceStatus source) {
-        if ("FAILED".equals(source.result())) {
-            return "Aviso: " + (source.detail() == null ? "fonte indisponível" : source.detail());
-        }
-        if (source.result() == null) return source.detail() == null ? "Ainda não verificada" : source.detail();
-        return switch (source.result()) {
-            case "STARTED" -> "Verificando";
-            case "UPDATED" -> "Atualização instalada (próximo boot)";
-            case "UNCHANGED" -> source.detail() == null ? "Sem atualização" : source.detail();
-            default -> "Resultado indisponível";
+    private static String result(ExternalSourceState source) {
+        return switch (source.phase()) {
+            case NOT_CHECKED -> "Ainda não verificada";
+            case CHECKING -> "Verificando";
+            case UP_TO_DATE -> source.detail() == null ? "Sem atualização" : source.detail();
+            case UPDATE_AVAILABLE -> "Atualização disponível: " + source.candidateVersion();
+            case APPLYING -> "Aplicando atualização";
+            case APPLIED -> "Atualização instalada (próximo boot)";
+            case FAILED -> "Aviso: " + (source.detail() == null ? "fonte indisponível" : source.detail());
         };
     }
 }

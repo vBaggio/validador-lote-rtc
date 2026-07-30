@@ -3,7 +3,7 @@ package br.com.validadorlote.presentation.swing;
 import br.com.validadorlote.presentation.MainPresenter;
 import br.com.validadorlote.presentation.MainView;
 import br.com.validadorlote.presentation.WorkspaceDocument;
-import br.com.validadorlote.application.ExternalSourceStatus;
+import br.com.validadorlote.application.ExternalSourcesSnapshot;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -41,11 +41,7 @@ public final class MainFrame extends JFrame implements MainView {
         JButton sources = new JButton("Fontes externas");
         sources.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 10, 5, 10));
         sources.setForeground(new java.awt.Color(170, 170, 170));
-        sources.addActionListener(event -> {
-            externalSourcesDialog.setLocationRelativeTo(this);
-            externalSourcesDialog.setVisible(true);
-            presenter.externalSourcesRequested();
-        });
+        sources.addActionListener(event -> presenter.externalSourcesRequested());
         footer.add(version, BorderLayout.WEST);
         footer.add(sources, BorderLayout.EAST);
         content.add(footer, BorderLayout.SOUTH);
@@ -85,7 +81,36 @@ public final class MainFrame extends JFrame implements MainView {
     }
 
     @Override
-    public void showExternalSources(List<ExternalSourceStatus> sources, boolean checking) {
-        externalSourcesDialog.showStatus(sources, checking);
+    public void showExternalSources(ExternalSourcesSnapshot snapshot) {
+        externalSourcesDialog.showSnapshot(snapshot);
+    }
+
+    @Override
+    public void openExternalSourcesDialog() {
+        externalSourcesDialog.setLocationRelativeTo(this);
+        externalSourcesDialog.setVisible(true);
+    }
+
+    @Override
+    public boolean confirmExternalSourcesUpdate(ExternalSourcesSnapshot snapshot) {
+        String message = snapshot.failedCount() > 0
+                ? """
+                  Há atualização disponível. Uma das fontes não respondeu e continuará usando a base atual.
+                  Deseja atualizar o que foi verificado?
+                  """
+                : """
+                  Há atualizações disponíveis para as bases de validação.
+                  Deseja atualizar agora?
+                  """;
+        return JOptionPane.showConfirmDialog(this, message.strip(),
+                "Atualização de bases", JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION;
+    }
+
+    @Override
+    public void showRestartRequired(ExternalSourcesSnapshot snapshot) {
+        JOptionPane.showMessageDialog(this,
+                "As bases foram atualizadas. Reinicie o aplicativo para usar as novas versões.",
+                "Reinício necessário", JOptionPane.INFORMATION_MESSAGE);
     }
 }

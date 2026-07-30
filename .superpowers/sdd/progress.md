@@ -739,3 +739,11 @@ parcial, exclusão mútua e persistência por identidade de canal. `./gradlew te
 testes; a sonda que remove `action.apply` derrubou dois testes. DÉBITOS MENORES: construtores de
 `ArtifactUpdateException` ainda permitem combinação categoria/retentativa incoerente; o overload
 transitório de leitura sem `channelId` permanece até a migração do consumidor na Task 39.
+
+Task 39 (b6): complete (commit `b7bf7e9`, revisão independente PASS/PASS após 1 fix loop) —
+snapshot imutável único, fila de publicação monotônica sem observer sob lock, descarte de revisão
+obsoleta na EDT, gate de validação e latch de reinício por sessão. A correção provou por mutação
+que prompts duplicados voltariam sem manter CHECKING até a conclusão. `./gradlew test` passou com
+414 testes. ACHADOS IMPORTANTES corrigidos: snapshots concorrentes fora de ordem e
+RESTART_REQUIRED apagável por consulta posterior. DÉBITO/T42: impedir validação durante ativação e
+preservar reinício pendente se a ativação física vencer mas a persistência do evento falhar.

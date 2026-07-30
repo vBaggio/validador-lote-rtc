@@ -1,8 +1,8 @@
 package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.ExternalSourcesSnapshot;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
-import br.com.validadorlote.application.ExternalSourceStatus;
 import br.com.validadorlote.domain.RootCauseGrouper;
 import br.com.validadorlote.infrastructure.csv.CsvExporter;
 import br.com.validadorlote.infrastructure.fs.FolderScanner;
@@ -15,9 +15,12 @@ import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
 import br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore;
+import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
+import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,7 +28,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -36,8 +42,20 @@ class MainPresenterTest {
     private final List<String> calls = new ArrayList<>();
     private List<WorkspaceDocument> lastWorkspace = List.of();
     private MainPresenter presenter;
+    private ExternalSourcesUseCase observedSources;
+    private ArtifactUpdateCoordinator updateCoordinator;
+    private TestUpdateAction schemasAction;
+    private TestUpdateAction tablesAction;
+    private RecordingUiThread recordingUiThread;
+    private List<Runnable> queuedBackground;
 
-    private final MainView fakeView = new MainView() {
+    private final FakeView fakeView = new FakeView();
+
+    private final class FakeView implements MainView {
+
+        private boolean acceptUpdate;
+        private boolean confirmOnUiThread;
+
         @Override
         public void showIdle() {
             calls.add("idle");
@@ -61,11 +79,28 @@ class MainPresenterTest {
         }
 
         @Override
-        public void showExternalSources(List<ExternalSourceStatus> sources, boolean checking) {
-            calls.add("sources " + sources.size() + " " + checking);
+        public void showExternalSources(ExternalSourcesSnapshot snapshot) {
+            calls.add("sources " + snapshot.sources().size() + " " + snapshot.phase());
         }
 
-    };
+        @Override
+        public void openExternalSourcesDialog() {
+            calls.add("open-sources");
+        }
+
+        @Override
+        public boolean confirmExternalSourcesUpdate(ExternalSourcesSnapshot snapshot) {
+            calls.add("confirm-update");
+            confirmOnUiThread = recordingUiThread != null && recordingUiThread.executing;
+            return acceptUpdate;
+        }
+
+        @Override
+        public void showRestartRequired(ExternalSourcesSnapshot snapshot) {
+            calls.add("restart-required");
+        }
+
+    }
 
     @BeforeEach
     void setUp() {
@@ -184,15 +219,232 @@ class MainPresenterTest {
         var coordinator = new ArtifactUpdateCoordinator(List.of(action), java.time.Duration.ofHours(24),
                 java.time.Clock.systemUTC(), Runnable::run, event -> { }, state);
         var sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(dir),
-                new FiscalTableArtifactStore(dir), state);
+                new FiscalTableArtifactStore(dir));
         var sourcePresenter = new MainPresenter(useCase(), Runnable::run, Runnable::run, sources);
         sourcePresenter.attach(fakeView);
 
         sourcePresenter.externalSourcesRequested();
         sourcePresenter.checkExternalSourcesRequested();
 
-        assertThat(calls).contains("sources 3 false", "sources 3 true");
+        assertThat(calls).anySatisfy(call -> assertThat(call).startsWith("sources 2 "));
+        assertThat(calls).contains("open-sources");
         assertThat(calls).noneMatch(call -> call.startsWith("error:"));
+    }
+
+    @Test
+    void doesNotOfferUpdateDuringValidationAndOffersItWhenValidationFinishes(
+            @TempDir Path dir) throws IOException {
+        configureExternalSources(dir, true);
+        startQueuedValidation(dir);
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).doesNotContain("confirm-update");
+
+        completeQueuedValidation();
+
+        assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
+    }
+
+    @Test
+    void acceptedUpdateOpensTheSharedDialogAndStartsApplication(@TempDir Path dir) {
+        configureExternalSources(dir, false);
+        fakeView.acceptUpdate = true;
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).containsSubsequence("confirm-update", "open-sources");
+        assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
+        assertThat(schemasAction.applyCalls).isOne();
+        assertThat(calls).filteredOn("restart-required"::equals).hasSize(1);
+    }
+
+    @Test
+    void declinedRevisionIsNotOfferedAgainButANewRevisionIs(@TempDir Path dir) {
+        configureExternalSources(dir, false);
+
+        sourcesPublishUpdateAvailable();
+        presenter.externalSourcesRequested();
+
+        assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
+
+        observedSources.validationStateChanged(true);
+        observedSources.validationStateChanged(false);
+
+        assertThat(calls).filteredOn("confirm-update"::equals).hasSize(2);
+    }
+
+    @Test
+    void cancellationAlsoReleasesThePendingUpdatePromptThroughUiThread(
+            @TempDir Path dir) throws IOException {
+        configureExternalSources(dir, true);
+        startQueuedValidation(dir);
+        sourcesPublishUpdateAvailable();
+
+        presenter.cancelRequested();
+        completeQueuedValidation();
+
+        assertThat(recordingUiThread.executions).isPositive();
+        assertThat(calls).contains("confirm-update");
+        assertThat(fakeView.confirmOnUiThread).isTrue();
+    }
+
+    @Test
+    void staleAvailableSnapshotDoesNotPromptAfterValidationSnapshot(@TempDir Path dir) {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        var state = new ArtifactUpdateStateStore(dir);
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), Runnable::run,
+                event -> { }, state);
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        QueuedUiThread queuedUi = new QueuedUiThread();
+        presenter = new MainPresenter(useCase(), queuedUi, Runnable::run, observedSources);
+        presenter.attach(fakeView);
+        queuedUi.runAll();
+        calls.clear();
+
+        sourcesPublishUpdateAvailable();
+        observedSources.validationStateChanged(true);
+        queuedUi.runLast();
+        queuedUi.runAll();
+
+        assertThat(calls).doesNotContain("confirm-update");
+    }
+
+    @Test
+    void multipleCandidatesOpenSharedDialogOnlyOnceWhileApplying(@TempDir Path dir) {
+        configureExternalSources(dir, false);
+        fakeView.acceptUpdate = true;
+        tablesAction.checkResult = ArtifactCheckResult.available(
+                new ArtifactUpdateCandidate(ArtifactId.FISCAL_TABLES, "IT-1.61",
+                        "https://dfe-portal.svrs.rs.gov.br/",
+                        Instant.parse("2026-07-30T12:00:00Z"), "1".repeat(64),
+                        "Tabela preparada"),
+                "Tabela preparada");
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).filteredOn("open-sources"::equals).hasSize(1);
+        assertThat(schemasAction.applyCalls).isOne();
+        assertThat(tablesAction.applyCalls).isOne();
+    }
+
+    private void configureExternalSources(Path dir, boolean deferValidation) {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        var state = new ArtifactUpdateStateStore(dir);
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), Runnable::run,
+                event -> { }, state);
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir));
+        recordingUiThread = new RecordingUiThread();
+        queuedBackground = new ArrayList<>();
+        Executor validationBackground = deferValidation ? queuedBackground::add : Runnable::run;
+        presenter = new MainPresenter(useCase(), recordingUiThread, validationBackground,
+                observedSources);
+        presenter.attach(fakeView);
+        fakeView.confirmOnUiThread = false;
+        calls.clear();
+    }
+
+    private void startQueuedValidation(Path dir) throws IOException {
+        copyFixture(dir, "nfe-valida-sem-assinatura.xml", "pendente.xml");
+        presenter.inputChosen(dir);
+        queuedBackground.removeFirst().run();
+        presenter.validateRequested();
+        assertThat(queuedBackground).hasSize(1);
+    }
+
+    private void completeQueuedValidation() {
+        queuedBackground.removeFirst().run();
+    }
+
+    private void sourcesPublishUpdateAvailable() {
+        schemasAction.checkResult = ArtifactCheckResult.available(
+                new ArtifactUpdateCandidate(ArtifactId.NFE_SCHEMAS, "010e_v1.03",
+                        "https://dfe-portal.svrs.rs.gov.br/NFe/Documentos",
+                        Instant.parse("2026-07-30T12:00:00Z"), "0".repeat(64),
+                        "Schemas preparados"),
+                "Schemas preparados");
+        assertThat(updateCoordinator.checkNow()).isTrue();
+    }
+
+    private final class RecordingUiThread implements UiThread {
+
+        private int executions;
+        private boolean executing;
+
+        @Override
+        public void execute(Runnable action) {
+            executions++;
+            boolean previous = executing;
+            executing = true;
+            try {
+                action.run();
+            } finally {
+                executing = previous;
+            }
+        }
+    }
+
+    private static final class QueuedUiThread implements UiThread {
+
+        private final Deque<Runnable> actions = new ArrayDeque<>();
+
+        @Override
+        public void execute(Runnable action) {
+            actions.addLast(action);
+        }
+
+        private void runLast() {
+            actions.removeLast().run();
+        }
+
+        private void runAll() {
+            while (!actions.isEmpty()) {
+                actions.removeFirst().run();
+            }
+        }
+    }
+
+    private static final class TestUpdateAction implements ArtifactUpdateAction {
+
+        private final ArtifactId artifact;
+        private final String channelId;
+        private ArtifactCheckResult checkResult = ArtifactCheckResult.upToDate("Base atual");
+        private int applyCalls;
+
+        private TestUpdateAction(ArtifactId artifact, String channelId) {
+            this.artifact = artifact;
+            this.channelId = channelId;
+        }
+
+        @Override
+        public ArtifactId artifact() {
+            return artifact;
+        }
+
+        @Override
+        public String channelId() {
+            return channelId;
+        }
+
+        @Override
+        public ArtifactCheckResult check() {
+            return checkResult;
+        }
+
+        @Override
+        public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
+            applyCalls++;
+            Instant now = Instant.parse("2026-07-30T12:00:00Z");
+            return new ArtifactManifest(candidate.artifact(), candidate.version(),
+                    candidate.sourceUrl(), candidate.publishedAt(), candidate.sha256(),
+                    now, now, "APPLIED");
+        }
     }
 
     private static ValidateBatchUseCase useCase() {

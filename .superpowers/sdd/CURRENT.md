@@ -43,8 +43,10 @@
   Suítes focadas e completa passaram, e a revisão independente deu PASS/PASS após um fix loop.
   **Task 38 concluída e revisada** em `a64edf9`: falhas tipadas, retentativa limitada e
   coordenação por canal permitem consulta/aplicação parcial fora da EDT. `./gradlew test` passou
-  com 399 testes e revisão PASS/PASS; os dois achados menores estão no ledger. Próximo passo:
-  Task 39 — snapshot único e gate da validação.
+  com 399 testes e revisão PASS/PASS; os dois achados menores estão no ledger. **Task 39
+  concluída e revisada** em `b7bf7e9`: snapshots são entregues em ordem, revisões obsoletas não
+  passam pela EDT e reinício pendente permanece latched. `./gradlew test` passou com 414 testes.
+  Próximo: Task 40; depois, Task 42 de robustez autorizada pelo dono antes do fechamento.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final

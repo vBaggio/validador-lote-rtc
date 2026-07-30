@@ -2,6 +2,8 @@ package br.com.validadorlote.presentation;
 
 import br.com.validadorlote.application.CancellationToken;
 import br.com.validadorlote.application.DocumentValidationResult;
+import br.com.validadorlote.application.ExternalSourcesPhase;
+import br.com.validadorlote.application.ExternalSourcesSnapshot;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.application.ImportedBatch;
 import br.com.validadorlote.application.ValidateBatchUseCase;
@@ -28,6 +30,10 @@ public final class MainPresenter {
     private volatile int processed;
     private volatile int total;
     private long workspaceGeneration;
+    private long lastOfferedExternalSourcesRevision = -1;
+    private long latestExternalSourcesRevision = -1;
+    private boolean applyingDialogOpened;
+    private boolean restartRequiredShown;
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
         this(useCase, uiThread, background, null);
@@ -46,8 +52,10 @@ public final class MainPresenter {
         this.view = Objects.requireNonNull(view);
         view.showIdle();
         if (externalSources != null) {
-            externalSources.observe(event -> uiThread.execute(this::publishExternalSources));
-            externalSources.observeCompletion(() -> uiThread.execute(this::publishExternalSources));
+            externalSources.observe(snapshot ->
+                    uiThread.execute(() -> publishExternalSources(snapshot)));
+            ExternalSourcesSnapshot initial = externalSources.snapshot();
+            uiThread.execute(() -> publishExternalSources(initial));
         }
     }
 
@@ -78,6 +86,9 @@ public final class MainPresenter {
             total = pending.size();
             token = new CancellationToken();
             currentToken = token;
+        }
+        if (externalSources != null) {
+            externalSources.validationStateChanged(true);
         }
         publishWorkspace();
         background.execute(() -> validatePending(pending, token));
@@ -123,14 +134,20 @@ public final class MainPresenter {
 
     /** Abre/atualiza a visão consultiva de fontes, sem afetar a área de trabalho atual. */
     public void externalSourcesRequested() {
-        if (externalSources != null) publishExternalSources();
+        if (externalSources == null) return;
+        ExternalSourcesSnapshot snapshot = externalSources.snapshot();
+        uiThread.execute(() -> {
+            publishExternalSources(snapshot);
+            openExternalSourcesDialog();
+        });
     }
 
     /** Ação manual não bloqueante; se já houver consulta, a view conserva o progresso em curso. */
     public void checkExternalSourcesRequested() {
         if (externalSources == null) return;
         externalSources.checkNow();
-        publishExternalSources();
+        ExternalSourcesSnapshot snapshot = externalSources.snapshot();
+        uiThread.execute(() -> publishExternalSources(snapshot));
     }
 
     private void importInput(Path input, long generation) {
@@ -200,6 +217,9 @@ public final class MainPresenter {
         synchronized (workspaceLock) {
             validating = false;
         }
+        if (externalSources != null) {
+            externalSources.validationStateChanged(false);
+        }
         publishOrShowIdle();
     }
 
@@ -240,10 +260,39 @@ public final class MainPresenter {
         requireView().showWorkspace(snapshot, validating, processed, total);
     }
 
-    private void publishExternalSources() {
-        if (view != null && externalSources != null) {
-            requireView().showExternalSources(externalSources.status(), externalSources.isChecking());
+    private void publishExternalSources(ExternalSourcesSnapshot snapshot) {
+        if (view == null || externalSources == null) {
+            return;
         }
+        if (snapshot.revision() <= latestExternalSourcesRevision) {
+            return;
+        }
+        latestExternalSourcesRevision = snapshot.revision();
+        MainView attachedView = requireView();
+        attachedView.showExternalSources(snapshot);
+        if (snapshot.phase() == ExternalSourcesPhase.APPLYING) {
+            if (!applyingDialogOpened) {
+                applyingDialogOpened = true;
+                openExternalSourcesDialog();
+            }
+            return;
+        }
+        applyingDialogOpened = false;
+        if (snapshot.phase() == ExternalSourcesPhase.UPDATES_AVAILABLE
+                && snapshot.revision() != lastOfferedExternalSourcesRevision) {
+            lastOfferedExternalSourcesRevision = snapshot.revision();
+            if (attachedView.confirmExternalSourcesUpdate(snapshot)) {
+                externalSources.applyAvailable();
+            }
+        } else if (snapshot.phase() == ExternalSourcesPhase.RESTART_REQUIRED
+                && !restartRequiredShown) {
+            restartRequiredShown = true;
+            attachedView.showRestartRequired(snapshot);
+        }
+    }
+
+    private void openExternalSourcesDialog() {
+        requireView().openExternalSourcesDialog();
     }
 
     private MainView requireView() {

@@ -53,7 +53,7 @@ public final class App {
                 new RootCauseGrouper(), translator, new CsvExporter(), schemasVersion);
         var updateState = ArtifactUpdateStateStore.forCurrentUser();
         var coordinator = updateCoordinator(schemaStore, tableStore, updateState);
-        var externalSources = new ExternalSourcesUseCase(coordinator, schemaStore, tableStore, updateState);
+        var externalSources = new ExternalSourcesUseCase(coordinator, schemaStore, tableStore);
         UiBootstrap.launch(useCase, schemasVersion, externalSources, coordinator::checkAfterBoot);
     }
 

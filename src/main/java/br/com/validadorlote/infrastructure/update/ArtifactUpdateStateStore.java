@@ -32,14 +32,6 @@ public final class ArtifactUpdateStateStore {
         return state != null && expectedChannelId.equals(state.channelId()) ? state : null;
     }
 
-    /**
-     * Compatibilidade transitória para o consumidor da Task 39; estados legados sem canal continuam
-     * sendo ignorados.
-     */
-    public synchronized State read(ArtifactId artifact) {
-        return read(load(), Objects.requireNonNull(artifact));
-    }
-
     public synchronized void write(String channelId, ArtifactUpdateEvent event) {
         Objects.requireNonNull(channelId);
         Objects.requireNonNull(event);
