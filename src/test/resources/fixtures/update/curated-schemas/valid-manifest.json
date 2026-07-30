@@ -1,0 +1,21 @@
+{
+  "format" : 1,
+  "keyId" : "test-key-2026",
+  "signed" : {
+    "artifact" : "NFE_SCHEMAS",
+    "minimumAppVersion" : "0.1.0",
+    "publishedAt" : "2026-07-30T12:00:00Z",
+    "releaseSequence" : 7,
+    "sourceProvenance" : [
+      {
+        "name" : "ACBr",
+        "revision" : "47435",
+        "url" : "https://svn.code.sf.net/p/acbr/code/trunk/Projetos/ACBrDFe/Schemas/NFe/"
+      }
+    ],
+    "version" : "rtc-2026.07.30-7",
+    "zipSha256" : "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "zipUrl" : "https://fixtures.invalid/schemas-rtc-2026.07.30-7.zip"
+  },
+  "signature" : "${SIGNATURE}"
+}
