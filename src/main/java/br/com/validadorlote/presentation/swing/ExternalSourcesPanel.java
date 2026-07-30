@@ -26,6 +26,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ResourceBundle;
 
 /** Conteúdo adaptável do diálogo de bases; renderiza somente o snapshot recebido. */
 final class ExternalSourcesPanel extends JPanel {
@@ -36,6 +37,7 @@ final class ExternalSourcesPanel extends JPanel {
     private static final Color SUCCESS = new Color(91, 190, 126);
     private static final Color WARNING = new Color(232, 180, 76);
     private static final Color ERROR = new Color(225, 96, 96);
+    private static final ResourceBundle MESSAGES = ResourceBundle.getBundle("messages");
 
     private final JPanel sourceCards = new JPanel();
     private final JLabel summary = new JLabel();
@@ -250,7 +252,11 @@ final class ExternalSourcesPanel extends JPanel {
             spinner.setRunning(true);
             feedback.add(spinner);
         }
-        JLabel label = new JLabel(presentation.text(), presentation.icon(), JLabel.LEFT);
+        boolean wrap = source.hasUnsupportedSchemaStructure();
+        String visibleText = wrap
+                ? "<html><div style='width:520px'>" + escape(presentation.text()) + "</div></html>"
+                : presentation.text();
+        JLabel label = new JLabel(visibleText, presentation.icon(), JLabel.LEFT);
         label.setForeground(presentation.color());
         label.getAccessibleContext().setAccessibleName(presentation.text());
         feedback.add(label);
@@ -259,6 +265,11 @@ final class ExternalSourcesPanel extends JPanel {
 
     private static Feedback feedbackFor(ExternalSourceState source) {
         String detail = source.detail();
+        if (source.hasUnsupportedSchemaStructure()) {
+            return new Feedback(MESSAGES.getString(
+                    "externalSources.unsupportedSchemaStructure"), ERROR,
+                    new OutlineIcon(OutlineIcon.Kind.ERROR, 18, ERROR));
+        }
         return switch (source.phase()) {
             case NOT_CHECKED -> new Feedback("Ainda não verificada", MUTED,
                     new OutlineIcon(OutlineIcon.Kind.DATABASE, 18, MUTED));

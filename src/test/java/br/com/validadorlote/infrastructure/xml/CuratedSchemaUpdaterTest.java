@@ -222,8 +222,11 @@ class CuratedSchemaUpdaterTest {
         transport.respond(MANIFEST_URI, signedManifest(
                 release(8, "a".repeat(64), ArtifactId.NFE_SCHEMAS, "1.10.0")));
 
-        assertInvalidContent(updater::check);
+        ArtifactUpdateException failure = captureUpdateFailure(updater::check);
 
+        assertThat(failure.kind())
+                .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
+        assertThat(failure.retryable()).isFalse();
         assertThat(transport.requests()).containsExactly(MANIFEST_URI);
         assertCurrentRelease7AndNoPrepared8();
     }
@@ -336,7 +339,8 @@ class CuratedSchemaUpdaterTest {
 
         ArtifactUpdateException failure = captureUpdateFailure(updater::check);
 
-        assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.INVALID_CONTENT);
+        assertThat(failure.kind())
+                .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
         assertThat(failure.getSuppressed()).singleElement()
                 .isInstanceOfSatisfying(ArtifactUpdateException.class, cleanup ->
                         assertThat(cleanup.kind()).isEqualTo(

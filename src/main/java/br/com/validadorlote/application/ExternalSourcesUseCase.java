@@ -26,8 +26,6 @@ import java.util.function.Consumer;
 /** Consulta e atualiza metadados de artefatos; não toca XMLs nem troca engines já em uso. */
 public final class ExternalSourcesUseCase {
 
-    private static final String SVRS_DOCUMENTS =
-            "https://dfe-portal.svrs.rs.gov.br/NFe/Documentos";
     private static final String SVRS = "https://dfe-portal.svrs.rs.gov.br/";
 
     private final ArtifactUpdateCoordinator coordinator;
@@ -178,7 +176,7 @@ public final class ExternalSourcesUseCase {
     private ExternalSourcesSnapshot createSnapshot() {
         List<ExternalSourceState> states = List.of(
                 sourceState(ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
-                        schemas.activeManifestOrNull(), SVRS_DOCUMENTS,
+                        schemas.activeManifestOrNull(), embeddedSchemas.sourceUrl(),
                         embeddedSchemas.profile(), embeddedSchemas.closureSha256(),
                         at(embeddedSchemas.incorporatedAt()), null),
                 sourceState(ArtifactId.FISCAL_TABLES, "Tabela CST/cClassTrib",

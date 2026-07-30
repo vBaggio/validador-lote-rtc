@@ -157,6 +157,88 @@ class ArtifactUpdateCoordinatorTest {
     }
 
     @Test
+    void incompatibleSchemasRemainVisibleWithoutBlockingAnIndependentTableCandidate() {
+        TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "curated-schemas-v1");
+        schemas.checkBehavior = () -> {
+            throw new ArtifactUpdateException(
+                    ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false,
+                    "A estrutura dos schemas mais recentes não é suportada");
+        };
+        TestAction tables = action(ArtifactId.FISCAL_TABLES, "tables-v1");
+        tables.checkBehavior = () -> ArtifactCheckResult.available(
+                candidate(ArtifactId.FISCAL_TABLES, "tables-v2"), "Tabela pronta");
+        var coordinator = coordinator(List.of(schemas, tables), Runnable::run, new ArrayList<>());
+
+        assertThat(coordinator.checkNow()).isTrue();
+
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS))
+                .satisfies(state -> {
+                    assertThat(state.failureKind())
+                            .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
+                    assertThat(state.candidateVersion()).isNull();
+                });
+        assertThat(schemas.checkCalls).hasValue(1);
+        assertThat(coordinator.applyAvailable()).isTrue();
+        assertThat(schemas.applyCalls).hasValue(0);
+        assertThat(tables.applyCalls).hasValue(1);
+    }
+
+    @Test
+    void unsupportedSchemaCheckKeepsTheOperationGateAndAllowsALaterValidManifest() {
+        List<Runnable> queued = new ArrayList<>();
+        TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "curated-schemas-v1");
+        schemas.checkBehavior = () -> {
+            throw new ArtifactUpdateException(
+                    ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false,
+                    "Estrutura incompatível");
+        };
+        var coordinator = coordinator(List.of(schemas), queued::add, new ArrayList<>());
+
+        assertThat(coordinator.checkNow()).isTrue();
+        assertThat(coordinator.checkNow()).isFalse();
+        assertThat(queued).hasSize(1);
+
+        queued.removeFirst().run();
+
+        assertThat(coordinator.isRunning()).isFalse();
+        schemas.checkBehavior = () -> ArtifactCheckResult.available(
+                candidate(ArtifactId.NFE_SCHEMAS, "schemas-v3"), "Manifesto compatível");
+        assertThat(coordinator.checkNow()).isTrue();
+        queued.removeFirst().run();
+
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS).result())
+                .isEqualTo(ArtifactUpdateEvent.Status.UPDATE_AVAILABLE);
+        assertThat(coordinator.applyAvailable()).isTrue();
+    }
+
+    @Test
+    void unsupportedSchemasDiscardAnOlderCandidateButRetainSuccessfulCheckAudit() {
+        TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "curated-schemas-v1");
+        schemas.checkBehavior = () -> ArtifactCheckResult.available(
+                candidate(ArtifactId.NFE_SCHEMAS, "schemas-v2"), "Manifesto compatível");
+        var coordinator = coordinator(List.of(schemas), Runnable::run, new ArrayList<>());
+        coordinator.checkNow();
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS).candidateVersion())
+                .isEqualTo("schemas-v2");
+
+        schemas.checkBehavior = () -> {
+            throw new ArtifactUpdateException(
+                    ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false,
+                    "Estrutura incompatível");
+        };
+        coordinator.checkNow();
+
+        assertThat(coordinator.state(ArtifactId.NFE_SCHEMAS))
+                .satisfies(state -> {
+                    assertThat(state.failureKind())
+                            .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
+                    assertThat(state.candidateVersion()).isNull();
+                    assertThat(state.lastSuccessfulCheckAt()).isEqualTo(NOW);
+                });
+        assertThat(coordinator.applyAvailable()).isFalse();
+    }
+
+    @Test
     void failedApplicationDoesNotStopAnotherCandidateOrRetryBlindly() {
         TestAction schemas = action(ArtifactId.NFE_SCHEMAS, "schemas-v1");
         schemas.checkBehavior = () -> ArtifactCheckResult.available(

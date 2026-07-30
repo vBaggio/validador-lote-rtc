@@ -59,7 +59,9 @@ class ExternalSourcesUseCaseTest {
     void reportsEmbeddedProvenanceOnAFreshOfflineInstall() {
         ExternalSourceState schemas = source(ArtifactId.NFE_SCHEMAS);
         assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02 (embarcada)");
-        assertThat(schemas.origin()).contains("dfe-portal.svrs.rs.gov.br/NFe/Documentos");
+        assertThat(schemas.origin()).isEqualTo(
+                "https://www.nfe.fazenda.gov.br/portal/"
+                        + "listaConteudo.aspx?tipoConteudo=BMPFMBoln3w%3D");
         assertThat(schemas.abbreviatedHash()).isEqualTo("1c7401d64600…");
         assertThat(schemas.updatedAt()).isEqualTo(Instant.parse("2026-07-29T00:00:00Z"));
         assertThat(schemas.checkedAt()).isNull();
@@ -105,6 +107,46 @@ class ExternalSourcesUseCaseTest {
                 .isEqualTo(ExternalSourcePhase.UP_TO_DATE);
         assertThat(source(ArtifactId.FISCAL_TABLES).phase())
                 .isEqualTo(ExternalSourcePhase.FAILED);
+    }
+
+    @Test
+    void exposesUnsupportedSchemasWhileKeepingTheEmbeddedBaseWithoutRestart() {
+        schemasAction.checkFails(new ArtifactUpdateException(
+                ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false,
+                "A estrutura dos schemas mais recentes não é suportada"));
+        tablesAction.checkReturns(ArtifactCheckResult.upToDate("Tabela atualizada"));
+
+        coordinator.checkNow();
+
+        ExternalSourceState schemas = source(ArtifactId.NFE_SCHEMAS);
+        assertThat(schemas.failureKind())
+                .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
+        assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02 (embarcada)");
+        assertThat(schemas.candidateVersion()).isNull();
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.FAILED);
+        assertThat(sources.applyAvailable()).isFalse();
+        assertThat(sources.snapshot().phase()).isNotEqualTo(
+                ExternalSourcesPhase.RESTART_REQUIRED);
+    }
+
+    @Test
+    void unsupportedSchemasDoNotPreventTableActivationFromRequestingRestart() {
+        schemasAction.checkFails(new ArtifactUpdateException(
+                ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false,
+                "A estrutura dos schemas mais recentes não é suportada"));
+        tablesAction.checkReturns(available(ArtifactId.FISCAL_TABLES, "IT-1.61"));
+        coordinator.checkNow();
+
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(schemasAction.applyCalls).isZero();
+        assertThat(tablesAction.applyCalls).isOne();
+        assertThat(source(ArtifactId.NFE_SCHEMAS).phase()).isEqualTo(
+                ExternalSourcePhase.FAILED);
+        assertThat(source(ArtifactId.FISCAL_TABLES).phase()).isEqualTo(
+                ExternalSourcePhase.APPLIED);
+        assertThat(sources.snapshot().phase()).isEqualTo(
+                ExternalSourcesPhase.RESTART_REQUIRED);
     }
 
     @Test

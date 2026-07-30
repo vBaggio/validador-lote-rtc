@@ -4,6 +4,7 @@ import br.com.validadorlote.application.ExternalSourcePhase;
 import br.com.validadorlote.application.ExternalSourceState;
 import br.com.validadorlote.application.ExternalSourcesPhase;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
+import br.com.validadorlote.infrastructure.update.ArtifactFailureKind;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import org.junit.jupiter.api.Test;
 
@@ -113,6 +114,32 @@ class ExternalSourcesPanelTest {
                     .findFirst().orElseThrow().doClick();
 
             assertThat(applies).hasValue(1);
+        });
+    }
+
+    @Test
+    void panelExplainsThatCurrentSchemasRemainActiveAndAppUpdateIsRequired() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            ExternalSourceState schemas = new ExternalSourceState(
+                    ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
+                    "010e_v1.02 (embarcada)", "Canal curado", null, null, null,
+                    ExternalSourcePhase.FAILED,
+                    "A estrutura dos schemas mais recentes não é suportada",
+                    ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, null);
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.FAILED,
+                    List.of(schemas), 0, 1, false, 2));
+
+            String text = allOperationalLabels(panel).stream()
+                    .map(JLabel::getText)
+                    .reduce("", (left, right) -> left + " " + right)
+                    .toLowerCase(java.util.Locale.ROOT);
+            assertThat(text)
+                    .contains("uma base mais nova foi encontrada")
+                    .contains("estrutura não é suportada por esta versão do aplicativo")
+                    .contains("base atual foi mantida")
+                    .contains("atualize o aplicativo")
+                    .contains("validações que não dependem do schema mais novo continuam normalmente");
         });
     }
 

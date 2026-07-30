@@ -241,7 +241,7 @@ class SchemaArtifactStoreTest {
                 MANIFEST_URI.toString()))
                 .isInstanceOf(ArtifactUpdateException.class)
                 .extracting("kind")
-                .isEqualTo(ArtifactFailureKind.INVALID_CONTENT);
+                .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
 
         assertThat(store.activeOrNull()).isEqualTo(previous);
         assertThat(store.activeManifestOrNull().version()).isEqualTo("legacy");

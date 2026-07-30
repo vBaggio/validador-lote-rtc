@@ -110,7 +110,7 @@ public final class CuratedSchemaUpdater {
                     "Manifesto incompatível: artefato não corresponde aos schemas NF-e");
         }
         if (compareAppVersions(release.minimumAppVersion(), appVersion) > 0) {
-            throw ArtifactUpdateException.invalidContent(
+            throw ArtifactUpdateException.unsupportedSchemaStructure(
                     "Manifesto incompatível: schemas exigem versão mais nova do aplicativo");
         }
     }

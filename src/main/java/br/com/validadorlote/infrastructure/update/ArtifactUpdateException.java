@@ -43,6 +43,17 @@ public final class ArtifactUpdateException extends RuntimeException {
         return new ArtifactUpdateException(ArtifactFailureKind.INVALID_CONTENT, false, message, cause);
     }
 
+    public static ArtifactUpdateException unsupportedSchemaStructure(String message) {
+        return new ArtifactUpdateException(
+                ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false, message);
+    }
+
+    public static ArtifactUpdateException unsupportedSchemaStructure(
+            String message, Throwable cause) {
+        return new ArtifactUpdateException(
+                ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, false, message, cause);
+    }
+
     public static ArtifactUpdateException localStorage(String message, Throwable cause) {
         return new ArtifactUpdateException(ArtifactFailureKind.LOCAL_STORAGE, false, message, cause);
     }

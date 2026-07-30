@@ -32,4 +32,9 @@ public record ExternalSourceState(
     public boolean isCalculator() {
         return artifact == ArtifactId.CALCULATOR;
     }
+
+    /** Evita que a apresentação dependa diretamente do vocabulário de infraestrutura. */
+    public boolean hasUnsupportedSchemaStructure() {
+        return failureKind == ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE;
+    }
 }

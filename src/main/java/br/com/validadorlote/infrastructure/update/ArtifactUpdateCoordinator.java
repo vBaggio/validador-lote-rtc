@@ -144,6 +144,9 @@ public final class ArtifactUpdateCoordinator {
                 publishCheckResult(action, result);
             } catch (RuntimeException e) {
                 ArtifactUpdateException failure = classify(e);
+                if (failure.kind() == ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE) {
+                    candidates.remove(action.artifact());
+                }
                 blockedCandidates.add(action.artifact());
                 publishTerminal(action, new ArtifactUpdateEvent(action.artifact(),
                         ArtifactUpdateEvent.Status.FAILED, clock.instant(),

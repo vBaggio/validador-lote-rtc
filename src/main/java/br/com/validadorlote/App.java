@@ -20,12 +20,10 @@ import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
+import br.com.validadorlote.infrastructure.xml.CuratedSchemaUpdater;
 import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
-import br.com.validadorlote.infrastructure.xml.SchemaZipExtractor;
 import br.com.validadorlote.infrastructure.xml.SchemasVersion;
-import br.com.validadorlote.infrastructure.xml.SvrsSchemaCatalogParser;
-import br.com.validadorlote.infrastructure.xml.SvrsSchemaUpdater;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor;
 import br.com.validadorlote.infrastructure.xml.XmlMetadataParser;
 import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
@@ -33,11 +31,17 @@ import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import br.com.validadorlote.presentation.swing.UiBootstrap;
 
 /** Ponto de entrada: monta o grafo de objetos e entrega à camada de apresentação. */
 public final class App {
+
+    private static final String DISABLED_SCHEMA_CHANNEL = "curated-schemas-disabled-v1";
+    private static final String DISABLED_SCHEMA_DETAIL =
+            "Atualização pelo canal curado está desabilitada nesta versão; "
+                    + "a base embarcada continua ativa";
 
     private App() {}
 
@@ -71,9 +75,6 @@ public final class App {
 
     private static ArtifactUpdateCoordinator updateCoordinator(SchemaArtifactStore schemaStore,
             FiscalTableArtifactStore tableStore, ArtifactUpdateStateStore updateState) {
-        var schemas = new SvrsSchemaUpdater(SafeHttpsClient.forSvrsSchemas(),
-                new SvrsSchemaCatalogParser(), new SchemaZipExtractor(), schemaStore,
-                SchemasVersion.metadata().profile());
         var tables = new SvrsTableUpdater(SafeHttpsClient.forSvrs(), new SvrsTableExtractor(),
                 new SvrsTableNormalizer(), tableStore);
         var executor = Executors.newSingleThreadExecutor(r -> {
@@ -81,19 +82,24 @@ public final class App {
             thread.setDaemon(true);
             return thread;
         });
-        return new ArtifactUpdateCoordinator(updateActions(schemas, tables),
+        return new ArtifactUpdateCoordinator(
+                updateActions(Optional.empty(), DISABLED_SCHEMA_CHANNEL, tables),
                 ArtifactUpdateCoordinator.DEFAULT_INTERVAL, Clock.systemUTC(), executor, event -> { },
                 updateState, ArtifactRetryPolicy.production());
     }
 
-    static List<ArtifactUpdateAction> updateActions(SvrsSchemaUpdater schemas,
-            SvrsTableUpdater tables) {
+    static List<ArtifactUpdateAction> updateActions(Optional<CuratedSchemaUpdater> schemas,
+            String schemaChannelId, SvrsTableUpdater tables) {
         ArtifactUpdateAction schemaAction = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
-            @Override public String channelId() { return "svrs-schemas-documents-v1"; }
-            @Override public ArtifactCheckResult check() { return schemas.check(); }
+            @Override public String channelId() { return schemaChannelId; }
+            @Override public ArtifactCheckResult check() {
+                return schemas.map(CuratedSchemaUpdater::check)
+                        .orElseGet(() -> ArtifactCheckResult.upToDate(DISABLED_SCHEMA_DETAIL));
+            }
             @Override public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
-                return schemas.apply(candidate);
+                return schemas.orElseThrow(() -> new IllegalStateException(
+                        "Canal curado de schemas desabilitado")).apply(candidate);
             }
         };
         ArtifactUpdateAction tableAction = new ArtifactUpdateAction() {

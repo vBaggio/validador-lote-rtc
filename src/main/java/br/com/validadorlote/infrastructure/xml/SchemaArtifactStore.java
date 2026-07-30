@@ -88,7 +88,7 @@ public final class SchemaArtifactStore {
                     new SchemaValidatorEngine(new XsdErrorTranslator(), stage); // gate antes de publicar
                 } catch (RuntimeException failure) {
                     if (curated) {
-                        throw ArtifactUpdateException.invalidContent(
+                        throw ArtifactUpdateException.unsupportedSchemaStructure(
                                 "A estrutura dos schemas mais recentes não é suportada por esta versão do aplicativo",
                                 failure);
                     }
