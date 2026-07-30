@@ -32,14 +32,12 @@ final class ExternalSourcesStatusBar extends JPanel {
         version.setForeground(MUTED);
         add(version, BorderLayout.WEST);
 
-        JPanel state = new JPanel(new FlowLayout(FlowLayout.CENTER, 7, 0));
+        JPanel state = new JPanel(new FlowLayout(FlowLayout.RIGHT, 7, 0));
         state.setOpaque(false);
         spinner.setForeground(WARNING);
         state.add(spinner);
         status.getAccessibleContext().setAccessibleName("Estado das atualizações das bases");
         state.add(status);
-        add(state, BorderLayout.CENTER);
-
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         actions.setOpaque(false);
         configureButton(this.openSources, new OutlineIcon(OutlineIcon.Kind.DATABASE),
@@ -48,6 +46,7 @@ final class ExternalSourcesStatusBar extends JPanel {
                 "Tentar consultar as bases novamente", retry);
         this.retry.setText("");
         this.retry.setVisible(false);
+        actions.add(state);
         actions.add(this.retry);
         actions.add(this.openSources);
         add(actions, BorderLayout.EAST);
@@ -66,6 +65,10 @@ final class ExternalSourcesStatusBar extends JPanel {
 
     String statusText() {
         return status.getText();
+    }
+
+    javax.swing.Icon statusIcon() {
+        return status.getIcon();
     }
 
     boolean isSpinnerRunning() {
@@ -102,7 +105,7 @@ final class ExternalSourcesStatusBar extends JPanel {
             case IDLE -> new StatusPresentation("Bases ainda não verificadas", MUTED,
                     new OutlineIcon(OutlineIcon.Kind.DATABASE, 18, MUTED));
             case CHECKING -> new StatusPresentation("Consultando atualizações das bases…", WARNING,
-                    new OutlineIcon(OutlineIcon.Kind.REFRESH, 18, WARNING));
+                    null);
             case UP_TO_DATE -> new StatusPresentation("Bases verificadas e atualizadas" + partial,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             case UPDATES_AVAILABLE -> new StatusPresentation("Atualizações de bases disponíveis" + partial,
@@ -111,7 +114,7 @@ final class ExternalSourcesStatusBar extends JPanel {
                     "Atualização disponível · aguardando o fim da validação" + partial,
                     WARNING, new OutlineIcon(OutlineIcon.Kind.WARNING, 18, WARNING));
             case APPLYING -> new StatusPresentation("Atualizando as bases verificadas…" + partial,
-                    WARNING, new OutlineIcon(OutlineIcon.Kind.REFRESH, 18, WARNING));
+                    WARNING, null);
             case RESTART_REQUIRED -> new StatusPresentation(
                     "Bases atualizadas · reinicie para usar as novas versões" + partial,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));

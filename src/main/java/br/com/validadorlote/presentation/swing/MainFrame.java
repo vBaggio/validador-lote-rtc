@@ -104,8 +104,7 @@ public final class MainFrame extends JFrame implements MainView {
 
     @Override
     public void showRestartRequired(ExternalSourcesSnapshot snapshot) {
-        JOptionPane.showMessageDialog(this,
-                "As bases foram atualizadas. Reinicie o aplicativo para usar as novas versões.",
-                "Reinício necessário", JOptionPane.INFORMATION_MESSAGE);
+        externalSourcesDialog.showSnapshot(snapshot);
+        externalSourcesDialog.toFront();
     }
 }

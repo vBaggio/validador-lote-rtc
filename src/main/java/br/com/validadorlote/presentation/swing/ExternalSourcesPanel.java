@@ -75,7 +75,7 @@ final class ExternalSourcesPanel extends JPanel {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setOpaque(false);
         scroll.setOpaque(false);
-        scroll.setPreferredSize(new Dimension(660, 300));
+        scroll.setPreferredSize(new Dimension(740, 340));
         add(scroll, BorderLayout.CENTER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -162,9 +162,9 @@ final class ExternalSourcesPanel extends JPanel {
                 closeAction.setEnabled(false);
             }
             case RESTART_REQUIRED -> {
-                primaryAction.setText("Fechar aplicativo");
+                primaryAction.setText("Encerrar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.ERROR));
-                closeAction.setText("Reiniciar depois");
+                closeAction.setText("Continuar e reiniciar depois");
             }
             case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION -> {
                 primaryAction.setText("Verificar agora");
@@ -182,7 +182,7 @@ final class ExternalSourcesPanel extends JPanel {
         switch (primaryAction.getText()) {
             case "Atualizar agora" -> applyAvailable.run();
             case "Tentar novamente" -> retry.run();
-            case "Fechar aplicativo" -> closeApplication.run();
+            case "Encerrar agora" -> closeApplication.run();
             case "Verificar agora" -> checkNow.run();
             default -> { }
         }

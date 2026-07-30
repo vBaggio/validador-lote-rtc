@@ -23,6 +23,7 @@ class ExternalSourcesStatusBarTest {
             statusBar.showSnapshot(snapshot(ExternalSourcesPhase.CHECKING, 0, 0));
             assertThat(statusBar.statusText()).isEqualTo("Consultando atualizações das bases…");
             assertThat(statusBar.isSpinnerRunning()).isTrue();
+            assertThat(statusBar.statusIcon()).isNull();
 
             statusBar.showSnapshot(snapshot(ExternalSourcesPhase.UPDATES_AVAILABLE, 1, 1));
             assertThat(statusBar.statusText())
