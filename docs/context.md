@@ -16,7 +16,7 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 
 1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após o
    boot, o agendamento automático do canal B6 pode consultar metadados e artefatos normativos nas
-   fontes oficiais no máximo uma vez a cada 24 horas; a ação manual **Verificar agora** não se
+   fontes oficiais no máximo uma vez a cada 4 horas; a ação manual **Verificar agora** não se
    submete a essa janela. A validação do lote continua local. A consulta só prepara candidatas: a
    ativação exige confirmação global do usuário, ocorre fora de uma validação e entra nos engines
    somente após reinício. A consulta tem prazo também para o corpo HTTP; falhas e rejeições de

@@ -19,7 +19,7 @@ carregado no boot. O reinício é obrigatório para carregar as versões ativada
 ## Fluxo normal
 
 1. Depois de a janela ficar visível, a consulta automática verifica schemas e tabela. O intervalo
-   de 24 horas vale apenas para a consulta automática; **Verificar agora** é uma ação manual.
+   de 4 horas vale apenas para a consulta automática; **Verificar agora** é uma ação manual.
 2. Cada fonte é baixada somente por HTTPS allowlisted, com redirects controlados, limite de tamanho
    e prazo que cobre conexão, resposta e leitura do corpo.
 3. O artefato é validado em `versions/<versão>`: estrutura confinada, sem symlinks, hash e formato;

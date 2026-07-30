@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 /** Coordena consulta, preparação e ativação sem trocar engines já montados na sessão. */
 public final class ArtifactUpdateCoordinator {
 
-    public static final Duration DEFAULT_INTERVAL = Duration.ofHours(24);
+    public static final Duration DEFAULT_INTERVAL = Duration.ofHours(4);
 
     private final List<ArtifactUpdateAction> actions;
     private final Map<ArtifactId, ArtifactUpdateAction> actionsByArtifact;

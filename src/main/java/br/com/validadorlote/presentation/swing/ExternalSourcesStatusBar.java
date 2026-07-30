@@ -42,6 +42,7 @@ final class ExternalSourcesStatusBar extends JPanel {
         actions.setOpaque(false);
         configureButton(this.openSources, new OutlineIcon(OutlineIcon.Kind.DATABASE),
                 "Abrir detalhes das bases e atualizações", openSources);
+        this.openSources.setText("");
         configureButton(this.retry, new OutlineIcon(OutlineIcon.Kind.REFRESH),
                 "Tentar consultar as bases novamente", retry);
         this.retry.setText("");
@@ -81,6 +82,10 @@ final class ExternalSourcesStatusBar extends JPanel {
 
     String retryText() {
         return retry.getText();
+    }
+
+    String openSourcesText() {
+        return openSources.getText();
     }
 
     String retryTooltip() {

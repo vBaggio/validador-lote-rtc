@@ -41,6 +41,7 @@ class ExternalSourcesStatusBarTest {
             ExternalSourcesStatusBar statusBar = statusBar(retries::incrementAndGet);
             statusBar.showSnapshot(snapshot(ExternalSourcesPhase.FAILED, 0, 2));
 
+            assertThat(statusBar.openSourcesText()).isEmpty();
             assertThat(statusBar.retryText()).isEmpty();
             assertThat(statusBar.retryTooltip()).isEqualTo("Tentar consultar as bases novamente");
             statusBar.clickRetry();

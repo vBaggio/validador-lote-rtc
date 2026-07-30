@@ -38,6 +38,7 @@ final class ExternalSourcesPanel extends JPanel {
     private static final Color ERROR = new Color(225, 96, 96);
 
     private final JPanel sourceCards = new JPanel();
+    private final JLabel summary = new JLabel();
     private final JButton primaryAction = new JButton();
     private final JButton closeAction = new JButton();
     private final Runnable checkNow;
@@ -65,6 +66,9 @@ final class ExternalSourcesPanel extends JPanel {
         heading.add(title);
         heading.add(Box.createVerticalStrut(5));
         heading.add(subtitle);
+        summary.setVisible(false);
+        summary.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        heading.add(summary);
         add(heading, BorderLayout.NORTH);
 
         sourceCards.setLayout(new BoxLayout(sourceCards, BoxLayout.Y_AXIS));
@@ -92,6 +96,7 @@ final class ExternalSourcesPanel extends JPanel {
 
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
         rebuildCards(snapshot.sources());
+        configureSummary(snapshot.phase());
         configureActions(snapshot.phase());
     }
 
@@ -111,6 +116,23 @@ final class ExternalSourcesPanel extends JPanel {
         if (primaryAction.isVisible()) actions.add(primaryAction.getText());
         if (closeAction.isVisible()) actions.add(closeAction.getText());
         return actions;
+    }
+
+    String summaryText() {
+        return summary.getText();
+    }
+
+    private void configureSummary(ExternalSourcesPhase phase) {
+        if (phase == ExternalSourcesPhase.RESTART_REQUIRED) {
+            summary.setText("Atualização concluída. Reinicie o aplicativo para usar as novas versões.");
+            summary.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
+            summary.setForeground(SUCCESS);
+            summary.setVisible(true);
+        } else {
+            summary.setText("");
+            summary.setIcon(null);
+            summary.setVisible(false);
+        }
     }
 
     private void rebuildCards(List<ExternalSourceState> sources) {
@@ -240,14 +262,12 @@ final class ExternalSourcesPanel extends JPanel {
         return switch (source.phase()) {
             case NOT_CHECKED -> new Feedback("Ainda não verificada", MUTED,
                     new OutlineIcon(OutlineIcon.Kind.DATABASE, 18, MUTED));
-            case CHECKING -> new Feedback("Verificando atualização…", WARNING,
-                    new OutlineIcon(OutlineIcon.Kind.REFRESH, 18, WARNING));
+            case CHECKING -> new Feedback("Verificando atualização…", WARNING, null);
             case UP_TO_DATE -> new Feedback(detail == null ? "Base já está atualizada" : detail,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             case UPDATE_AVAILABLE -> new Feedback("Atualização disponível: " + source.candidateVersion(),
                     WARNING, new OutlineIcon(OutlineIcon.Kind.WARNING, 18, WARNING));
-            case APPLYING -> new Feedback("Aplicando atualização…", WARNING,
-                    new OutlineIcon(OutlineIcon.Kind.REFRESH, 18, WARNING));
+            case APPLYING -> new Feedback("Aplicando atualização…", WARNING, null);
             case APPLIED -> new Feedback("Atualização pronta para o próximo boot", SUCCESS,
                     new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             case FAILED -> new Feedback(detail == null ? "Não foi possível consultar esta fonte" : detail,

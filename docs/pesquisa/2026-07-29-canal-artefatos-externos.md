@@ -142,7 +142,7 @@ release/MSI.
 
 ## Decisões de produto ainda abertas
 
-- Intervalo padrão da checagem: a recomendação é 24 horas, mas pode ser ajustado.
+- Intervalo padrão da checagem: 4 horas; a ação manual continua sem aguardar o intervalo.
 - Aplicação imediata: recomendação é somente no próximo boot; hot reload exige sincronização de
   `SchemaValidatorEngine` e `RuleEngine` e deve ser permitido apenas sem lote em execução.
 - Política de contingência do ACBr: recomendação é não ativar automaticamente uma árvore que o

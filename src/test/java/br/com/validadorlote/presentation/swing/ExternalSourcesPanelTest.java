@@ -94,6 +94,8 @@ class ExternalSourcesPanelTest {
 
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(ExternalSourcesPhase.RESTART_REQUIRED, 0, 0));
             assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.RESTART_REQUIRED)).isTrue();
+            assertThat(panel.summaryText())
+                    .isEqualTo("Atualização concluída. Reinicie o aplicativo para usar as novas versões.");
         });
     }
 
