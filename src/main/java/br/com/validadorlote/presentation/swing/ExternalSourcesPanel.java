@@ -79,7 +79,7 @@ final class ExternalSourcesPanel extends JPanel {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setOpaque(false);
         scroll.setOpaque(false);
-        scroll.setPreferredSize(new Dimension(740, 340));
+        scroll.setPreferredSize(new Dimension(740, 380));
         add(scroll, BorderLayout.CENTER);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
