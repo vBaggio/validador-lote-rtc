@@ -65,8 +65,9 @@ operacional. O ciclo é `check → prepare → confirm → activate → restart`
 usuário autoriza `activate`; e somente o próximo processo carrega as novas bases nos engines. O
 schema verifica manifesto Ed25519, `releaseSequence`, hash e closure antes de preparar; a tabela
 fiscal mantém o canal SVRS próprio. Uma fonte pode falhar sem bloquear a candidata válida da outra,
-sempre preservando a referência ativa anterior. Enquanto endpoint/chave reais não forem publicados,
-o action de schemas é visivelmente desabilitado e a base embarcada continua em uso.
+sempre preservando a referência ativa anterior. O endpoint e a chave pública do canal são escolhas
+embarcadas no `App`; indisponibilidade do canal preserva a última `current` íntegra ou o fallback
+embarcado.
 
 `ExternalSourcesUseCase` agrega os eventos em snapshots imutáveis com revisão monotônica e é a
 única fonte de estado para presenter, rodapé e diálogo; observadores não são chamados sob lock e

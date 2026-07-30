@@ -814,15 +814,13 @@ coincidem; divergência vira `INVALID_CONTENT`; (2) o boot seleciona engine e pr
 `current` íntegra para rodapé e `BatchReport`, e o texto desabilitado distingue base curada/local
 da embarcada; (3) este ledger e `CURRENT.md` passaram a registrar Tasks 1–5 e a parada; (4)
 README/contexto passaram de 24 horas/fontes oficiais para 4 horas, canal curado e SVRS da tabela.
-O fechamento roda 497 testes. GATE HUMANO: não há repositório público de bases, endpoint estável,
-`keyId` ou chave pública reais; a consulta de schemas permanece desabilitada, sem canal produtivo
-ou fallback SVRS/ACBr.
+O fechamento roda 497 testes. Bootstrap externo concluído em 30/07/2026: repositório público
+`vBaggio/validador-lote-rtc-bases`, endpoint GitHub Pages, `keyId` `schemas-2026-01`, chave pública
+Ed25519 e release `010e_v1.02-r1` foram publicados e conferidos contra a canonicalização do cliente.
+O aplicativo passa a consultar somente esse canal; não há fallback SVRS/ACBr.
 
-### PARADA — 30/07/2026, correções da revisão ampla B7 prontas para re-revisão
+### PARADA — 30/07/2026, bootstrap publicado e cliente configurado
 
-Branch `bloco/7-canal-proprio-schemas`; o `HEAD` deve ser o commit
-`fix(b7): fecha revisão ampla do canal curado`, posterior a `0ab189c`, com árvore versionada limpa.
-O relatório do fix está em
-`.superpowers/sdd/2026-07-30-canal-proprio-schemas-curados/final-fix-report.md`. Próximo passo:
-revisão independente do diff `0ab189c..HEAD`; se não houver Critical/Important, devolver ao dono
-mantendo aberto o bootstrap externo e sem push, PR ou merge.
+Branch `bloco/7-canal-proprio-schemas`; o bootstrap do repositório de bases e a configuração do
+cliente foram verificados. Próximo passo: smoke runtime manual conforme
+`docs/operacao-canal-schemas-curados.md`, depois decisão explícita de push/PR/merge do aplicativo.

@@ -24,24 +24,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AppTest {
 
     @Test
-    void keepsEmbeddedSchemasExplicitlyActiveUntilRealBootstrapExists(@TempDir Path temp) {
+    void configuresThePublishedCuratedSchemaChannel(@TempDir Path temp) {
         SvrsTableUpdater tables = new SvrsTableUpdater(null, null, null, null);
         App.SchemaRuntime schemasRuntime = App.schemaRuntime(
                 new XsdErrorTranslator(), new SchemaArtifactStore(temp));
 
-        List<ArtifactUpdateAction> actions = App.updateActions(Optional.empty(),
-                "curated-schemas-disabled-v1", tables, schemasRuntime.activeManifest());
-        ArtifactCheckResult schemas = actions.getFirst().check();
+        List<ArtifactUpdateAction> actions = App.updateActions(App.schemaUpdater(
+                new SchemaArtifactStore(temp)), App.SCHEMA_CHANNEL_ID, tables,
+                schemasRuntime.activeManifest());
 
         assertThat(schemasRuntime.provenance()).isEqualTo(SchemasVersion.read());
         assertThat(schemasRuntime.activeManifest()).isEmpty();
         assertThat(actions).extracting(ArtifactUpdateAction::artifact)
                 .containsExactly(ArtifactId.NFE_SCHEMAS, ArtifactId.FISCAL_TABLES);
         assertThat(actions).extracting(ArtifactUpdateAction::channelId)
-                .containsExactly("curated-schemas-disabled-v1", "svrs-fiscal-table-v1");
-        assertThat(schemas.status()).isEqualTo(ArtifactCheckResult.Status.UP_TO_DATE);
-        assertThat(schemas.detail()).containsIgnoringCase("desabilitada")
-                .containsIgnoringCase("base embarcada");
+                .containsExactly(App.SCHEMA_CHANNEL_ID, "svrs-fiscal-table-v1");
+        assertThat(App.SCHEMA_MANIFEST_URI)
+                .isEqualTo(URI.create("https://vbaggio.github.io/validador-lote-rtc-bases/stable.json"));
+        assertThat(App.schemaUpdater(new SchemaArtifactStore(temp))).isPresent();
     }
 
     @Test

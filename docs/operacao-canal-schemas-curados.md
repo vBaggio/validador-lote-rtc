@@ -7,10 +7,11 @@ proveniência; não são transporte nem fallback runtime de schemas.
 
 ## Estado de publicação
 
-**Gate humano ainda aberto:** endpoint estável, repositório público, `keyId`, chave pública Ed25519
-embarcada e bootstrap revisado ainda não foram publicados. Portanto, o aplicativo atual deixa a
-consulta de schemas explicitamente desabilitada e continua validando com a base embarcada (ou a
-última `current` íntegra). Não há canal produtivo de schemas disponível nesta condição.
+**Canal publicado:** o repositório público é
+[`vBaggio/validador-lote-rtc-bases`](https://github.com/vBaggio/validador-lote-rtc-bases), com
+manifesto em `https://vbaggio.github.io/validador-lote-rtc-bases/stable.json`, `keyId`
+`schemas-2026-01` e chave pública Ed25519 embarcada. Indisponibilidade, assinatura inválida ou
+conteúdo incompatível não substitui a última `current` íntegra nem o fallback embarcado.
 
 O bootstrap precisa publicar uma release real revisada no repositório de bases, por exemplo
 `vBaggio/validador-lote-rtc-bases`, contendo `stable.json`, ZIP de fixture/release, manifesto e
@@ -76,8 +77,8 @@ carregados no processo.
 | Cliques concorrentes e timer de boot | Só uma operação é executada; o estado segue observável; uma consulta posterior é aceita depois do estado terminal. |
 | Remover `~/.validador-lote-rtc/artifacts/NFE_SCHEMAS` e o arquivo de estado | A próxima consulta manual baixa e prepara a release assinada `current`, sem comparar versão com a base embarcada. |
 
-Para o último cenário, o endpoint/chave reais precisam já ter passado o gate humano. Antes disso, o
-resultado correto é o estado desabilitado explícito, e não tentativa de SVRS/ACBr.
+O último cenário usa o endpoint publicado; qualquer falha de confiança permanece explícita e nunca
+faz tentativa de SVRS/ACBr como fallback.
 
 ## Limites deliberados
 

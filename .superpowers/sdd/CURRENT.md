@@ -3,19 +3,14 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
-- **Bloco:** B7 — Canal próprio de schemas curados — está em `bloco/7-canal-proprio-schemas`;
-  plano em `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–4 estão
-  completas nos commits `44e6d70`, `ab603e9`, `94a5790` e `854c3f4`, todas PASS/PASS após seus
-  fix loops; a Task 5 documental está em `0ab189c`. A revisão ampla `d569f0f..0ab189c` encontrou
-  quatro achados Important: replay divergente de sequência igual, proveniência embarcada indevida
-  após reinício com `current`, ledger/handoff incompletos e documentação ainda em 24 horas/fontes
-  oficiais. A correção integrada está no commit local de fechamento
-  `fix(b7): fecha revisão ampla do canal curado` e aguarda re-revisão independente no diff
-  `0ab189c..HEAD`. Gate humano obrigatório permanece aberto: ainda não há repositório público,
-  endpoint, `keyId` nem chave pública reais publicados. Assim, a consulta runtime de schemas fica
-  visivelmente desabilitada; o boot usa a última `current` íntegra quando existe e recorre à base
-  embarcada quando não existe. Não há fallback SVRS/ACBr nem canal produtivo disponível. Não fazer
-  push, PR ou merge.
+- **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
+  `bloco/7-canal-proprio-schemas`; plano em
+  `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–5 e a correção
+  integrada (`12f5821`) passaram em revisão ampla PASS/PASS. O bootstrap externo foi publicado em
+  `vBaggio/validador-lote-rtc-bases`: GitHub Pages, release `010e_v1.02-r1`, `keyId`
+  `schemas-2026-01` e chave pública Ed25519 agora são configuração embarcada do app. Não há
+  fallback SVRS/ACBr para schemas; indisponibilidade preserva `current` ou a base embarcada. Falta
+  somente o smoke runtime manual do dono antes de push/PR/merge do branch do aplicativo.
 
 - **Bloco:** B6 — Canal confiável de artefatos externos — está implementado em
   `bloco/6-canal-schemas`; o plano-base é

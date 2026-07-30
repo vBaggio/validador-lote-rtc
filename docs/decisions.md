@@ -27,11 +27,10 @@ a revisão observada toca o diretório relevante, o curador executa exatamente:
 svn log --xml -v -l 1 https://svn.code.sf.net/p/acbr/code/trunk2/Exemplos/ACBrDFe/Schemas/NFe/
 ```
 
-Uma revisão em outra área do ACBr não prova mudança nesse diretório. A publicação produtiva ainda
-depende do gate humano: criar/revisar o repositório público de bases, publicar endpoint estável,
-ZIP e `stable.json`, e embarcar `keyId`/chave pública reais. Até isso acontecer, a consulta runtime
-de schemas fica explicitamente desabilitada; não existe canal produtivo disponível e não há
-fallback para SVRS.
+Uma revisão em outra área do ACBr não prova mudança nesse diretório. O bootstrap inicial foi
+publicado em `vBaggio/validador-lote-rtc-bases`: endpoint GitHub Pages, ZIP, `stable.json`,
+`keyId` `schemas-2026-01` e chave pública Ed25519 foram revisados e embarcados. A manutenção do
+canal continua exigindo revisão humana de cada nova release; não há fallback para SVRS.
 
 ## D-050 — Consulta prepara; usuário ativa; engines mudam após reinício (30/07/2026)
 

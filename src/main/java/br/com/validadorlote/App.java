@@ -20,7 +20,9 @@ import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
+import br.com.validadorlote.infrastructure.xml.CuratedSchemaManifestParser;
 import br.com.validadorlote.infrastructure.xml.CuratedSchemaUpdater;
+import br.com.validadorlote.infrastructure.xml.Ed25519ManifestVerifier;
 import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
 import br.com.validadorlote.infrastructure.xml.SchemasVersion;
@@ -29,17 +31,26 @@ import br.com.validadorlote.infrastructure.xml.XmlMetadataParser;
 import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
 
 import java.nio.file.Path;
+import java.net.URI;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import br.com.validadorlote.presentation.swing.UiBootstrap;
 
 /** Ponto de entrada: monta o grafo de objetos e entrega à camada de apresentação. */
 public final class App {
 
-    private static final String DISABLED_SCHEMA_CHANNEL = "curated-schemas-disabled-v1";
+    static final String SCHEMA_CHANNEL_ID = "curated-schemas-stable-v1";
+    static final URI SCHEMA_MANIFEST_URI = URI.create(
+            "https://vbaggio.github.io/validador-lote-rtc-bases/stable.json");
+    private static final String SCHEMA_KEY_ID = "schemas-2026-01";
+    private static final String SCHEMA_PUBLIC_KEY =
+            "MCowBQYDK2VwAyEA20h//V2xUUkgSm+K7WjWLjWaXmmm6i6AB71DPBooSpQ=";
+    private static final String APP_VERSION = "0.1.0";
 
     private App() {}
 
@@ -94,9 +105,20 @@ public final class App {
             return thread;
         });
         return new ArtifactUpdateCoordinator(
-                updateActions(Optional.empty(), DISABLED_SCHEMA_CHANNEL, tables, activeSchemas),
+                updateActions(schemaUpdater(schemaStore), SCHEMA_CHANNEL_ID, tables, activeSchemas),
                 ArtifactUpdateCoordinator.DEFAULT_INTERVAL, Clock.systemUTC(), executor, event -> { },
                 updateState, ArtifactRetryPolicy.production());
+    }
+
+    /** Constrói o único canal runtime confiado; chave e hosts são escolhidos pelo aplicativo. */
+    static Optional<CuratedSchemaUpdater> schemaUpdater(SchemaArtifactStore store) {
+        return Optional.of(new CuratedSchemaUpdater(
+                SafeHttpsClient.forCuratedSchemaManifest(Set.of(SCHEMA_MANIFEST_URI.getHost())),
+                SafeHttpsClient.forCuratedSchemaZip(Set.of(SCHEMA_MANIFEST_URI.getHost())),
+                new CuratedSchemaManifestParser(),
+                new Ed25519ManifestVerifier(Map.of(SCHEMA_KEY_ID, SCHEMA_PUBLIC_KEY)),
+                new br.com.validadorlote.infrastructure.xml.SchemaZipExtractor(), store,
+                SCHEMA_CHANNEL_ID, SCHEMA_MANIFEST_URI, APP_VERSION));
     }
 
     static List<ArtifactUpdateAction> updateActions(Optional<CuratedSchemaUpdater> schemas,
