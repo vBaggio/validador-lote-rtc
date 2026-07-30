@@ -820,8 +820,11 @@ Ed25519 e release `010e_v1.02-r2` no canal `nfe-schemas` foram publicados e conf
 canonicalização do cliente; o ZIP carrega a árvore XSD completa.
 O aplicativo passa a consultar somente esse canal; não há fallback SVRS/ACBr.
 
-### PARADA — 30/07/2026, bootstrap publicado e cliente configurado
+### PARADA — 30/07/2026, entrega B7 validada em runtime
 
-Branch `bloco/7-canal-proprio-schemas`; o bootstrap do repositório de bases e a configuração do
-cliente foram verificados. Próximo passo: smoke runtime manual conforme
-`docs/operacao-canal-schemas-curados.md`, depois decisão explícita de push/PR/merge do aplicativo.
+Branch `bloco/7-canal-proprio-schemas`; o bootstrap do repositório de bases, a configuração do
+cliente e o smoke runtime manual foram verificados. O dono confirmou a primeira instalação da
+release `010e_v1.02-r2`, ativação confirmada e uso após reinício; detalhes locais em
+`tmp/runtime-smoke-canal-curado-2026-07-30.md`. As pendências evolutivas e o gate visual do
+instalador Windows foram registrados em `docs/operacao-canal-schemas-curados.md`. Em 30/07/2026,
+o dono autorizou push, abertura de PR e merge do aplicativo.

@@ -9,8 +9,10 @@
   integrada (`12f5821`) passaram em revisão ampla PASS/PASS. O bootstrap externo foi publicado em
   `vBaggio/validador-lote-rtc-bases`: GitHub Pages, canal `nfe-schemas`, release `010e_v1.02-r2`, `keyId`
   `schemas-2026-01` e chave pública Ed25519 agora são configuração embarcada do app. Não há
-  fallback SVRS/ACBr para schemas; indisponibilidade preserva `current` ou a base embarcada. Falta
-  somente o smoke runtime manual do dono antes de push/PR/merge do branch do aplicativo.
+  fallback SVRS/ACBr para schemas; indisponibilidade preserva `current` ou a base embarcada. O
+  smoke runtime foi validado pelo dono (registro em `tmp/runtime-smoke-canal-curado-2026-07-30.md`).
+  O dono autorizou push, PR e merge após a documentação das pendências pós-entrega; consultar
+  `docs/operacao-canal-schemas-curados.md` antes de publicar a branch.
 
 - **Bloco:** B6 — Canal confiável de artefatos externos — está implementado em
   `bloco/6-canal-schemas`; o plano-base é

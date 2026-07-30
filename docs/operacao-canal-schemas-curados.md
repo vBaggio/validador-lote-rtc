@@ -86,3 +86,25 @@ faz tentativa de SVRS/ACBr como fallback.
 Não há atualização automática do aplicativo, descoberta SVN/ACBr em runtime, fallback de schemas
 para SVRS/ACBr nem publicação automática do repositório de bases. Qualquer um desses itens exige
 decisão e plano de segurança próprios.
+
+## Pendências pós-entrega
+
+O fluxo entregue está validado em runtime e é seguro para a operação atual. Os itens abaixo são
+evoluções deliberadamente fora deste bloco; não impedem a publicação da release `010e_v1.02-r2`.
+
+1. **Ferramenta de curadoria/publicação.** Hoje a montagem do ZIP, cálculo do hash, assinatura e
+   publicação são um procedimento revisado e manual. Falta uma ferramenta reprodutível que valide
+   a closure, gere o manifesto canônico e use uma chave protegida fora dos repositórios.
+2. **Rotação e revogação de chave.** O cliente já seleciona chave por `keyId`, mas falta definir o
+   procedimento operacional de inclusão, transição e remoção de chaves confiadas, incluindo backup
+   e recuperação da chave de assinatura.
+3. **Monitoramento de fontes para o curador.** A consulta de mudanças no diretório de schemas do
+   ACBr e a conferência da fonte oficial continuam manuais. Não há robô que publique conteúdo de
+   terceiros, nem deve haver sem uma revisão humana da closure e da vigência fiscal.
+4. **Novos tipos de artefato.** A estrutura externa já nasce por canal (`channels/<artefato>/`) e
+   pode hospedar, por exemplo, uma tabela curada de importação. Cada artefato novo ainda precisa de
+   seu próprio `ArtifactId`, contrato, validação, armazenamento, UI e critérios fiscais; schemas
+   não devem ser reutilizados como validação genérica.
+5. **Gate visual do instalador Windows.** O smoke desta entrega foi feito no runtime do
+   desenvolvedor. A validação da distribuição instalada no Windows (100%, 125% e 150% de DPI,
+   diálogo, reinício e recuperação de rede) permanece como aceite de release do instalador.
