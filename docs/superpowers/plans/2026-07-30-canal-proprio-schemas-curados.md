@@ -367,7 +367,9 @@ Document exact expected outcomes for:
 2. valid newer release: candidate appears, confirmation activates it, success appears above the bases dialog, restart is requested, and next boot loads the new closure;
 3. ZIP hash/signature/redirect/ZIP traversal failure: no candidate, no staging/current mutation, visible invalid-source failure;
 4. signed release with broken/incompatible closure or `minimumAppVersion` too new: clear “estrutura não suportada” feedback, prior base stays active, table updates still proceed, no restart latch for schemas;
-5. replay/lower sequence: explicit rollback rejection and prior base remains active;
+5. lower sequence or equal sequence with divergent signed identity/ZIP hash: explicit rollback or
+   conflict rejection and prior base remains active; an exactly identical equal sequence is
+   `UP_TO_DATE`;
 6. concurrent clicks/boot timer: one operation only, status continues observable, later check releases after terminal state;
 7. delete `~/.validador-lote-rtc/artifacts/NFE_SCHEMAS` and state file: next manual consultation downloads/prepares the signed current release, without relying on embedded version comparison.
 

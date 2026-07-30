@@ -120,6 +120,11 @@ public final class CuratedSchemaUpdater {
         ArtifactManifest active = store.activeManifestOrNull();
         if (active == null || !channelId.equals(active.channelId())) return null;
         if (release.releaseSequence() == active.releaseSequence()) {
+            if (!sameSignedRelease(active, release)) {
+                throw ArtifactUpdateException.invalidContent(
+                        "Manifesto do canal de schemas usa a mesma sequência, "
+                                + "mas diverge da release ativa");
+            }
             return ArtifactCheckResult.upToDate(
                     "O canal curado já está na sequência ativa");
         }
@@ -130,17 +135,32 @@ public final class CuratedSchemaUpdater {
         return null;
     }
 
+    private boolean sameSignedRelease(ArtifactManifest active,
+            CuratedSchemaChannelManifest.SignedRelease release) {
+        if (!active.zipSha256().equals(release.zipSha256())
+                || active.signedReleaseSha256().isEmpty()) {
+            return false;
+        }
+        byte[] canonicalSigned = parser.canonicalSignedBytes(
+                new CuratedSchemaChannelManifest(1, "identity", release, "identity"));
+        byte[] expected = HexFormat.of().parseHex(active.signedReleaseSha256());
+        return MessageDigest.isEqual(expected, sha256(canonicalSigned));
+    }
+
     private static void verifyZipHash(byte[] downloadedZip, String expectedHex) {
         byte[] expected = HexFormat.of().parseHex(expectedHex);
-        byte[] actual;
-        try {
-            actual = MessageDigest.getInstance("SHA-256").digest(downloadedZip);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 indisponível", e);
-        }
+        byte[] actual = sha256(downloadedZip);
         if (!MessageDigest.isEqual(expected, actual)) {
             throw ArtifactUpdateException.invalidContent(
                     "O hash SHA-256 do ZIP de schemas não confere");
+        }
+    }
+
+    private static byte[] sha256(byte[] content) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(content);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 indisponível", e);
         }
     }
 

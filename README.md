@@ -10,10 +10,12 @@ quanto à estrutura exigida para os grupos IBS/CBS da Reforma Tributária do Con
 ## Privacidade
 
 A análise acontece localmente, no computador em que o aplicativo está aberto. Não há cadastro,
-telemetria ou envio de XMLs. Após o boot, e no máximo uma vez a cada 24 horas, o aplicativo pode
-consultar metadados e artefatos normativos nas fontes oficiais; **Fontes externas** também permite
-pedir essa verificação manualmente. A rotina nunca envia documentos, chaves, CNPJ ou conteúdo do
-lote. Os documentos permanecem na sua máquina.
+telemetria ou envio de XMLs. Após o boot, e no máximo uma vez a cada 4 horas, o aplicativo pode
+consultar a tabela fiscal no canal SVRS e, quando o bootstrap humano for publicado, o manifesto e
+o ZIP assinados do canal próprio de schemas curados; **Fontes externas** também permite pedir essa
+verificação manualmente. Até endpoint e chave reais passarem por esse gate humano, a consulta de
+schemas permanece desabilitada e somente a tabela fiscal usa rede. A rotina nunca envia
+documentos, chaves, CNPJ ou conteúdo do lote. Os documentos permanecem na sua máquina.
 
 ## O que o aplicativo faz
 

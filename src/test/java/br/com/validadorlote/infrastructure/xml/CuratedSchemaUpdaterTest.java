@@ -190,15 +190,57 @@ class CuratedSchemaUpdaterTest {
     }
 
     @Test
-    void returnsUpToDateOnlyForTheEqualActiveSequenceWithoutDownloadingTheZip()
+    void returnsUpToDateOnlyWhenEqualSequenceHasTheSameSignedIdentityWithoutDownloadingTheZip()
             throws IOException {
-        installAndActivateRelease(7);
-        transport.respond(MANIFEST_URI, signedManifest(release(7, "a".repeat(64))));
+        byte[] activeZip = installAndActivateRelease(7);
+        transport.respond(MANIFEST_URI,
+                signedManifest(release(7, sha256(activeZip))));
 
         ArtifactCheckResult result = updater.check();
 
         assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UP_TO_DATE);
         assertThat(result.candidate()).isNull();
+        assertThat(transport.requests()).containsExactly(MANIFEST_URI);
+        assertThat(store.activeManifestOrNull().version()).isEqualTo("rtc-7");
+    }
+
+    @Test
+    void rejectsEqualSequenceWhoseSignedZipHashDiffersFromTheActiveRelease()
+            throws IOException {
+        installAndActivateRelease(7);
+        transport.respond(MANIFEST_URI,
+                signedManifest(release(7, "b".repeat(64))));
+
+        ArtifactUpdateException failure = captureUpdateFailure(updater::check);
+
+        assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.INVALID_CONTENT);
+        assertThat(failure.getMessage()).contains("mesma sequência", "diverge");
+        assertThat(transport.requests()).containsExactly(MANIFEST_URI);
+        assertThat(store.activeManifestOrNull().version()).isEqualTo("rtc-7");
+    }
+
+    @Test
+    void rejectsEqualSequenceWhoseCanonicalSignedIdentityDiffersFromTheActiveRelease()
+            throws IOException {
+        byte[] activeZip = installAndActivateRelease(7);
+        CuratedSchemaChannelManifest.SignedRelease active =
+                release(7, sha256(activeZip));
+        CuratedSchemaChannelManifest.SignedRelease changed =
+                new CuratedSchemaChannelManifest.SignedRelease(
+                        active.artifact(),
+                        active.releaseSequence(),
+                        active.version(),
+                        active.publishedAt().plusSeconds(1),
+                        active.minimumAppVersion(),
+                        active.zipUrl(),
+                        active.zipSha256(),
+                        active.sourceProvenance());
+        transport.respond(MANIFEST_URI, signedManifest(changed));
+
+        ArtifactUpdateException failure = captureUpdateFailure(updater::check);
+
+        assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.INVALID_CONTENT);
+        assertThat(failure.getMessage()).contains("mesma sequência", "diverge");
         assertThat(transport.requests()).containsExactly(MANIFEST_URI);
         assertThat(store.activeManifestOrNull().version()).isEqualTo("rtc-7");
     }
@@ -376,7 +418,7 @@ class CuratedSchemaUpdaterTest {
         return body;
     }
 
-    private void installAndActivateRelease(long sequence) throws IOException {
+    private byte[] installAndActivateRelease(long sequence) throws IOException {
         byte[] body = validZip();
         Path extracted = zip.extract(body);
         try {
@@ -387,6 +429,7 @@ class CuratedSchemaUpdaterTest {
             delete(extracted);
         }
         transport.clearRequests();
+        return body;
     }
 
     private CuratedSchemaChannelManifest.SignedRelease release(long sequence, String hash) {

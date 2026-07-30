@@ -71,7 +71,8 @@ carregados no processo.
 | Release válida com sequência maior | A candidata aparece; após confirmação ela é ativada; o sucesso fica visível acima do diálogo de bases; é solicitado reinício; no boot seguinte a nova closure é carregada. |
 | Hash do ZIP, assinatura, redirect ou traversal de ZIP inválido | Não há candidata; staging e `current` não mudam; a fonte inválida fica visível como falha recuperável. |
 | Release assinada com closure quebrada/incompatível ou `minimumAppVersion` maior | O feedback diz **estrutura não suportada**; a base anterior permanece ativa; atualização de tabela ainda pode prosseguir; schemas não armam reinício necessário. |
-| Replay ou `releaseSequence` menor | Há rejeição explícita de rollback; a base anterior permanece ativa. |
+| Mesma `releaseSequence` e mesma identidade assinada/hash do ZIP | A fonte fica em dia sem baixar nem extrair o ZIP novamente. |
+| `releaseSequence` menor ou igual com identidade/hash divergente | Há rejeição explícita de rollback/conflito; a base anterior permanece ativa. |
 | Cliques concorrentes e timer de boot | Só uma operação é executada; o estado segue observável; uma consulta posterior é aceita depois do estado terminal. |
 | Remover `~/.validador-lote-rtc/artifacts/NFE_SCHEMAS` e o arquivo de estado | A próxima consulta manual baixa e prepara a release assinada `current`, sem comparar versão com a base embarcada. |
 

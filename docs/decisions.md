@@ -16,7 +16,9 @@ proveniência, e a tabela fiscal conserva seu canal SVRS independente.
 O manifesto assinado com Ed25519 autentica o conteúdo aprovado, não apenas o host HTTPS. A
 `releaseSequence` estritamente crescente é a ordem anti-rollback; `publishedAt` é auditoria, não
 critério de confiança. Assinatura inválida, hash divergente, redirect não permitido, ZIP inseguro,
-estrutura incompatível ou sequência repetida/menor falham antes de substituir `current`.
+estrutura incompatível, sequência menor ou sequência igual com identidade assinada divergente
+falham antes de substituir `current`. Sequência igual só significa “em dia” quando hash do ZIP e
+identidade canônica de `signed` coincidem com a release ativa.
 
 O ACBr é evidência manual de curadoria, nunca transporte nem fallback runtime. Para verificar que
 a revisão observada toca o diretório relevante, o curador executa exatamente:

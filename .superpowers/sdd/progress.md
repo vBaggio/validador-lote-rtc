@@ -779,11 +779,50 @@ implementadas localmente; a Task 45 aguarda revisão independente. Nada deve ser
 Depois da revisão, o próximo passo autorizado é somente o smoke manual do dono no Windows e a
 decisão explícita de publicação/PR.
 
-Task 5 (b7): implementada; aguardando revisão independente — decisão D-051 e operação do canal
-curado registram Ed25519, `releaseSequence`, curadoria manual por diff/compilação, checklist de
-release e aceite de runtime. D-047/D-049 foram substituídas somente para runtime de schemas: SVRS
-e ACBr ficam em pesquisa/proveniência, enquanto a tabela fiscal conserva SVRS. GATE HUMANO: não há
-repositório público de bases, endpoint estável, `keyId` ou chave pública reais; a consulta de
-schemas permanece explicitamente desabilitada e não há canal produtivo nem fallback SVRS. A Task
-5 só pode ser fechada como canal operacional depois de bootstrap externo revisado; a documentação
-e o commit local desta task não satisfazem esse gate.
+Task 1 (b7): complete (commit `44e6d70`, revisão independente PASS/PASS após 1 fix loop) —
+458 testes. ENTREGUE: contrato JSON estrito, canonicalização de `signed` e verificação Ed25519
+somente por `keyId`/chave pública injetados. ACHADO: `version` aceitava segmentos de diretório
+especiais/bordas inseguras e `minimumAppVersion` podia escapar do comparador; os formatos foram
+fechados e cobertos, inclusive contra coerção escalar e assinatura alterada.
+
+Task 2 (b7): complete (commit `ab603e9`, revisão independente PASS/PASS após 1 fix loop) —
+470 testes. ENTREGUE: `releaseSequence`, canal, proveniência, hash do ZIP e identidade canônica
+assinada persistidos; `prepare`/`activate` revalidam integridade e anti-rollback sem tocar
+`current` em falha. ACHADOS: uma release antiga já preparada ainda podia ser ativada sobre outra
+mais nova, e sequências iguais distintas eram ambíguas; a ativação passou a recomparar a base
+ativa e a idempotência exige versão, ZIP e identidade assinada iguais.
+
+Task 3 (b7): complete (commit `94a5790`, revisão independente PASS/PASS após 1 fix loop) —
+488 testes. ENTREGUE: aquisição somente por manifesto assinado e políticas HTTPS independentes,
+com gates de artefato/app/sequência, hash constante, extração segura e preparo sem ativação.
+ACHADO: falhas locais do staging/cleanup eram classificadas como conteúdo hostil ou mascaravam a
+falha primária; agora são `LOCAL_STORAGE`, e cleanup secundário fica suprimido.
+
+Task 4 (b7): complete (commit `854c3f4`, revisão independente PASS/PASS após 1 fix loop) —
+494 testes. ENTREGUE: runtime de schemas saiu da SVRS, incompatibilidade ganhou estado próprio e
+não bloqueia tabela fiscal; sem bootstrap real, o canal fica visivelmente desabilitado. ACHADO:
+o card da base embarcada ainda atribuía origem à antiga página SVRS; passou a usar a proveniência
+de `schemas-version.properties`.
+
+Task 5 (b7): implementação local complete (commit `0ab189c`; revisão ampla com correções em
+re-revisão) — D-051 e os guias registram curadoria manual, Ed25519, `releaseSequence`, checklist
+de publicação e aceite runtime. D-047/D-049 foram substituídas somente no transporte runtime de
+schemas; tabela fiscal continua no SVRS e SVRS/ACBr são apenas pesquisa/proveniência.
+REVISÃO AMPLA `d569f0f..0ab189c`: quatro achados Important foram corrigidos no fechamento local:
+(1) sequência ativa igual só é `UP_TO_DATE` quando `zipSha256` e SHA-256 canônico de `signed`
+coincidem; divergência vira `INVALID_CONTENT`; (2) o boot seleciona engine e proveniência da mesma
+`current` íntegra para rodapé e `BatchReport`, e o texto desabilitado distingue base curada/local
+da embarcada; (3) este ledger e `CURRENT.md` passaram a registrar Tasks 1–5 e a parada; (4)
+README/contexto passaram de 24 horas/fontes oficiais para 4 horas, canal curado e SVRS da tabela.
+O fechamento roda 497 testes. GATE HUMANO: não há repositório público de bases, endpoint estável,
+`keyId` ou chave pública reais; a consulta de schemas permanece desabilitada, sem canal produtivo
+ou fallback SVRS/ACBr.
+
+### PARADA — 30/07/2026, correções da revisão ampla B7 prontas para re-revisão
+
+Branch `bloco/7-canal-proprio-schemas`; o `HEAD` deve ser o commit
+`fix(b7): fecha revisão ampla do canal curado`, posterior a `0ab189c`, com árvore versionada limpa.
+O relatório do fix está em
+`.superpowers/sdd/2026-07-30-canal-proprio-schemas-curados/final-fix-report.md`. Próximo passo:
+revisão independente do diff `0ab189c..HEAD`; se não houver Critical/Important, devolver ao dono
+mantendo aberto o bootstrap externo e sem push, PR ou merge.

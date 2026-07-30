@@ -4,13 +4,18 @@
 > discordarem, o `git log` manda — atualize aqui.
 
 - **Bloco:** B7 — Canal próprio de schemas curados — está em `bloco/7-canal-proprio-schemas`;
-  plano em `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–4 foram
-  implementadas até `854c3f4`: manifesto Ed25519/`releaseSequence`, aquisição protegida e UI de
-  incompatibilidade, com tabela fiscal ainda no canal SVRS. **Task 5** documenta D-051, curadoria
-  e aceite; está em revisão independente. Gate humano obrigatório permanece aberto: ainda não há
-  repositório público, endpoint, `keyId` nem chave pública reais publicados. Assim, schemas ficam
-  visivelmente desabilitados no runtime, com a base embarcada ativa; não existe fallback SVRS/ACBr
-  nem canal produtivo disponível. Não fazer push, PR ou merge.
+  plano em `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–4 estão
+  completas nos commits `44e6d70`, `ab603e9`, `94a5790` e `854c3f4`, todas PASS/PASS após seus
+  fix loops; a Task 5 documental está em `0ab189c`. A revisão ampla `d569f0f..0ab189c` encontrou
+  quatro achados Important: replay divergente de sequência igual, proveniência embarcada indevida
+  após reinício com `current`, ledger/handoff incompletos e documentação ainda em 24 horas/fontes
+  oficiais. A correção integrada está no commit local de fechamento
+  `fix(b7): fecha revisão ampla do canal curado` e aguarda re-revisão independente no diff
+  `0ab189c..HEAD`. Gate humano obrigatório permanece aberto: ainda não há repositório público,
+  endpoint, `keyId` nem chave pública reais publicados. Assim, a consulta runtime de schemas fica
+  visivelmente desabilitada; o boot usa a última `current` íntegra quando existe e recorre à base
+  embarcada quando não existe. Não há fallback SVRS/ACBr nem canal produtivo disponível. Não fazer
+  push, PR ou merge.
 
 - **Bloco:** B6 — Canal confiável de artefatos externos — está implementado em
   `bloco/6-canal-schemas`; o plano-base é

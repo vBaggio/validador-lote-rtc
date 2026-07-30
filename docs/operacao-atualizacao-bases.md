@@ -93,8 +93,9 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
 7. Ao concluir, confira **Reinício necessário**. Feche e reabra o aplicativo; confirme no diálogo
    que a versão ativada passou a ser a referência em uso.
 8. Rode novamente sem atualização: a tabela idêntica deve ficar **verificada/atualizada**. Quando
-   o canal curado estiver configurado, uma sequência de schema menor ou repetida deve ser rejeitada
-   como rollback, nunca tratada como atualização ausente.
+   o canal curado estiver configurado, a mesma sequência só fica **verificada/atualizada** se hash
+   do ZIP e identidade assinada coincidirem com a base ativa. Sequência menor ou sequência igual
+   divergente deve ser rejeitada explicitamente, nunca tratada como atualização ausente.
 
 ## Critérios de aceite
 

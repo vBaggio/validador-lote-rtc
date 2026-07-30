@@ -15,10 +15,12 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 ## Princípios
 
 1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após o
-   boot, o agendamento automático do canal B6 pode consultar metadados e artefatos normativos nas
-   fontes oficiais no máximo uma vez a cada 4 horas; a ação manual **Verificar agora** não se
-   submete a essa janela. A validação do lote continua local. A consulta só prepara candidatas: a
-   ativação exige confirmação global do usuário, ocorre fora de uma validação e entra nos engines
+   boot, o agendamento automático pode consultar a tabela fiscal no canal SVRS e, depois do
+   bootstrap humano, o manifesto e o ZIP assinados do canal próprio de schemas curados, no máximo
+   uma vez a cada 4 horas; a ação manual **Verificar agora** não se submete a essa janela. Enquanto
+   endpoint e chave reais não forem publicados e revisados, a consulta de schemas permanece
+   visivelmente desabilitada. A validação do lote continua local. A consulta só prepara candidatas:
+   a ativação exige confirmação global do usuário, ocorre fora de uma validação e entra nos engines
    somente após reinício. A consulta tem prazo também para o corpo HTTP; falhas e rejeições de
    agendamento permanecem visíveis e recuperáveis, sem deixar uma base parcial ativa.
 2. **A ferramenta nunca decide tributo** — julgamento vem de artefato oficial (schemas; na v1, motor `regime-geral`).
