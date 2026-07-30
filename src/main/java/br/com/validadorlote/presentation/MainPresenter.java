@@ -32,7 +32,8 @@ public final class MainPresenter {
     private long workspaceGeneration;
     private long lastOfferedExternalSourcesRevision = -1;
     private long latestExternalSourcesRevision = -1;
-    private boolean applyingDialogOpened;
+    private boolean applyingDialogRequested;
+    private boolean externalSourcesDialogOpenPending;
     private boolean restartRequiredShown;
 
     private static final String ACTIVATION_IN_PROGRESS =
@@ -297,13 +298,13 @@ public final class MainPresenter {
         MainView attachedView = requireView();
         attachedView.showExternalSources(snapshot);
         if (snapshot.phase() == ExternalSourcesPhase.APPLYING) {
-            if (!applyingDialogOpened) {
-                applyingDialogOpened = true;
-                openExternalSourcesDialog();
+            if (!applyingDialogRequested) {
+                applyingDialogRequested = true;
+                deferExternalSourcesDialog();
             }
             return;
         }
-        applyingDialogOpened = false;
+        applyingDialogRequested = false;
         if (snapshot.phase() == ExternalSourcesPhase.UPDATES_AVAILABLE
                 && snapshot.revision() != lastOfferedExternalSourcesRevision) {
             lastOfferedExternalSourcesRevision = snapshot.revision();
@@ -318,7 +319,20 @@ public final class MainPresenter {
     }
 
     private void openExternalSourcesDialog() {
+        externalSourcesDialogOpenPending = false;
         requireView().openExternalSourcesDialog();
+    }
+
+    private void deferExternalSourcesDialog() {
+        if (externalSourcesDialogOpenPending) {
+            return;
+        }
+        externalSourcesDialogOpenPending = true;
+        uiThread.executeLater(() -> {
+            if (externalSourcesDialogOpenPending) {
+                openExternalSourcesDialog();
+            }
+        });
     }
 
     private MainView requireView() {

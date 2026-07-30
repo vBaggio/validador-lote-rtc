@@ -43,6 +43,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MainPresenterTest {
 
+    private static final UiThread DIRECT_UI_THREAD = new UiThread() {
+        @Override public void execute(Runnable action) { action.run(); }
+        @Override public void executeLater(Runnable action) { action.run(); }
+    };
+
     private final List<String> calls = new ArrayList<>();
     private List<WorkspaceDocument> lastWorkspace = List.of();
     private MainPresenter presenter;
@@ -60,6 +65,7 @@ class MainPresenterTest {
         private boolean acceptUpdate;
         private boolean confirmOnUiThread;
         private boolean errorOnUiThread;
+        private boolean failIfDialogOpensBeforeTerminalSnapshot;
 
         @Override
         public void showIdle() {
@@ -92,6 +98,11 @@ class MainPresenterTest {
         @Override
         public void openExternalSourcesDialog() {
             calls.add("open-sources");
+            if (failIfDialogOpensBeforeTerminalSnapshot
+                    && !calls.contains("sources 2 RESTART_REQUIRED")) {
+                throw new IllegalStateException(
+                        "A abertura modal bloqueou a entrega do snapshot terminal");
+            }
         }
 
         @Override
@@ -110,7 +121,7 @@ class MainPresenterTest {
 
     @BeforeEach
     void setUp() {
-        presenter = new MainPresenter(useCase(), Runnable::run, Runnable::run);
+        presenter = new MainPresenter(useCase(), DIRECT_UI_THREAD, Runnable::run);
         presenter.attach(fakeView);
     }
 
@@ -194,7 +205,7 @@ class MainPresenterTest {
         copyFixture(dir, "nfe-valida.xml", "a.xml");
         var queued = new ArrayList<Runnable>();
         Executor deferredBackground = queued::add;
-        var deferredPresenter = new MainPresenter(useCase(), Runnable::run, deferredBackground);
+        var deferredPresenter = new MainPresenter(useCase(), DIRECT_UI_THREAD, deferredBackground);
         deferredPresenter.attach(fakeView);
 
         deferredPresenter.inputChosen(dir);
@@ -226,7 +237,7 @@ class MainPresenterTest {
                 java.time.Clock.systemUTC(), Runnable::run, event -> { }, state);
         var sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(dir),
                 new FiscalTableArtifactStore(dir));
-        var sourcePresenter = new MainPresenter(useCase(), Runnable::run, Runnable::run, sources);
+        var sourcePresenter = new MainPresenter(useCase(), DIRECT_UI_THREAD, Runnable::run, sources);
         sourcePresenter.attach(fakeView);
 
         sourcePresenter.externalSourcesRequested();
@@ -258,6 +269,7 @@ class MainPresenterTest {
         fakeView.acceptUpdate = true;
 
         sourcesPublishUpdateAvailable();
+        recordingUiThread.runDeferredActions();
 
         assertThat(calls).containsSubsequence("confirm-update", "open-sources");
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
@@ -331,10 +343,29 @@ class MainPresenterTest {
                 "Tabela preparada");
 
         sourcesPublishUpdateAvailable();
+        recordingUiThread.runDeferredActions();
 
         assertThat(calls).filteredOn("open-sources"::equals).hasSize(1);
         assertThat(schemasAction.applyCalls).isOne();
         assertThat(tablesAction.applyCalls).isOne();
+    }
+
+    @Test
+    void modalDialogOpeningWaitsForTheSynchronousSnapshotDrainToReturn(@TempDir Path dir) {
+        configureExternalSources(dir, false);
+        fakeView.acceptUpdate = true;
+        fakeView.failIfDialogOpensBeforeTerminalSnapshot = true;
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).containsSubsequence(
+                "sources 2 APPLYING",
+                "sources 2 RESTART_REQUIRED");
+        assertThat(calls).doesNotContain("open-sources");
+
+        recordingUiThread.runDeferredActions();
+
+        assertThat(calls).endsWith("open-sources");
     }
 
     @Test
@@ -490,6 +521,7 @@ class MainPresenterTest {
 
         private int executions;
         private boolean executing;
+        private final Deque<Runnable> deferredActions = new ArrayDeque<>();
 
         @Override
         public void execute(Runnable action) {
@@ -502,6 +534,17 @@ class MainPresenterTest {
                 executing = previous;
             }
         }
+
+        @Override
+        public void executeLater(Runnable action) {
+            deferredActions.addLast(action);
+        }
+
+        private void runDeferredActions() {
+            while (!deferredActions.isEmpty()) {
+                execute(deferredActions.removeFirst());
+            }
+        }
     }
 
     private static final class QueuedUiThread implements UiThread {
@@ -510,6 +553,11 @@ class MainPresenterTest {
 
         @Override
         public void execute(Runnable action) {
+            actions.addLast(action);
+        }
+
+        @Override
+        public void executeLater(Runnable action) {
             actions.addLast(action);
         }
 

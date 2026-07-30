@@ -49,6 +49,7 @@ final class ExternalSourcesDialog extends JDialog {
     }
 
     void open() {
+        if (isVisible()) return;
         setLocationRelativeTo(getOwner());
         setVisible(true);
     }

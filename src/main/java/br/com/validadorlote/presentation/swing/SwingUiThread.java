@@ -15,4 +15,9 @@ public final class SwingUiThread implements UiThread {
             SwingUtilities.invokeLater(action);
         }
     }
+
+    @Override
+    public void executeLater(Runnable action) {
+        SwingUtilities.invokeLater(action);
+    }
 }
