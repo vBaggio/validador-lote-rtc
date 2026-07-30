@@ -107,6 +107,14 @@ class SchemaZipExtractorTest {
     }
 
     @Test
+    void rejectsCaseInsensitiveCollisionsInTheFinalPortablePath() throws Exception {
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(zip(Map.of(
+                "NFe/originais/dfetiposbasicos_v1.00.xsd", EMPTY_SCHEMA))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("colisão", "maiúsculas");
+    }
+
+    @Test
     void rejectsMoreThanTheMaximumNumberOfEntries() throws Exception {
         Map<String, byte[]> entries = releaseEntries();
         for (int index = 0; index < 2_995; index++) {
@@ -125,11 +133,66 @@ class SchemaZipExtractorTest {
 
     @Test
     void rejectsUnixSymbolicLinkEntriesBeforeWritingTheClosure() throws Exception {
-        byte[] hostile = zip(Map.of("link", "target".getBytes()));
+        byte[] hostile = zip(Map.of("NFe/link.xsd", EMPTY_SCHEMA));
         markLastCentralDirectoryEntryAsSymlink(hostile);
 
         assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("link simbólico");
+    }
+
+    @Test
+    void rejectsSymlinkEvenWhenEocdEntryCountersAreForgedToZero() throws Exception {
+        byte[] hostile = zip(Map.of("NFe/link.xsd", EMPTY_SCHEMA));
+        markLastCentralDirectoryEntryAsSymlink(hostile);
+        int end = endOfCentralDirectory(hostile);
+        writeLittleEndianShort(hostile, end + 8, 0);
+        writeLittleEndianShort(hostile, end + 10, 0);
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diretório central");
+    }
+
+    @Test
+    void rejectsTrailingBytesThatAreNotDeclaredAsTheEocdComment() throws Exception {
+        byte[] valid = zip(Map.of());
+        byte[] hostile = java.util.Arrays.copyOf(valid, valid.length + 1);
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diretório central");
+    }
+
+    @Test
+    void rejectsAForgedEmptyEocdAppendedAfterTheRealArchive() throws Exception {
+        byte[] valid = zip(Map.of());
+        byte[] hostile = java.util.Arrays.copyOf(valid, valid.length + 22);
+        writeLittleEndianInt(hostile, valid.length, 0x06054b50);
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diretório central");
+    }
+
+    @Test
+    void rejectsCentralDirectoryWhoseDeclaredSizeExceedsTheArchive() throws Exception {
+        byte[] hostile = zip(Map.of());
+        int end = endOfCentralDirectory(hostile);
+        writeLittleEndianInt(hostile, end + 12, Integer.MAX_VALUE);
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diretório central");
+    }
+
+    @Test
+    void rejectsDifferentNamesInLocalAndCentralDirectoryEntries() throws Exception {
+        byte[] hostile = zip(Map.of("NFe/portable-a.xsd", EMPTY_SCHEMA));
+        replaceAsciiOccurrence(hostile, "portable-a", "portable-b", 2);
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diretório central");
     }
 
     static byte[] zip(Map<String, byte[]> extras) throws IOException {
@@ -186,10 +249,16 @@ class SchemaZipExtractorTest {
     }
 
     private static void replaceAscii(byte[] bytes, String original, String replacement) {
+        int replacements = replaceAsciiOccurrence(bytes, original, replacement, 0);
+        assertThat(replacements).isEqualTo(2);
+    }
+
+    private static int replaceAsciiOccurrence(byte[] bytes, String original,
+            String replacement, int targetOccurrence) {
         byte[] from = original.getBytes(StandardCharsets.US_ASCII);
         byte[] to = replacement.getBytes(StandardCharsets.US_ASCII);
         if (from.length != to.length) throw new IllegalArgumentException("Tamanhos distintos");
-        int replacements = 0;
+        int occurrences = 0;
         for (int offset = 0; offset <= bytes.length - from.length; offset++) {
             boolean match = true;
             for (int index = 0; index < from.length; index++) {
@@ -199,10 +268,13 @@ class SchemaZipExtractorTest {
                 }
             }
             if (!match) continue;
-            System.arraycopy(to, 0, bytes, offset, to.length);
-            replacements++;
+            occurrences++;
+            if (targetOccurrence == 0 || occurrences == targetOccurrence) {
+                System.arraycopy(to, 0, bytes, offset, to.length);
+            }
         }
-        assertThat(replacements).isEqualTo(2);
+        if (targetOccurrence > 0) assertThat(occurrences).isEqualTo(2);
+        return occurrences;
     }
 
     private void delete(Path root) throws IOException {
@@ -243,5 +315,17 @@ class SchemaZipExtractorTest {
     private int littleEndianInt(byte[] bytes, int offset) {
         return Byte.toUnsignedInt(bytes[offset]) | (Byte.toUnsignedInt(bytes[offset + 1]) << 8)
                 | (Byte.toUnsignedInt(bytes[offset + 2]) << 16) | (Byte.toUnsignedInt(bytes[offset + 3]) << 24);
+    }
+
+    private void writeLittleEndianShort(byte[] bytes, int offset, int value) {
+        bytes[offset] = (byte) value;
+        bytes[offset + 1] = (byte) (value >>> 8);
+    }
+
+    private void writeLittleEndianInt(byte[] bytes, int offset, int value) {
+        bytes[offset] = (byte) value;
+        bytes[offset + 1] = (byte) (value >>> 8);
+        bytes[offset + 2] = (byte) (value >>> 16);
+        bytes[offset + 3] = (byte) (value >>> 24);
     }
 }

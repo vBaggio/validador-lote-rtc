@@ -35,7 +35,7 @@ class AppTest {
                 manifest.signature());
 
         assertThat(manifest.keyId()).isEqualTo("schemas-2026-01");
-        assertThat(manifest.signed().version()).isEqualTo("010e_v1.02-r1");
+        assertThat(manifest.signed().version()).isEqualTo("010e_v1.02-r2");
     }
 
     @Test
@@ -55,7 +55,7 @@ class AppTest {
         assertThat(actions).extracting(ArtifactUpdateAction::channelId)
                 .containsExactly(App.SCHEMA_CHANNEL_ID, "svrs-fiscal-table-v1");
         assertThat(App.SCHEMA_MANIFEST_URI)
-                .isEqualTo(URI.create("https://vbaggio.github.io/validador-lote-rtc-bases/stable.json"));
+                .isEqualTo(URI.create("https://vbaggio.github.io/validador-lote-rtc-bases/channels/nfe-schemas/stable.json"));
         assertThat(App.schemaUpdater(new SchemaArtifactStore(temp))).isPresent();
     }
 

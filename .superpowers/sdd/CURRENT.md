@@ -7,7 +7,7 @@
   `bloco/7-canal-proprio-schemas`; plano em
   `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–5 e a correção
   integrada (`12f5821`) passaram em revisão ampla PASS/PASS. O bootstrap externo foi publicado em
-  `vBaggio/validador-lote-rtc-bases`: GitHub Pages, release `010e_v1.02-r1`, `keyId`
+  `vBaggio/validador-lote-rtc-bases`: GitHub Pages, canal `nfe-schemas`, release `010e_v1.02-r2`, `keyId`
   `schemas-2026-01` e chave pública Ed25519 agora são configuração embarcada do app. Não há
   fallback SVRS/ACBr para schemas; indisponibilidade preserva `current` ou a base embarcada. Falta
   somente o smoke runtime manual do dono antes de push/PR/merge do branch do aplicativo.

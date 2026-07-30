@@ -816,7 +816,8 @@ da embarcada; (3) este ledger e `CURRENT.md` passaram a registrar Tasks 1–5 e 
 README/contexto passaram de 24 horas/fontes oficiais para 4 horas, canal curado e SVRS da tabela.
 O fechamento roda 497 testes. Bootstrap externo concluído em 30/07/2026: repositório público
 `vBaggio/validador-lote-rtc-bases`, endpoint GitHub Pages, `keyId` `schemas-2026-01`, chave pública
-Ed25519 e release `010e_v1.02-r1` foram publicados e conferidos contra a canonicalização do cliente.
+Ed25519 e release `010e_v1.02-r2` no canal `nfe-schemas` foram publicados e conferidos contra a
+canonicalização do cliente; o ZIP carrega a árvore XSD completa.
 O aplicativo passa a consultar somente esse canal; não há fallback SVRS/ACBr.
 
 ### PARADA — 30/07/2026, bootstrap publicado e cliente configurado

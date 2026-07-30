@@ -46,7 +46,7 @@ public final class App {
 
     static final String SCHEMA_CHANNEL_ID = "curated-schemas-stable-v1";
     static final URI SCHEMA_MANIFEST_URI = URI.create(
-            "https://vbaggio.github.io/validador-lote-rtc-bases/stable.json");
+            "https://vbaggio.github.io/validador-lote-rtc-bases/channels/nfe-schemas/stable.json");
     private static final String SCHEMA_KEY_ID = "schemas-2026-01";
     private static final String SCHEMA_PUBLIC_KEY =
             "MCowBQYDK2VwAyEA20h//V2xUUkgSm+K7WjWLjWaXmmm6i6AB71DPBooSpQ=";

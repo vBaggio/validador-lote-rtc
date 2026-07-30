@@ -9,11 +9,12 @@ proveniência; não são transporte nem fallback runtime de schemas.
 
 **Canal publicado:** o repositório público é
 [`vBaggio/validador-lote-rtc-bases`](https://github.com/vBaggio/validador-lote-rtc-bases), com
-manifesto em `https://vbaggio.github.io/validador-lote-rtc-bases/stable.json`, `keyId`
+manifesto em `https://vbaggio.github.io/validador-lote-rtc-bases/channels/nfe-schemas/stable.json`, `keyId`
 `schemas-2026-01` e chave pública Ed25519 embarcada. Indisponibilidade, assinatura inválida ou
 conteúdo incompatível não substitui a última `current` íntegra nem o fallback embarcado.
 
-O bootstrap já foi publicado como a release `010e_v1.02-r1`, sequência `1`, com ZIP imutável,
+O bootstrap já foi publicado como a release `010e_v1.02-r2`, sequência `2`, com a árvore XSD
+completa em ZIP imutável,
 manifesto e assinatura verificáveis pela chave pública embarcada. O teste offline do aplicativo
 preserva o `stable.json` publicado como fixture para detectar alteração acidental de `keyId` ou da
 chave confiada. Novas releases seguem o checklist abaixo e não alteram esse bootstrap.
