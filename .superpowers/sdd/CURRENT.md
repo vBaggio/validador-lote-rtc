@@ -27,8 +27,8 @@
   publica `010b`, logo a tela comunica “pacote compatível mais novo” ausente e mantém `010e` sem
   erro HTTPS. D-049 limita deliberadamente a atualização automática à família `010e`; sucessor
   exige task que revise roots/fixtures. `clean test` (377) e `jpackageImage` passaram e a
-  re-revisão foi PASS. O branch está um commit à frente do remoto; próximo passo é validação do
-  dono no Windows e, se aprovada, publicar/atualizar o PR. A pesquisa provisória
+  re-revisão foi PASS e o commit foi publicado em `origin/bloco/6-canal-schemas`; próximo passo é
+  validação do dono no Windows e, se aprovada, atualizar/abrir o PR. A pesquisa provisória
   está em `docs/pesquisa/2026-07-29-canal-artefatos-externos.md`:
   confirmou o espelho ACBr byte-idêntico à base candidata e detectou que a URL Gradle atual das
   tabelas SVRS retorna 404, enquanto a rota nova exige adaptação e regressão. O escopo cobre

@@ -62,10 +62,9 @@ demais DF-e ficam fora deste bloco, registrados na pesquisa de artefatos.
 
 ### PARADA — 30/07/2026, Task 36 concluída
 
-HEAD da Task 36 em `bloco/6-canal-schemas`, um commit à frente de
-`origin/bloco/6-canal-schemas`; árvore limpa. O fix do canal SVRS está implementado, testado e
-revisado. Próximo passo: validação do dono no Windows e, se aprovada, publicar o commit e atualizar
-o PR do B6. Não houve push desta task.
+Task 36 publicada em `origin/bloco/6-canal-schemas` por autorização do dono; árvore limpa. O fix
+do canal SVRS está implementado, testado e revisado. Próximo passo: validação do dono no Windows e,
+se aprovada, atualizar/abrir o PR do B6.
 
 ## Bloco 0 (harness) — PR #1 mergeado
 6 tasks. Repo, Gradle, 14 XSDs oficiais (byte-idênticos ao JAR, D-005), docs canônicos (D-001..D-014),
