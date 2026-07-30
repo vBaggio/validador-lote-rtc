@@ -213,10 +213,10 @@ final class ExternalSourcesPanel extends JPanel {
     private JPanel sourceCard(ExternalSourceState source) {
         JPanel card = new JPanel(new BorderLayout(14, 12));
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 190));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(78, 78, 78)),
-                BorderFactory.createEmptyBorder(14, 16, 14, 16)));
+                BorderFactory.createEmptyBorder(12, 16, 12, 16)));
 
         JLabel name = new JLabel(source.name());
         name.setFont(name.getFont().deriveFont(Font.BOLD, 15f));
@@ -230,11 +230,10 @@ final class ExternalSourcesPanel extends JPanel {
         card.add(title, BorderLayout.NORTH);
 
         card.add(feedback(source), BorderLayout.CENTER);
-        JPanel details = new JPanel(new GridLayout(2, 2, 18, 8));
+        JPanel details = new JPanel(new GridLayout(1, 3, 18, 0));
         details.add(detail("Base ativa", source.activeVersion()));
         details.add(detail("Última verificação", format(source.checkedAt())));
         details.add(detail("Origem", origin(source.origin())));
-        details.add(detail("Atualizada em", format(source.updatedAt())));
         card.add(details, BorderLayout.SOUTH);
         return card;
     }
