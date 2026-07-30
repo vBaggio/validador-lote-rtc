@@ -1326,6 +1326,21 @@ explícita, conforme `docs/workflow.md`.
 
 ## Critérios de aceite finais
 
+### Refinamentos posteriores ao plano-base (histórico de execução)
+
+As revisões de integração após a Task 41 revelaram três janelas que o plano-base não explicitava.
+Elas foram tratadas como tasks adicionais antes do fechamento, sem alterar julgamento fiscal,
+fontes ou política de ativação:
+
+- **Task 42** (`0ada78b`): admissão atômica validação↔ativação, evento terminal resiliente a
+  listener e latch de reinício quando a ativação física vence a persistência.
+- **Task 43** (`7fa9a73`): abertura do diálogo modal adiada para depois do dreno de snapshots na
+  EDT, evitando bloquear os próprios eventos terminais.
+- **Task 44** (`0d5750c`): `CHECKING` terminal sob listener defeituoso, falha parcial visível,
+  prazo/cancelamento da leitura de corpo HTTP e feedback para rejeição do executor.
+- **Task 45**: fechamento documental destas garantias. O checklist visual manual de Windows segue
+  pendente; nenhuma dessas tasks é evidência de inspeção em DPI real.
+
 - o erro HTTPS persistido pelo canal antigo desaparece e não adia uma consulta nova;
 - usuário sempre distingue consulta, base atual, candidata, falha, aplicação e reinício pendente;
 - rodapé e diálogo nunca divergem porque recebem o mesmo snapshot;

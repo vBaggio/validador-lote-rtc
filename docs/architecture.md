@@ -70,9 +70,17 @@ anterior.
 uma entrega obsoleta não pode sobrescrever estado novo na EDT. Consulta pode coexistir com o lote,
 mas a admissão de validação e ativação é atômica: reservada uma ativação, não começa worker de
 validação; a reserva é liberada também se o executor a recusar. A falha de um listener não impede
-os demais nem o evento terminal. Se `activate` já retornou, `RESTART_REQUIRED` permanece latched
-até encerrar o processo mesmo que persista/publicar o evento terminal falhe; a candidata não é
-reaplicada sem uma consulta fresca.
+os demais nem o evento terminal, inclusive se ela acontecer ao publicar `CHECKING`. A abertura do
+diálogo application-modal é adiada para o próximo ciclo da EDT, depois do dreno de snapshots, para
+que o modal nunca bloqueie a entrega do estado terminal. Se `activate` já retornou,
+`RESTART_REQUIRED` permanece latched até encerrar o processo mesmo que persista/publicar o evento
+terminal falhe; a candidata não é reaplicada sem uma consulta fresca.
+
+O transporte HTTPS tem prazo único para conexão, resposta e leitura completa do corpo. A leitura é
+assíncrona, limitada e cancelável: timeout cancela requisição e assinatura, e corpo acima do limite
+é recusado durante o streaming. Uma falha parcial é agregada como `FAILED` mesmo com outra fonte
+`UP_TO_DATE`; a tela pode oferecer nova consulta. Se o executor rejeitar o agendamento de uma
+ativação, a reserva é desfeita e o presenter informa a falha sem repetir a confirmação.
 
 A tela **Fontes externas** pode forçar a consulta, mas o gate do coordenador recusa duplicação
 enquanto ela está em curso. `ExternalSourcesUseCase` só expõe manifestos e estado local ao

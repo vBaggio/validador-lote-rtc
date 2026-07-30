@@ -18,6 +18,18 @@ terminar, inclusive se o executor recusar o trabalho. Snapshots têm revisão mo
 fora de ordem e callbacks de observadores com falha não podem fazer a interface regredir nem ficar
 em `APPLYING` sem evento terminal.
 
+A abertura do diálogo application-modal é enfileirada para um ciclo posterior da EDT. Assim, ela
+não reentra nem bloqueia a drenagem síncrona que entrega o snapshot `APPLYING` e seus terminais;
+o mesmo snapshot segue sendo a única entrada do rodapé e do diálogo. Falha de listener já no
+evento `CHECKING` também é terminalizada e não deixa o coordenador ocupado: a fonte mostra o erro
+recuperável e pode receber uma nova consulta.
+
+O prazo HTTP cobre conexão, cabeçalhos **e o corpo inteiro**. Ao expirar, a leitura assíncrona do
+corpo e a requisição são canceladas; exceder o limite de tamanho também cancela a assinatura antes
+de manter o restante da resposta em memória. Falha de uma fonte fica visível mesmo se a outra está
+em dia, e a rejeição do executor ao iniciar a ativação vira feedback recuperável, sem novo prompt
+automático nem operação fantasma.
+
 O retorno bem-sucedido de `apply` significa que a referência física `current` já mudou. Por isso o
 reinício fica latched até o processo encerrar mesmo se persistir ou publicar o evento terminal
 falhar; a falha continua visível, a candidata não é reaplicada cegamente e uma nova tentativa exige

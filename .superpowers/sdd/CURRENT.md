@@ -13,10 +13,14 @@
   gate e latch; **Task 40** (`0d7ed20`, PASS/PASS) entregou rodapé, spinner e diálogo adaptável;
   e a **Task 42** adicional (`0ada78b`, PASS/PASS após fix loop) fechou a admissão atômica entre
   validação e ativação, a recuperação depois de falha terminal e o isolamento de listener com
-  falha. `d399af9` não faz parte do histórico consolidado. A Task 41 documenta o fechamento;
-  `clean test`, `jpackageImage` e smoke seguro das fontes são as verificações finais. O smoke
-  visual manual no Windows (DPI, diálogo e reinício) permanece pendente e é gate do dono antes de
-  publicação/PR; não fazer push, PR ou merge sem autorização explícita.
+  falha. A **Task 43** (`7fa9a73`) desacoplou a abertura modal do dreno de snapshots na EDT; a
+  **Task 44** (`0d5750c`) fechou listener defeituoso em `CHECKING`, falha parcial visível, prazo e
+  cancelamento de corpo HTTP e feedback de executor rejeitado; e a **Task 41** (`944e932`) mais a
+  **Task 45** registram o fechamento documental. `d399af9` não faz parte do histórico
+  consolidado. A Task 45 aguarda revisão independente; `clean test`, `jpackageImage` e
+  `git diff --check` são as verificações locais exigidas. O smoke visual manual no Windows (DPI,
+  diálogo e reinício) permanece pendente e é gate do dono antes de publicação/PR; não fazer push,
+  PR ou merge sem autorização explícita.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final

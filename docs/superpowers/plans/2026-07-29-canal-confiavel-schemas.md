@@ -164,7 +164,7 @@ concluída sem candidata, mantendo a base atual. ACBr permanece inspeção/conti
 automática. Cobrir a listagem, URL encoding, ZIP vazio/antigo, candidata nova e a mensagem
 recuperável na tela de Fontes externas.
 
-### Tasks 37–41 — Fluxo observável, confirmação e aplicação de bases
+### Tasks 37–45 — Fluxo observável, confirmação, aplicação e resiliência de bases
 
 A validação em campo revelou que o canal tecnicamente seguro ainda não explica bem consulta,
 candidata, falha parcial e ativação. O detalhamento aprovado para separar consulta/staging de
@@ -180,9 +180,12 @@ ativação; `e3997d1` introduz falhas tipadas, retentativa limitada e coordenaç
 `774c117` consolida snapshots, gate de validação e latch de reinício; `0d7ed20` entrega rodapé e
 diálogo adaptável. A Task 42 adicional (`0ada78b`) endurece a orquestração após a revisão: admissão
 atômica entre validação e ativação, snapshots monotônicos, evento terminal mesmo sob listener com
-falha e reinício latched se a ativação física vencer a persistência. A Task 41 registra a decisão,
-as verificações e o handoff. O smoke visual manual no Windows permanece gate do dono antes de
-publicação/PR; não há merge automático.
+falha e reinício latched se a ativação física vencer a persistência. A Task 43 (`7fa9a73`) adia a
+abertura modal até o dreno de snapshots na EDT terminar. A Task 44 (`0d5750c`) torna `CHECKING`
+terminal sob listener defeituoso, mantém falha parcial visível, limita/cancela o corpo HTTP e
+expõe rejeição do executor. A Task 41 (`944e932`) e a Task 45 documentam a decisão, verificações e
+garantias finais. O smoke visual manual no Windows permanece gate do dono antes de publicação/PR;
+não há merge automático.
 
 ## Critérios de aceite
 

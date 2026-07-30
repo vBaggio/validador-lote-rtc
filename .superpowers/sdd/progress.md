@@ -751,16 +751,30 @@ bloqueia reaplicação até consulta fresca e mantém a base anterior quando `ap
 Sondas das guardas de admissão e transição terminal derrubaram testes determinísticos. `clean test`
 passou com 434 testes, `ArchitectureTest` e `git diff --check` verdes.
 
-Task 41 (b6): implementada, aguardando revisão independente — D-050, arquitetura, estratégia de
-testes, pesquisa e harness registram o ciclo confirmado e as garantias da Task 42. `clean test`,
-`jpackageImage`, `git diff --check` e smoke seguro das fontes foram executados conforme o relatório
-local. DÉBITO/GATE HUMANO: checklist visual do Windows (100%, 125%, 150%, rolagem, ícones,
-consulta/retry, parcial, bloqueio de fechamento e reinício) permanece pendente; não publicar,
-abrir PR ou fazer merge sem o dono.
+Task 41 (b6): complete (commit `944e932`) — D-050, arquitetura, estratégia de testes, pesquisa e
+harness registraram o ciclo confirmado e as garantias até a Task 42. Os refinamentos posteriores
+foram registrados pela Task 45; o commit não é evidência de inspeção visual no Windows.
+
+Task 43 (b6): complete (commit `7fa9a73`) — o presenter adia a abertura do diálogo
+application-modal para o próximo ciclo da EDT. Assim, o modal não reentra nem bloqueia o dreno
+síncrono do snapshot `APPLYING` e dos eventos terminais. Teste determinístico segura a sequência.
+
+Task 44 (b6): complete (commit `0d5750c`) — listener defeituoso já em `CHECKING` produz término e
+permite nova consulta; falha parcial permanece visível com a outra fonte em dia; a leitura HTTP do
+corpo tem prazo, cancelamento e limite em streaming; e rejeição do executor ao aplicar vira erro
+recuperável sem loop de prompt. Os testes determinísticos incluem servidor que envia cabeçalhos e
+interrompe o corpo.
+
+Task 45 (b6): implementada no commit semântico local, revisão pendente — D-050, contexto,
+arquitetura, testes e planos registram as garantias das Tasks 43/44 e seus hashes finais: T37
+`6c007e0`, T38 `e3997d1`, T39 `774c117`, T40 `0d7ed20`, T42 `0ada78b`, T43 `7fa9a73`, T44
+`0d5750c`, T41 `944e932`. DÉBITO/GATE HUMANO: checklist visual do Windows (100%, 125%, 150%,
+rolagem, ícones, consulta/retry, parcial, bloqueio de fechamento e reinício) permanece pendente;
+não publicar, abrir PR ou fazer merge sem o dono.
 
 ### PARADA — 30/07/2026, fechamento técnico do refinamento B6
 
-HEAD e árvore devem ser conferidos contra o git após o commit documental. Tasks 37–42 estão
-concluídas localmente; a Task 41 aguarda revisão independente. Nada deve ser enviado ao remoto.
+HEAD e árvore devem ser conferidos contra o git após o commit documental. Tasks 37–45 estão
+implementadas localmente; a Task 45 aguarda revisão independente. Nada deve ser enviado ao remoto.
 Depois da revisão, o próximo passo autorizado é somente o smoke manual do dono no Windows e a
 decisão explícita de publicação/PR.
