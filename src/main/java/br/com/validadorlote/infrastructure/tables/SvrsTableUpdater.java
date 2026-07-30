@@ -5,7 +5,6 @@ import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
-import br.com.validadorlote.infrastructure.update.ArtifactUpdateResult;
 
 import java.net.URI;
 import java.time.Instant;
@@ -27,16 +26,6 @@ public final class SvrsTableUpdater {
         this.extractor = extractor;
         this.normalizer = normalizer;
         this.store = store;
-    }
-
-    /** Consulta idêntica não troca {@code current}. */
-    public ArtifactUpdateResult updateIfNew() {
-        ArtifactCheckResult checked = check();
-        if (checked.status() == ArtifactCheckResult.Status.UP_TO_DATE) {
-            return ArtifactUpdateResult.unchanged(checked.detail());
-        }
-        apply(checked.candidate());
-        return ArtifactUpdateResult.updated(checked.detail());
     }
 
     /** Consulta a tabela pública e prepara uma candidata normalizada, sem alterar a ativa. */

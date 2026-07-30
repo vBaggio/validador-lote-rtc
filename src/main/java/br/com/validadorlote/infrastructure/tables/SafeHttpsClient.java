@@ -1,10 +1,14 @@
 package br.com.validadorlote.infrastructure.tables;
 
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateException;
+
+import javax.net.ssl.SSLException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +19,8 @@ import java.util.Set;
 /** HTTPS restrito para artefatos normativos: sem hosts implícitos ou redirects abertos. */
 public final class SafeHttpsClient {
 
-    public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(15);
+    public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     public static final int SVRS_MAX_BYTES = 6 * 1024 * 1024;
     public static final int SCHEMA_MAX_BYTES = 32 * 1024 * 1024;
     private static final int MAX_REDIRECTS = 3;
@@ -60,35 +65,53 @@ public final class SafeHttpsClient {
                 response = transport.get(current, timeout);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new IllegalStateException("Consulta HTTPS interrompida", e);
+                throw ArtifactUpdateException.interrupted("Consulta HTTPS interrompida", e);
+            } catch (HttpTimeoutException e) {
+                throw ArtifactUpdateException.connection(
+                        "A consulta HTTPS excedeu o tempo limite", e);
+            } catch (SSLException e) {
+                throw ArtifactUpdateException.secureConnection(
+                        "Não foi possível estabelecer uma conexão HTTPS segura", e);
+            } catch (ResponseTooLargeException e) {
+                throw ArtifactUpdateException.invalidContent(
+                        "Resposta da fonte excede o limite de tamanho", e);
             } catch (IOException e) {
-                throw new IllegalStateException("Não foi possível consultar " + current.getHost(), e);
+                throw ArtifactUpdateException.connection(
+                        "Não foi possível consultar " + current.getHost(), e);
             }
             validate(response.uri());
             if (response.body().length > maxBytes) {
-                throw new IllegalStateException("Resposta da fonte excede o limite de tamanho");
+                throw ArtifactUpdateException.invalidContent(
+                        "Resposta da fonte excede o limite de tamanho");
             }
             if (response.statusCode() >= 300 && response.statusCode() < 400) {
                 String location = response.firstHeader("Location");
                 if (location == null || location.isBlank()) {
-                    throw new IllegalStateException("Redirecionamento HTTPS sem destino");
+                    throw ArtifactUpdateException.invalidContent(
+                            "Redirecionamento HTTPS sem destino");
                 }
                 current = validate(current.resolve(location));
                 continue;
             }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Fonte HTTPS respondeu HTTP " + response.statusCode());
+                String message = "Fonte HTTPS respondeu HTTP " + response.statusCode();
+                if (response.statusCode() == 502 || response.statusCode() == 503
+                        || response.statusCode() == 504) {
+                    throw ArtifactUpdateException.temporaryHttp(message);
+                }
+                throw ArtifactUpdateException.rejectedHttp(message);
             }
             return response.body();
         }
-        throw new IllegalStateException("A fonte excedeu o limite de redirecionamentos");
+        throw ArtifactUpdateException.invalidContent(
+                "A fonte excedeu o limite de redirecionamentos");
     }
 
     private URI validate(URI uri) {
         if (uri == null || !"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
                 || (uri.getPort() != -1 && uri.getPort() != 443)
                 || !allowedHosts.contains(uri.getHost().toLowerCase(java.util.Locale.ROOT))) {
-            throw new IllegalArgumentException("Origem HTTPS não permitida: " + uri);
+            throw ArtifactUpdateException.invalidContent("Origem HTTPS não permitida: " + uri);
         }
         return uri;
     }
@@ -97,7 +120,9 @@ public final class SafeHttpsClient {
     private static final class JdkTransport implements HttpsTransport {
         private final int maxBytes;
         private final HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER).build();
+                .connectTimeout(CONNECT_TIMEOUT)
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
 
         private JdkTransport(int maxBytes) {
             this.maxBytes = maxBytes;
@@ -119,11 +144,14 @@ public final class SafeHttpsClient {
             int read;
             while ((read = input.read(buffer)) != -1) {
                 if (output.size() + read > limit) {
-                    throw new IOException("Resposta excede o limite de tamanho");
+                    throw new ResponseTooLargeException();
                 }
                 output.write(buffer, 0, read);
             }
             return output.toByteArray();
         }
+    }
+
+    private static final class ResponseTooLargeException extends IOException {
     }
 }

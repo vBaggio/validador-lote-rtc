@@ -3,7 +3,6 @@ package br.com.validadorlote.infrastructure.xml;
 import br.com.validadorlote.infrastructure.tables.SafeHttpsClient;
 import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
-import br.com.validadorlote.infrastructure.update.ArtifactUpdateResult;
 
 import java.io.IOException;
 import java.net.URI;
@@ -27,15 +26,6 @@ public final class SvrsSchemaUpdater {
         this.zip = zip;
         this.store = store;
         this.embeddedProfile = embeddedProfile;
-    }
-
-    public ArtifactUpdateResult updateIfNew() {
-        ArtifactCheckResult checked = check();
-        if (checked.status() == ArtifactCheckResult.Status.UP_TO_DATE) {
-            return ArtifactUpdateResult.unchanged(checked.detail());
-        }
-        apply(checked.candidate());
-        return ArtifactUpdateResult.updated(checked.detail());
     }
 
     /** Consulta a SVRS e prepara uma candidata validada, sem alterar a base ativa. */

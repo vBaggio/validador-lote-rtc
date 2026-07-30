@@ -171,8 +171,13 @@ class MainPresenterTest {
     void externalSourcesAreShownAndManualCheckReportsProgressWithoutAnErrorModal(@TempDir Path dir) {
         ArtifactUpdateAction action = new ArtifactUpdateAction() {
             @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
-            @Override public br.com.validadorlote.infrastructure.update.ArtifactUpdateResult updateIfNew() {
-                return br.com.validadorlote.infrastructure.update.ArtifactUpdateResult.unchanged(null);
+            @Override public String channelId() { return "test-schemas-v1"; }
+            @Override public br.com.validadorlote.infrastructure.update.ArtifactCheckResult check() {
+                return br.com.validadorlote.infrastructure.update.ArtifactCheckResult.upToDate(null);
+            }
+            @Override public br.com.validadorlote.infrastructure.xml.ArtifactManifest apply(
+                    br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate candidate) {
+                throw new AssertionError("Não deveria aplicar sem candidata");
             }
         };
         var state = new ArtifactUpdateStateStore(dir);

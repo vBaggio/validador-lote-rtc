@@ -732,3 +732,10 @@ negativos. Próximo: Task 38.
 HEAD `68f05e5` em `bloco/6-canal-schemas`; árvore limpa antes do registro deste handoff. Task 37
 está commitada e revisada; nenhum trabalho staged. Próximo passo: Task 38 — falhas tipadas,
 retentativa e coordenador observável.
+
+Task 38 (b6): complete (commit `a64edf9`, revisão independente PASS/PASS) — falhas HTTP
+tipadas, timeout, política de duas tentativas transitórias e coordenador observável com aplicação
+parcial, exclusão mútua e persistência por identidade de canal. `./gradlew test` passou com 399
+testes; a sonda que remove `action.apply` derrubou dois testes. DÉBITOS MENORES: construtores de
+`ArtifactUpdateException` ainda permitem combinação categoria/retentativa incoerente; o overload
+transitório de leitura sem `channelId` permanece até a migração do consumidor na Task 39.

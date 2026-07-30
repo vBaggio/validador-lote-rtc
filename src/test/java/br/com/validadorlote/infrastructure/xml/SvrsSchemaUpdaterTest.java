@@ -2,7 +2,6 @@ package br.com.validadorlote.infrastructure.xml;
 
 import br.com.validadorlote.infrastructure.tables.HttpsTransport;
 import br.com.validadorlote.infrastructure.tables.SafeHttpsClient;
-import br.com.validadorlote.infrastructure.update.ArtifactUpdateResult;
 import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import org.junit.jupiter.api.Test;
@@ -28,9 +27,9 @@ class SvrsSchemaUpdaterTest {
         AtomicInteger downloads = new AtomicInteger();
         var updater = updater("PL_010b_NT2025_002_v1.30.zip", SchemaZipExtractorTest.zip(Map.of()), downloads);
 
-        ArtifactUpdateResult result = updater.updateIfNew();
+        ArtifactCheckResult result = updater.check();
 
-        assertThat(result.updated()).isFalse();
+        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UP_TO_DATE);
         assertThat(result.detail()).contains("base local mantida");
         assertThat(downloads).hasValue(0);
     }
@@ -40,7 +39,7 @@ class SvrsSchemaUpdaterTest {
         AtomicInteger downloads = new AtomicInteger();
         var updater = updater("PL_010e_NT2026_002_v1.03.zip", SchemaZipExtractorTest.zip(Map.of()), downloads);
 
-        assertThat(updater.updateIfNew().updated()).isTrue();
+        updater.apply(updater.check().candidate());
         assertThat(new SchemaArtifactStore(temp).isActiveVersion("010e_v1.03")).isTrue();
         assertThat(new SchemaArtifactStore(temp).activeManifestOrNull().sourceUrl())
                 .startsWith("https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/");
@@ -86,10 +85,10 @@ class SvrsSchemaUpdaterTest {
     void emptyOfficialDownloadDoesNotInstallOrReplaceAnything() throws Exception {
         AtomicInteger downloads = new AtomicInteger();
         var good = updater("PL_010e_NT2026_002_v1.03.zip", SchemaZipExtractorTest.zip(Map.of()), downloads);
-        assertThat(good.updateIfNew().updated()).isTrue();
+        good.apply(good.check().candidate());
         var empty = updater("PL_010e_NT2026_002_v1.04.zip", new byte[0], downloads);
 
-        assertThatThrownBy(empty::updateIfNew).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(empty::check).isInstanceOf(IllegalStateException.class);
         assertThat(new SchemaArtifactStore(temp).isActiveVersion("010e_v1.03")).isTrue();
     }
 

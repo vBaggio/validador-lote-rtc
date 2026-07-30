@@ -13,9 +13,13 @@ import br.com.validadorlote.infrastructure.tables.SvrsTableExtractor;
 import br.com.validadorlote.infrastructure.tables.SvrsTableNormalizer;
 import br.com.validadorlote.infrastructure.tables.SvrsTableUpdater;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
+import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
+import br.com.validadorlote.infrastructure.update.ArtifactRetryPolicy;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
+import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
 import br.com.validadorlote.infrastructure.xml.SchemaZipExtractor;
@@ -77,19 +81,29 @@ public final class App {
             thread.setDaemon(true);
             return thread;
         });
-        return new ArtifactUpdateCoordinator(List.of(action(ArtifactId.NFE_SCHEMAS, schemas::updateIfNew),
-                action(ArtifactId.FISCAL_TABLES, tables::updateIfNew)),
+        return new ArtifactUpdateCoordinator(updateActions(schemas, tables),
                 ArtifactUpdateCoordinator.DEFAULT_INTERVAL, Clock.systemUTC(), executor, event -> { },
-                updateState);
+                updateState, ArtifactRetryPolicy.production());
     }
 
-    private static ArtifactUpdateAction action(ArtifactId artifact,
-            java.util.function.Supplier<br.com.validadorlote.infrastructure.update.ArtifactUpdateResult> update) {
-        return new ArtifactUpdateAction() {
-            @Override public ArtifactId artifact() { return artifact; }
-            @Override public br.com.validadorlote.infrastructure.update.ArtifactUpdateResult updateIfNew() {
-                return update.get();
+    static List<ArtifactUpdateAction> updateActions(SvrsSchemaUpdater schemas,
+            SvrsTableUpdater tables) {
+        ArtifactUpdateAction schemaAction = new ArtifactUpdateAction() {
+            @Override public ArtifactId artifact() { return ArtifactId.NFE_SCHEMAS; }
+            @Override public String channelId() { return "svrs-schemas-documents-v1"; }
+            @Override public ArtifactCheckResult check() { return schemas.check(); }
+            @Override public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
+                return schemas.apply(candidate);
             }
         };
+        ArtifactUpdateAction tableAction = new ArtifactUpdateAction() {
+            @Override public ArtifactId artifact() { return ArtifactId.FISCAL_TABLES; }
+            @Override public String channelId() { return "svrs-fiscal-table-v1"; }
+            @Override public ArtifactCheckResult check() { return tables.check(); }
+            @Override public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
+                return tables.apply(candidate);
+            }
+        };
+        return List.of(schemaAction, tableAction);
     }
 }

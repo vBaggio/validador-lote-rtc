@@ -1,9 +1,13 @@
 package br.com.validadorlote.infrastructure.tables;
 
+import br.com.validadorlote.infrastructure.update.ArtifactFailureKind;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateException;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.io.IOException;
+import java.net.http.HttpTimeoutException;
+import javax.net.ssl.SSLHandshakeException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -43,23 +47,95 @@ class SafeHttpsClientTest {
     void rejectsNonAllowedOriginsRedirectsAndLargeResponses() {
         SafeHttpsClient client = client((uri, timeout) -> response(302, uri,
                 Map.of("Location", List.of("https://example.invalid/payload")), ""));
-        assertThatThrownBy(() -> client.getUtf8(SVRS)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.getUtf8(SVRS))
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                    assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.INVALID_CONTENT);
+                    assertThat(failure.retryable()).isFalse();
+                });
         assertThatThrownBy(() -> client.getUtf8(URI.create("http://dfe-portal.svrs.rs.gov.br/x")))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure ->
+                        assertThat(failure.retryable()).isFalse());
 
         SafeHttpsClient tooLarge = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
                 Duration.ofSeconds(3), 4,
                 (uri, timeout) -> response(200, uri, Map.of(), "12345"));
-        assertThatThrownBy(() -> tooLarge.getUtf8(SVRS)).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("limite");
+        assertThatThrownBy(() -> tooLarge.getUtf8(SVRS))
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                    assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.INVALID_CONTENT);
+                    assertThat(failure.retryable()).isFalse();
+                    assertThat(failure).hasMessageContaining("limite");
+                });
     }
 
     @Test
     void identifiesTheSourceHostWhenTransportFails() {
         SafeHttpsClient client = client((uri, timeout) -> { throw new IOException("certificado"); });
 
-        assertThatThrownBy(() -> client.getUtf8(SVRS)).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("dfe-portal.svrs.rs.gov.br");
+        assertThatThrownBy(() -> client.getUtf8(SVRS))
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                    assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.CONNECTION);
+                    assertThat(failure.retryable()).isTrue();
+                    assertThat(failure).hasMessageContaining("dfe-portal.svrs.rs.gov.br");
+                });
+    }
+
+    @Test
+    void classifiesOnlyTransientGatewayAndServerFailuresAsRetryable() {
+        for (int status : List.of(502, 503, 504)) {
+            SafeHttpsClient client = client((uri, timeout) ->
+                    response(status, uri, Map.of(), ""));
+
+            assertThatThrownBy(() -> client.getBytes(SVRS))
+                    .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                        assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.TEMPORARY_HTTP);
+                        assertThat(failure.retryable()).isTrue();
+                    });
+        }
+    }
+
+    @Test
+    void classifiesTlsAndClientErrorsAsNonRetryable() {
+        SafeHttpsClient tls = client((uri, timeout) -> {
+            throw new SSLHandshakeException("certificate");
+        });
+        assertThatThrownBy(() -> tls.getBytes(SVRS))
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                    assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.SECURE_CONNECTION);
+                    assertThat(failure.retryable()).isFalse();
+                });
+
+        SafeHttpsClient missing = client((uri, timeout) ->
+                response(404, uri, Map.of(), ""));
+        assertThatThrownBy(() -> missing.getBytes(SVRS))
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                    assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.REJECTED_HTTP);
+                    assertThat(failure.retryable()).isFalse();
+                });
+    }
+
+    @Test
+    void classifiesTimeoutAsConnectionAndPreservesInterruption() {
+        SafeHttpsClient timeout = client((uri, requestTimeout) -> {
+            throw new HttpTimeoutException("timeout");
+        });
+        assertThatThrownBy(() -> timeout.getBytes(SVRS))
+                .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                    assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.CONNECTION);
+                    assertThat(failure.retryable()).isTrue();
+                });
+
+        SafeHttpsClient interrupted = client((uri, requestTimeout) -> {
+            throw new InterruptedException("interrompida");
+        });
+        try {
+            assertThatThrownBy(() -> interrupted.getBytes(SVRS))
+                    .isInstanceOfSatisfying(ArtifactUpdateException.class, failure -> {
+                        assertThat(failure.kind()).isEqualTo(ArtifactFailureKind.INTERRUPTED);
+                        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+                    });
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     private SafeHttpsClient client(HttpsTransport transport) {

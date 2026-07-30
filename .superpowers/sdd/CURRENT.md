@@ -41,8 +41,10 @@
   tabelas agora preparam candidatas sem alterar `current` e ativam somente versão revalidada;
   correção de revisão torna a consulta repetida da tabela idempotente antes da confirmação.
   Suítes focadas e completa passaram, e a revisão independente deu PASS/PASS após um fix loop.
-  Próximo passo: Task 38 do plano de 30/07, para falhas tipadas, retentativa e coordenador
-  observável.
+  **Task 38 concluída e revisada** em `a64edf9`: falhas tipadas, retentativa limitada e
+  coordenação por canal permitem consulta/aplicação parcial fora da EDT. `./gradlew test` passou
+  com 399 testes e revisão PASS/PASS; os dois achados menores estão no ledger. Próximo passo:
+  Task 39 — snapshot único e gate da validação.
 - **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
   D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
   validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final
