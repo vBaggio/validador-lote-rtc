@@ -5,31 +5,28 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/** Materializa somente a closure NF-e suportada, sem expor entradas arbitrárias do ZIP ao disco. */
+/** Materializa uma árvore XSD curada sem expor entradas arbitrárias do ZIP ao disco. */
 public final class SchemaZipExtractor {
 
     private static final int MAX_ENTRIES = 3_000;
     private static final long MAX_EXTRACTED_BYTES = 64L * 1024 * 1024;
-    private static final Set<String> REQUIRED = Set.of("DFeTiposBasicos_v1.00.xsd",
-            "leiauteNFe_v4.00.xsd", "nfe_v4.00.xsd", "tiposBasico_v4.00.xsd",
-            "xmldsig-core-schema_v1.01.xsd");
 
     /** A pasta devolvida pertence ao chamador e deve ser apagada depois da instalação no store. */
     public Path extract(byte[] zip) {
         try {
             Path candidate = Files.createTempDirectory("validador-schemas-");
             try {
-                Map<String, byte[]> closure = readClosure(zip);
-                writeWrapper(candidate);
-                Path originals = Files.createDirectories(candidate.resolve("originais"));
-                for (String name : REQUIRED) Files.write(originals.resolve(name), closure.get(name));
+                ExtractedTree tree = readTree(zip);
+                writeTree(candidate, tree);
                 return candidate;
             } catch (RuntimeException | IOException e) {
                 delete(candidate);
@@ -40,33 +37,44 @@ public final class SchemaZipExtractor {
         }
     }
 
-    private Map<String, byte[]> readClosure(byte[] zip) throws IOException {
+    private ExtractedTree readTree(byte[] zip) {
         rejectSymbolicLinks(zip);
-        Map<String, byte[]> closure = new HashMap<>();
+        Map<String, byte[]> files = new HashMap<>();
         Set<String> entries = new HashSet<>();
         long extracted = 0;
         int count = 0;
         try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zip))) {
             for (ZipEntry entry; (entry = input.getNextEntry()) != null;) {
                 if (++count > MAX_ENTRIES) throw new IllegalStateException("ZIP contém entradas demais");
-                validateEntryName(entry.getName(), entry.isDirectory());
-                if (!entries.add(entry.getName())) throw new IllegalStateException("ZIP contém entrada duplicada");
+                String name = validateEntryName(entry.getName(), entry.isDirectory());
+                if (!entries.add(name)) throw new IllegalStateException("ZIP contém entrada duplicada");
+                if (!entry.isDirectory() && !name.endsWith(".xsd")) {
+                    throw new IllegalStateException("ZIP contém arquivo regular não-XSD: " + name);
+                }
                 byte[] content = readEntry(input, MAX_EXTRACTED_BYTES - extracted);
                 extracted += content.length;
                 if (extracted > MAX_EXTRACTED_BYTES) {
                     throw new IllegalStateException("ZIP excede o limite extraído");
                 }
-                String name = entry.getName().substring(entry.getName().lastIndexOf('/') + 1);
-                if (!entry.isDirectory() && REQUIRED.contains(name)
-                        && closure.putIfAbsent(name, content) != null) {
-                    throw new IllegalStateException("ZIP contém closure ambígua: " + name);
-                }
+                if (!entry.isDirectory()) files.put(name, content);
             }
+        } catch (IOException failure) {
+            throw new IllegalStateException("ZIP contém dados comprimidos inválidos");
         }
-        if (!closure.keySet().containsAll(REQUIRED)) {
-            throw new IllegalStateException("ZIP não contém a closure NF-e suportada");
+        List<String> entrypoints = files.keySet().stream()
+                .filter(name -> name.equals("nota.xsd") || name.endsWith("/nota.xsd"))
+                .sorted()
+                .toList();
+        if (entrypoints.isEmpty()) {
+            throw new IllegalStateException("ZIP não contém nota.xsd");
         }
-        return closure;
+        if (entrypoints.size() != 1) {
+            throw new IllegalStateException("ZIP contém nota.xsd ambíguo");
+        }
+        String entrypoint = entrypoints.getFirst();
+        String rootPrefix = rootPrefix(entrypoint);
+        validateSingleRoot(entries, rootPrefix);
+        return new ExtractedTree(files, rootPrefix);
     }
 
     /**
@@ -122,7 +130,7 @@ public final class SchemaZipExtractor {
         return output.toByteArray();
     }
 
-    private void validateEntryName(String name, boolean directory) {
+    private String validateEntryName(String name, boolean directory) {
         if (name == null || name.isBlank() || name.startsWith("/") || name.contains("\\")) {
             throw new IllegalStateException("ZIP contém caminho inválido");
         }
@@ -132,20 +140,49 @@ public final class SchemaZipExtractor {
                 throw new IllegalStateException("ZIP contém caminho fora da base");
             }
         }
+        return normalized;
     }
 
-    private void writeWrapper(Path candidate) throws IOException {
-        try (InputStream wrapper = SchemaZipExtractor.class.getResourceAsStream("/schemas/nfe/nota.xsd")) {
-            if (wrapper == null) throw new IllegalStateException("Wrapper nota.xsd ausente no classpath");
-            Files.write(candidate.resolve("nota.xsd"), wrapper.readAllBytes());
+    private String rootPrefix(String entrypoint) {
+        int separator = entrypoint.indexOf('/');
+        if (separator < 0) return "";
+        if (separator != entrypoint.lastIndexOf('/')) {
+            throw new IllegalStateException(
+                    "nota.xsd deve estar na raiz do ZIP ou em um único diretório raiz");
+        }
+        return entrypoint.substring(0, separator + 1);
+    }
+
+    private void validateSingleRoot(Set<String> entries, String rootPrefix) {
+        if (rootPrefix.isEmpty()) return;
+        String rootDirectory = rootPrefix.substring(0, rootPrefix.length() - 1);
+        if (entries.stream().anyMatch(name ->
+                !name.equals(rootDirectory) && !name.startsWith(rootPrefix))) {
+            throw new IllegalStateException(
+                    "ZIP contém caminho fora do diretório raiz dos schemas");
+        }
+    }
+
+    private void writeTree(Path candidate, ExtractedTree tree) throws IOException {
+        for (var file : tree.files().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey()).toList()) {
+            String relativeName = file.getKey().substring(tree.rootPrefix().length());
+            Path destination = candidate.resolve(relativeName).normalize();
+            if (!destination.startsWith(candidate)) {
+                throw new IllegalStateException("ZIP contém caminho fora da base");
+            }
+            Files.createDirectories(destination.getParent());
+            Files.write(destination, file.getValue());
         }
     }
 
     private void delete(Path root) throws IOException {
         try (var paths = Files.walk(root)) {
-            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
                 Files.deleteIfExists(path);
             }
         }
     }
+
+    private record ExtractedTree(Map<String, byte[]> files, String rootPrefix) {}
 }

@@ -4,8 +4,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -14,18 +16,74 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SchemaZipExtractorTest {
+    private static final byte[] EMPTY_SCHEMA =
+            "<?xml version=\"1.0\"?><xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"/>"
+                    .getBytes(StandardCharsets.UTF_8);
 
     @Test
-    void keepsOnlyTheSupportedClosureAndProductWrapper() throws Exception {
-        Path candidate = new SchemaZipExtractor().extract(zip(Map.of("ignored/readme.txt", "x".getBytes())));
+    void preservesTheCompleteXsdTreeFromASingleRootDirectoryAndCompilesItsNotaEntrypoint()
+            throws Exception {
+        Path candidate = new SchemaZipExtractor().extract(zip(Map.of(
+                "NFe/adicionais/extensao.xsd", EMPTY_SCHEMA)));
         try {
             assertThat(candidate.resolve("nota.xsd")).exists();
             assertThat(candidate.resolve("originais/leiauteNFe_v4.00.xsd")).exists();
-            assertThat(candidate.resolve("ignored/readme.txt")).doesNotExist();
+            assertThat(candidate.resolve("adicionais/extensao.xsd")).exists();
             assertThat(new SchemaValidatorEngine(new XsdErrorTranslator(), candidate)).isNotNull();
         } finally {
             delete(candidate);
         }
+    }
+
+    @Test
+    void acceptsACompleteTreeAlreadyRootedAtNotaXsd() throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        releaseEntries().forEach((name, content) ->
+                entries.put(name.substring("NFe/".length()), content));
+        entries.put("adicionais/extensao.xsd", EMPTY_SCHEMA);
+
+        Path candidate = new SchemaZipExtractor().extract(zipEntries(entries));
+        try {
+            assertThat(candidate.resolve("nota.xsd")).exists();
+            assertThat(candidate.resolve("adicionais/extensao.xsd")).exists();
+            assertThat(new SchemaValidatorEngine(new XsdErrorTranslator(), candidate)).isNotNull();
+        } finally {
+            delete(candidate);
+        }
+    }
+
+    @Test
+    void rejectsAReleaseThatDoesNotBringNotaXsd() throws Exception {
+        Map<String, byte[]> entries = releaseEntries();
+        entries.remove("NFe/nota.xsd");
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(zipEntries(entries)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("nota.xsd");
+    }
+
+    @Test
+    void rejectsRegularNonXsdEntries() throws Exception {
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(
+                zip(Map.of("NFe/readme.txt", "conteúdo".getBytes(StandardCharsets.UTF_8)))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("não-XSD");
+    }
+
+    @Test
+    void rejectsMultipleNotaEntrypoints() throws Exception {
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(
+                zip(Map.of("NFe/outro/nota.xsd", EMPTY_SCHEMA))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("nota.xsd", "ambígu");
+    }
+
+    @Test
+    void rejectsPathsOutsideTheSingleRootDirectory() throws Exception {
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(
+                zip(Map.of("Outro/extra.xsd", EMPTY_SCHEMA))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("diretório raiz");
     }
 
     @Test
@@ -34,6 +92,35 @@ class SchemaZipExtractorTest {
 
         assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("fora da base");
+    }
+
+    @Test
+    void rejectsDuplicateEntries() throws Exception {
+        Map<String, byte[]> extras = new LinkedHashMap<>();
+        extras.put("NFe/duplicata-a.xsd", EMPTY_SCHEMA);
+        extras.put("NFe/duplicata-b.xsd", EMPTY_SCHEMA);
+        byte[] hostile = zip(extras);
+        replaceAscii(hostile, "duplicata-b", "duplicata-a");
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(hostile))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("duplicada");
+    }
+
+    @Test
+    void rejectsMoreThanTheMaximumNumberOfEntries() throws Exception {
+        Map<String, byte[]> entries = releaseEntries();
+        for (int index = 0; index < 2_995; index++) {
+            entries.put("NFe/extras/schema-%04d.xsd".formatted(index), EMPTY_SCHEMA);
+        }
+
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(zipEntries(entries)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("entradas demais");
+    }
+
+    @Test
+    void rejectsMoreThanTheMaximumExtractedSize() throws Exception {
+        assertThatThrownBy(() -> new SchemaZipExtractor().extract(oversizedZip()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("limite extraído");
     }
 
     @Test
@@ -46,21 +133,76 @@ class SchemaZipExtractorTest {
     }
 
     static byte[] zip(Map<String, byte[]> extras) throws IOException {
+        Map<String, byte[]> entries = releaseEntries();
+        entries.putAll(extras);
+        return zipEntries(entries);
+    }
+
+    private static Map<String, byte[]> releaseEntries() {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        try {
+            entries.put("NFe/nota.xsd",
+                    Files.readAllBytes(Path.of("src/main/resources/schemas/nfe/nota.xsd")));
+            for (String file : new String[] {"DFeTiposBasicos_v1.00.xsd",
+                    "leiauteNFe_v4.00.xsd", "nfe_v4.00.xsd", "tiposBasico_v4.00.xsd",
+                    "xmldsig-core-schema_v1.01.xsd"}) {
+                entries.put("NFe/originais/" + file, Files.readAllBytes(
+                        Path.of("src/main/resources/schemas/nfe/originais", file)));
+            }
+            return entries;
+        } catch (IOException failure) {
+            throw new IllegalStateException(failure);
+        }
+    }
+
+    private static byte[] zipEntries(Map<String, byte[]> entries) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
-            for (String file : new String[] {"DFeTiposBasicos_v1.00.xsd", "leiauteNFe_v4.00.xsd",
-                    "nfe_v4.00.xsd", "tiposBasico_v4.00.xsd", "xmldsig-core-schema_v1.01.xsd"}) {
-                zip.putNextEntry(new ZipEntry("NFe/" + file));
-                zip.write(Files.readAllBytes(Path.of("src/main/resources/schemas/nfe/originais", file)));
-                zip.closeEntry();
-            }
-            for (var extra : extras.entrySet()) {
-                zip.putNextEntry(new ZipEntry(extra.getKey()));
-                zip.write(extra.getValue());
+            for (var entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue());
                 zip.closeEntry();
             }
         }
         return bytes.toByteArray();
+    }
+
+    private static byte[] oversizedZip() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            for (var entry : releaseEntries().entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue());
+                zip.closeEntry();
+            }
+            zip.putNextEntry(new ZipEntry("NFe/extras/grande.xsd"));
+            byte[] block = new byte[8_192];
+            for (int written = 0; written <= 64 * 1024 * 1024; written += block.length) {
+                zip.write(block);
+            }
+            zip.closeEntry();
+        }
+        return bytes.toByteArray();
+    }
+
+    private static void replaceAscii(byte[] bytes, String original, String replacement) {
+        byte[] from = original.getBytes(StandardCharsets.US_ASCII);
+        byte[] to = replacement.getBytes(StandardCharsets.US_ASCII);
+        if (from.length != to.length) throw new IllegalArgumentException("Tamanhos distintos");
+        int replacements = 0;
+        for (int offset = 0; offset <= bytes.length - from.length; offset++) {
+            boolean match = true;
+            for (int index = 0; index < from.length; index++) {
+                if (bytes[offset + index] != from[index]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match) continue;
+            System.arraycopy(to, 0, bytes, offset, to.length);
+            replacements++;
+        }
+        assertThat(replacements).isEqualTo(2);
     }
 
     private void delete(Path root) throws IOException {

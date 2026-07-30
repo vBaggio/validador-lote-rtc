@@ -84,16 +84,7 @@ public final class SchemaArtifactStore {
             try {
                 copyTree(candidate, stage);
                 String hash = treeHash(stage);
-                try {
-                    new SchemaValidatorEngine(new XsdErrorTranslator(), stage); // gate antes de publicar
-                } catch (RuntimeException failure) {
-                    if (curated) {
-                        throw ArtifactUpdateException.unsupportedSchemaStructure(
-                                "A estrutura dos schemas mais recentes não é suportada por esta versão do aplicativo",
-                                failure);
-                    }
-                    throw failure;
-                }
+                validateSchemaTree(stage, curated);
                 ArtifactManifest manifest = new ArtifactManifest(ID, version, sourceUrl, publishedAt, hash,
                         Instant.now(), Instant.now(), "PREPARED", releaseSequence, channelId,
                         provenance, zipSha256, signedReleaseSha256);
@@ -233,8 +224,30 @@ public final class SchemaArtifactStore {
                 || !manifest.sha256().equals(treeHash(base))) {
             throw new IllegalStateException("Versão preparada de schemas perdeu integridade: " + version);
         }
-        new SchemaValidatorEngine(new XsdErrorTranslator(), base);
+        validateSchemaTree(base, manifest.releaseSequence() > 0);
         return manifest;
+    }
+
+    private static void validateSchemaTree(Path base, boolean curated) {
+        Path entrypoint = base.resolve("nota.xsd");
+        RuntimeException failure = null;
+        if (Files.isSymbolicLink(entrypoint)
+                || !Files.isRegularFile(entrypoint, LinkOption.NOFOLLOW_LINKS)) {
+            failure = new IllegalStateException("Entrypoint nota.xsd ausente");
+        } else {
+            try {
+                new SchemaValidatorEngine(new XsdErrorTranslator(), base);
+                return;
+            } catch (RuntimeException compilationFailure) {
+                failure = compilationFailure;
+            }
+        }
+        if (curated) {
+            throw ArtifactUpdateException.unsupportedSchemaStructure(
+                    "A estrutura dos schemas mais recentes não é suportada por esta versão do aplicativo",
+                    failure);
+        }
+        throw failure;
     }
 
     private static boolean samePreparedArtifact(ArtifactManifest left, ArtifactManifest right) {

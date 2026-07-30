@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -34,8 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -480,18 +477,7 @@ class CuratedSchemaUpdaterTest {
     }
 
     private byte[] validZip() throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (ZipOutputStream output = new ZipOutputStream(bytes)) {
-            for (String name : List.of("DFeTiposBasicos_v1.00.xsd",
-                    "leiauteNFe_v4.00.xsd", "nfe_v4.00.xsd", "tiposBasico_v4.00.xsd",
-                    "xmldsig-core-schema_v1.01.xsd")) {
-                output.putNextEntry(new ZipEntry("NFe/" + name));
-                output.write(Files.readAllBytes(
-                        Path.of("src/main/resources/schemas/nfe/originais", name)));
-                output.closeEntry();
-            }
-        }
-        return bytes.toByteArray();
+        return SchemaZipExtractorTest.zip(Map.of());
     }
 
     private String sha256(byte[] bytes) {
