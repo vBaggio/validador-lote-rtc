@@ -63,12 +63,22 @@ public final class MainFrame extends JFrame implements MainView {
         content.add(root, BorderLayout.CENTER);
         content.add(externalSourcesStatusBar, BorderLayout.SOUTH);
         setContentPane(content);
-        setMinimumSize(new Dimension(1000, 660));
         Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        int width = Math.min(1180, Math.max(1000, screen.width - 40));
-        int height = Math.min(700, Math.max(660, screen.height - 28));
-        setSize(width, height);
+        setMinimumSize(minimumWindowSize(screen));
+        setSize(initialWindowSize(screen));
         setLocationRelativeTo(null);
+    }
+
+    static Dimension minimumWindowSize(Rectangle screen) {
+        return new Dimension(Math.max(1, Math.min(1000, screen.width - 24)),
+                Math.max(1, Math.min(660, screen.height - 24)));
+    }
+
+    static Dimension initialWindowSize(Rectangle screen) {
+        Dimension minimum = minimumWindowSize(screen);
+        int width = Math.min(1180, Math.max(minimum.width, screen.width - 40));
+        int height = Math.min(700, Math.max(minimum.height, screen.height - 28));
+        return new Dimension(width, height);
     }
 
     @Override
