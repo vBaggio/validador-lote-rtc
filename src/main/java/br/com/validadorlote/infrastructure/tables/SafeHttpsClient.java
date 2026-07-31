@@ -31,6 +31,7 @@ public final class SafeHttpsClient {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     public static final int SVRS_MAX_BYTES = 6 * 1024 * 1024;
     public static final int CURATED_SCHEMA_MANIFEST_MAX_BYTES = 256 * 1024;
+    public static final int GITHUB_RELEASE_MAX_BYTES = 64 * 1024;
     public static final int SCHEMA_MAX_BYTES = 32 * 1024 * 1024;
     private static final int MAX_REDIRECTS = 3;
 
@@ -60,6 +61,12 @@ public final class SafeHttpsClient {
                 SCHEMA_MAX_BYTES, new JdkTransport(SCHEMA_MAX_BYTES));
     }
 
+    /** Cliente restrito para a consulta curta e consultiva da release do aplicativo. */
+    public static SafeHttpsClient forGitHubRelease() {
+        return new SafeHttpsClient(Set.of("api.github.com"), Duration.ofSeconds(3),
+                GITHUB_RELEASE_MAX_BYTES, new JdkTransport(GITHUB_RELEASE_MAX_BYTES));
+    }
+
     public static SafeHttpsClient forCuratedSchemaManifest(Set<String> hosts) {
         return forCuratedSchemaManifest(hosts,
                 new JdkTransport(CURATED_SCHEMA_MANIFEST_MAX_BYTES));
@@ -87,10 +94,12 @@ public final class SafeHttpsClient {
     /** Baixa bytes de artefato sem permitir que a origem escolha host, redirect ou tamanho. */
     public byte[] getBytes(URI initial) {
         URI current = validate(initial);
+        long deadline = System.nanoTime() + timeout.toNanos();
         for (int redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
             HttpsTransport.Response response;
             try {
-                response = transport.get(current, timeout);
+                response = transport.get(current, remainingUntil(deadline));
+                remainingUntil(deadline);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw ArtifactUpdateException.interrupted("Consulta HTTPS interrompida", e);
@@ -133,6 +142,14 @@ public final class SafeHttpsClient {
         }
         throw ArtifactUpdateException.invalidContent(
                 "A fonte excedeu o limite de redirecionamentos");
+    }
+
+    private static Duration remainingUntil(long deadline) throws HttpTimeoutException {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0) {
+            throw new HttpTimeoutException("A consulta HTTPS excedeu o tempo limite");
+        }
+        return Duration.ofNanos(remaining);
     }
 
     private URI validate(URI uri) {

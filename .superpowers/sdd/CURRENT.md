@@ -3,6 +3,16 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
+- **Bloco:** B9 — Aviso de nova versão do aplicativo — concluído na branch
+  `bloco/9-aviso-nova-versao`, commit final do B9, revisão independente PASS/PASS após fix loop.
+  Depois de `setVisible`, um worker daemon consulta somente a última release estável do repositório
+  oficial via `api.github.com`, sob orçamento total de 3 segundos e resposta limitada. JSON, HTTP,
+  rate limit, offline, timeout e navegador falham silenciosamente. Versão semântica maior abre um
+  modal com versões e ações para continuar ou abrir a página oficial; o browser fica fora da EDT e
+  a mesma versão não reaparece na sessão. Não há download/instalação/reinício, nem integração com
+  atualização de bases. `clean test`, `jpackageImage` e `git diff --check` passaram; não fazer
+  push/PR/merge sem autorização do dono.
+
 - **Bloco:** B8 — Troca atômica do runtime de bases — está em execução na branch
   `bloco/8-troca-runtime-bases`; plano em
   `docs/superpowers/plans/2026-07-30-troca-atomica-runtime-bases.md`. **Task 46** concluída no

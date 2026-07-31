@@ -10,7 +10,9 @@ quanto à estrutura exigida para os grupos IBS/CBS da Reforma Tributária do Con
 ## Privacidade
 
 A análise acontece localmente, no computador em que o aplicativo está aberto. Não há cadastro,
-telemetria ou envio de XMLs. Após o boot, e no máximo uma vez a cada 4 horas, o aplicativo pode
+telemetria ou envio de XMLs. Após a janela ficar visível, o aplicativo também pode consultar a
+última release estável na página oficial do GitHub, sem enviar dados do lote. Após o boot, e no
+máximo uma vez a cada 4 horas, o aplicativo pode
 consultar a tabela fiscal no canal SVRS e o manifesto e ZIP assinados do canal próprio de schemas
 curados; **Fontes externas** também permite pedir essa verificação manualmente. A rotina nunca envia
 documentos, chaves, CNPJ ou conteúdo do lote. Os documentos permanecem na sua máquina.

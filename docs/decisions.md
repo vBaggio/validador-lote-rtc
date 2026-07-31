@@ -4,6 +4,20 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-054 — Aviso consultivo de release do aplicativo é independente das bases (30/07/2026)
+
+Depois que a janela principal está visível, o aplicativo consulta uma única vez por processo o
+endpoint `releases/latest` da API do repositório oficial no GitHub. A consulta tem timeout total de
+três segundos, resposta limitada e aceita apenas JSON estrito que descreva uma release estável,
+com tag `v?MAJOR.MINOR.PATCH` e página HTTPS do próprio repositório. Falha de rede, HTTP, rate
+limit, conteúdo, parsing ou navegador é silenciosa: não afeta boot, uso offline ou a janela.
+
+Quando a versão disponível é maior que a instalada, o usuário recebe um modal com as duas versões
+e pode continuar ou abrir a página oficial. O aviso é deduplicado por versão na sessão; não há
+download, instalação, reinício ou confirmação automática. Esse fluxo não compartilha estado,
+agenda, ativação nem substitui o canal de tabelas/schemas: bases novas continuam incapazes de
+representar mudanças estruturais ou algorítmicas do aplicativo.
+
 ## D-053 — Runtime completo é publicado atomicamente após ativação física (30/07/2026)
 
 Substitui D-050 quanto ao reinício como caminho normal. A ativação em disco continua precedida de
