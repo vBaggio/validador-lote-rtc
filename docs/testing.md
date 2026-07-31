@@ -16,7 +16,7 @@ gate de cobertura — cobertura por criticidade, conferida no review de cada blo
 | `SafeHttpsClient` | prazo de conexão, cabeçalhos e corpo; cancelamento no timeout; limite de tamanho aplicado durante streaming |
 | `ValidationRuntime`, `MainPresenter` e `ExternalSourcesUseCase` | lease capturada no mesmo gate da admissão, geração/proveniência do resultado, publicação R2 única, validação R1 inalterada, concorrência determinística e nenhum engine misturado |
 | `ExternalSourcesUseCase` e `ArtifactUpdateCoordinator` | snapshots monotônicos, listeners tolerantes a falha desde `CHECKING`, confirmação global, admissão atômica validação↔ativação↔recarga, rejeição do executor, fallback de boot latched e recuperação apenas após nova consulta |
-| componentes Swing de fontes | atualização na EDT, rodapé e diálogo com o mesmo snapshot, abertura modal adiada após o dreno, spinner terminal, rolagem/adaptação e fechamento bloqueado durante `APPLYING` |
+| componentes Swing de fontes | atualização na EDT, rodapé compacto com proveniência no tooltip, cards com colunas adaptáveis, diálogo sem minimizar, abertura modal adiada após o dreno, spinner terminal, rolagem/adaptação e fechamento bloqueado durante `APPLYING` |
 | aviso de versão do aplicativo | timeout curto e corpo limitado, JSON/release/URL inválidos silenciosos, comparação semântica e deduplicação da versão na sessão |
 
 - Testes **não** asseguram texto integral de mensagem Xerces (localiza por JVM) — asserte `xsdCode`, `field`, `line`.

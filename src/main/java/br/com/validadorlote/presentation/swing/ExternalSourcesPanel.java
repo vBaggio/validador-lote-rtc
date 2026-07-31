@@ -250,7 +250,9 @@ final class ExternalSourcesPanel extends JPanel {
         card.add(title, BorderLayout.NORTH);
 
         card.add(feedback(source, aggregatePhase), BorderLayout.CENTER);
-        JPanel details = new JPanel(new GridLayout(1, 4, 18, 0));
+        JPanel details = new JPanel(new GridLayout(1, 4, 14, 0));
+        details.setPreferredSize(new Dimension(0, 40));
+        details.setMinimumSize(new Dimension(0, 40));
         details.add(detail("Base ativa", source.activeVersion()));
         details.add(detail("Última verificação", format(source.checkedAt())));
         details.add(detail("Origem", origin(source.origin())));
@@ -313,7 +315,8 @@ final class ExternalSourcesPanel extends JPanel {
 
     private static JLabel detail(String label, String value) {
         return new JLabel("<html><span style='color:#9c9c9c'>" + label + "</span><br>"
-                + escape(value == null ? "—" : value) + "</html>");
+                + "<div style='width:125px'>" + escape(value == null ? "—" : value)
+                + "</div></html>");
     }
 
     private static String purpose(String sourceName) {

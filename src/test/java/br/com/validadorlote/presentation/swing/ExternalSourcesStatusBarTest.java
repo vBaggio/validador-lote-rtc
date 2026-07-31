@@ -66,6 +66,20 @@ class ExternalSourcesStatusBarTest {
         });
     }
 
+    @Test
+    void footerKeepsTheSchemaVersionCompactAndFullProvenanceInTooltip() throws Exception {
+        runOnEdt(() -> {
+            ExternalSourcesStatusBar statusBar = new ExternalSourcesStatusBar("0.1.0",
+                    "schemas 010e_v1.02-r2 (canal curado; publicado em 2026-07-30; Portal Nacional; https://example.test)",
+                    () -> { }, () -> { });
+
+            assertThat(statusBar.getComponent(0)).isInstanceOf(javax.swing.JLabel.class);
+            javax.swing.JLabel version = (javax.swing.JLabel) statusBar.getComponent(0);
+            assertThat(version.getText()).isEqualTo("v0.1.0  ·  schemas 010e_v1.02-r2");
+            assertThat(version.getToolTipText()).contains("https://example.test");
+        });
+    }
+
     private static ExternalSourcesStatusBar statusBar(Runnable retry) {
         return new ExternalSourcesStatusBar("0.1.0", "010e", () -> { }, retry);
     }

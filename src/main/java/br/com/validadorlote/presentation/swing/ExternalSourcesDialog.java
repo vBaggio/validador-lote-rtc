@@ -7,6 +7,7 @@ import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.KeyStroke;
+import javax.swing.JRootPane;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
@@ -26,6 +27,10 @@ final class ExternalSourcesDialog extends JDialog {
             Runnable closeApplication) {
         super(owner, "Atualização de bases", Dialog.ModalityType.APPLICATION_MODAL);
         setType(Window.Type.UTILITY);
+        setUndecorated(true);
+        getRootPane().setWindowDecorationStyle(JRootPane.PLAIN_DIALOG);
+        getRootPane().putClientProperty("JRootPane.titleBarShowIconify", false);
+        getRootPane().putClientProperty("JRootPane.titleBarShowMaximize", false);
         setDefaultCloseOperation(HIDE_ON_CLOSE);
         setResizable(false);
         panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry, closeApplication);

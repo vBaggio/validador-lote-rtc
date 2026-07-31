@@ -10,6 +10,7 @@ import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.util.Objects;
 
 /** Rodapé que expõe o estado agregado das bases sem disputar atenção com o lote. */
 final class ExternalSourcesStatusBar extends JPanel {
@@ -28,9 +29,10 @@ final class ExternalSourcesStatusBar extends JPanel {
             Runnable retry) {
         super(new BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 12));
-        JLabel version = new JLabel("v" + applicationVersion + "  ·  " + schemasVersion);
+        JLabel version = new JLabel("v" + applicationVersion + "  ·  " + compactSchemaVersion(schemasVersion));
         version.setForeground(MUTED);
-        add(version, BorderLayout.WEST);
+        version.setToolTipText(schemasVersion);
+        add(version, BorderLayout.CENTER);
 
         JPanel state = new JPanel(new FlowLayout(FlowLayout.RIGHT, 7, 0));
         state.setOpaque(false);
@@ -137,6 +139,12 @@ final class ExternalSourcesStatusBar extends JPanel {
         if (failedCount == 0) return "";
         return failedCount == 1 ? " · 1 fonte não respondeu"
                 : " · " + failedCount + " fontes não responderam";
+    }
+
+    private static String compactSchemaVersion(String provenance) {
+        String value = Objects.requireNonNullElse(provenance, "").strip();
+        int details = value.indexOf(" (");
+        return details > 0 ? value.substring(0, details) : value;
     }
 
     private record StatusPresentation(String text, Color color, OutlineIcon icon) { }

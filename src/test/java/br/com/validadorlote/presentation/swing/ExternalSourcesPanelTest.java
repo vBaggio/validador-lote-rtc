@@ -41,6 +41,22 @@ class ExternalSourcesPanelTest {
     }
 
     @Test
+    void cardDetailsReserveColumnsThatCanWrapLongValues() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.IDLE,
+                    List.of(new ExternalSourceState(ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
+                            "010e_v1.02-r2", "https://dfe-portal.svrs.rs.gov.br/", null, null, null,
+                            ExternalSourcePhase.NOT_CHECKED, null, null, null)),
+                    0, 0, false, 1));
+
+            assertThat(findComponents(panel, JLabel.class).stream()
+                    .map(JLabel::getText)
+                    .anyMatch(text -> text.contains("width:125px"))).isTrue();
+        });
+    }
+
+    @Test
     void applyingDisablesEveryActionAndTheDialogPolicyRefusesClose() throws Exception {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             ExternalSourcesPanel panel = panel();
