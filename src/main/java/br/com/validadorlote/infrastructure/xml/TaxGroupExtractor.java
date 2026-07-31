@@ -262,11 +262,7 @@ public final class TaxGroupExtractor {
                     case "vIBSMun" -> {
                         if (esfera == Esfera.MUN) vIbsMunicipal = decimal(texto(r));
                     }
-                    case "vIBS" -> {
-                        BigDecimal value = decimal(texto(r));
-                        if (emGIbsCbs) vIbs = value;
-                        else if (emEstornoCred) declaredAmounts.put("vIBSEstCred", value);
-                    }
+                    case "vIBS" -> { if (emGIbsCbs) vIbs = decimal(texto(r)); }
                     case "vBC" -> {
                         if (emGIbsCbs) declaredAmounts.put("vBC", decimal(texto(r)));
                     }
@@ -282,10 +278,14 @@ public final class TaxGroupExtractor {
                         else if (esfera == Esfera.MUN) declaredAmounts.put("vDevIBSMun", value);
                         else if (esfera == Esfera.CBS) declaredAmounts.put("vDevCBS", value);
                     }
-                    case "vCBS" -> {
-                        BigDecimal value = decimal(texto(r));
-                        if (esfera == Esfera.CBS) vCbs = value;
-                        else if (emEstornoCred) declaredAmounts.put("vCBSEstCred", value);
+                    case "vCBS" -> { if (esfera == Esfera.CBS) vCbs = decimal(texto(r)); }
+                    // gEstornoCred (TEstornoCred, DFeTiposBasicos_v1.00.xsd:1510-1519) nomeia os
+                    // campos "vIBSEstCred"/"vCBSEstCred" — não "vIBS"/"vCBS" — mesmo por item.
+                    case "vIBSEstCred" -> {
+                        if (emEstornoCred) declaredAmounts.put("vIBSEstCred", decimal(texto(r)));
+                    }
+                    case "vCBSEstCred" -> {
+                        if (emEstornoCred) declaredAmounts.put("vCBSEstCred", decimal(texto(r)));
                     }
                     case "vCredPres" -> {
                         if (emIbsCredit) {

@@ -174,6 +174,26 @@ class TaxGroupExtractorTest {
     }
 
     @Test
+    void readsItemLevelEstornoCredByItsRealTagNames(@TempDir Path dir) throws IOException {
+        // W59f-10/1176 e W59g-10/1177 comparam o total contra a soma de "gEstornoCred/vIBS"
+        // (texto literal da NT) — mas o XSD nomeia os campos "vIBSEstCred"/"vCBSEstCred"
+        // (TEstornoCred, DFeTiposBasicos_v1.00.xsd:1510-1519), não "vIBS"/"vCBS" simples.
+        Path xml = dir.resolve("estorno.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <gEstornoCred><vIBSEstCred>1.00</vIBSEstCred><vCBSEstCred>2.00</vCBSEstCred></gEstornoCred>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        var g = extractor.extract(xml).getFirst();
+
+        assertThat(g.declaredAmounts()).containsEntry("vIBSEstCred", new BigDecimal("1.00"));
+        assertThat(g.declaredAmounts()).containsEntry("vCBSEstCred", new BigDecimal("2.00"));
+    }
+
+    @Test
     void nItemInvalidoNaoDerrubaALeitura(@TempDir Path dir) throws IOException {
         Path xml = dir.resolve("nitem-invalido.xml");
         Files.writeString(xml, """
