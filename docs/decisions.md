@@ -4,6 +4,37 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-063 — macOS DMG best-effort permanece sem correção enquanto major = 0 (31/07/2026)
+
+`jpackage` recusa gerar o bundler DMG quando `--app-version` começa em `0` ("The first number in
+an app-version cannot be zero or negative"). Isso falha o job `macOS (DMG)` do `release.yml` em
+toda tag `v0.x.x` desde `v0.1.0` — silenciosamente, porque o job é `continue-on-error: true` desde
+a Task 26 (best-effort, D-0XX daquele bloco). A causa nunca tinha sido diagnosticada; só descoberta
+ao investigar a falha na `v0.2.0`.
+
+Não corrigido agora porque as saídas disponíveis trocam um problema visível (build ausente) por um
+silencioso (número de versão que o usuário mac vê não bate com o de Windows/Linux): `--app-version`
+alimenta `CFBundleVersion`/`CFBundleShortVersionString`, exibidos ao usuário. A correção real é
+alcançar `v1.0.0` (quando o major deixa de ser zero) ou investigar uma flag jpackage que desacople
+o "bundle version" interno do "app version" exibido — nenhuma das duas foi avaliada em profundidade
+ainda. Ver [`docs/operacao-release.md`](./operacao-release.md#macos-dmg-conhecido-quebrado).
+
+## D-062 — Versão de execução tem fonte única: `build.gradle` (31/07/2026)
+
+`App.applicationVersion()` tinha uma constante Java (`DEVELOPMENT_APP_VERSION`) hardcoded como
+fallback para quando `jpackage.app-version` não está setada (ou seja, todo `./gradlew run` e toda
+execução de teste). Ela dessincronizava de `build.gradle` silenciosamente — motivo pelo qual o
+rótulo de versão no rodapé do app e a checagem de atualização (`ApplicationUpdateUseCase`) ficaram
+presos em `0.1.2` por dois releases (`v0.1.2`→`v0.2.0`) mesmo depois do bump em `build.gradle`,
+fazendo o dev build se comparar com o release real do GitHub e sempre "pedir" atualização.
+
+Agora `processResources` grava `version` de `build.gradle` em `app-version.properties`
+(`src/main/resources/`, template com placeholder `${appVersion}`), e `App.buildVersion()` lê esse
+recurso. `DEVELOPMENT_APP_VERSION` foi removida; sobra só um fallback estático
+(`FALLBACK_APP_VERSION = "0.0.0-dev"`) para o caso defensivo do recurso estar ausente do classpath.
+`build.gradle` continua sendo a única fonte de verdade — CI injeta via `-PappVersion`, dev usa o
+default `'0.2.0'` do próprio `build.gradle`, sem outro lugar para desatualizar.
+
 ## D-061 — cCredPres é snapshot embarcado; totalização cobre identidade, não cálculo (31/07/2026)
 
 A tabela `cCredPres` é embarcada como snapshot oficial de 13 códigos, com indicador de dedução e

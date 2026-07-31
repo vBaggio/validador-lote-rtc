@@ -33,6 +33,16 @@ application {
     mainClass = 'br.com.validadorlote.App'
 }
 
+// Única fonte de verdade para a versão em execução (App.applicationVersion()): o valor de
+// `version` acima, compilado no recurso em vez de duplicado numa constante Java, que dessincroniza
+// silenciosamente (dev build sempre se comparando com o release real e pedindo atualização).
+def resolvedAppVersion = version.toString()
+processResources {
+    filesMatching('app-version.properties') {
+        expand(appVersion: resolvedAppVersion)
+    }
+}
+
 test {
     useJUnitPlatform {
         excludeTags 'slow'

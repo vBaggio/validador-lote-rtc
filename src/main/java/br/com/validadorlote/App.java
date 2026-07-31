@@ -35,6 +35,8 @@ import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor;
 import br.com.validadorlote.infrastructure.xml.XmlMetadataParser;
 import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.net.URI;
 import java.time.Clock;
@@ -42,6 +44,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Executor;
@@ -57,7 +60,8 @@ public final class App {
     private static final String SCHEMA_KEY_ID = "schemas-2026-01";
     private static final String SCHEMA_PUBLIC_KEY =
             "MCowBQYDK2VwAyEA20h//V2xUUkgSm+K7WjWLjWaXmmm6i6AB71DPBooSpQ=";
-    private static final String DEVELOPMENT_APP_VERSION = "0.2.0";
+    private static final String APP_VERSION_RESOURCE = "/app-version.properties";
+    private static final String FALLBACK_APP_VERSION = "0.0.0-dev";
     private static final String PACKAGING_SMOKE_ARGUMENT = "--packaging-smoke";
 
     private App() {}
@@ -168,7 +172,20 @@ public final class App {
     }
 
     static String applicationVersion() {
-        return System.getProperty("jpackage.app-version", DEVELOPMENT_APP_VERSION);
+        String packaged = System.getProperty("jpackage.app-version");
+        return packaged != null ? packaged : buildVersion();
+    }
+
+    /** Lê a versão compilada em {@code build.gradle} (D-062); fora do jpackage, é a única fonte. */
+    private static String buildVersion() {
+        try (InputStream in = App.class.getResourceAsStream(APP_VERSION_RESOURCE)) {
+            if (in == null) return FALLBACK_APP_VERSION;
+            Properties properties = new Properties();
+            properties.load(in);
+            return properties.getProperty("version", FALLBACK_APP_VERSION);
+        } catch (IOException e) {
+            return FALLBACK_APP_VERSION;
+        }
     }
 
     /** Exercita a dependência criptográfica do bootstrap sem abrir a interface. */
