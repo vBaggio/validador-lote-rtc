@@ -54,12 +54,15 @@ public final class DropZonePanel extends JPanel {
 
         JLabel icon = new JLabel(new OutlineIcon(OutlineIcon.Kind.DRAG_DROP, 48));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel title = new JLabel("Arraste e solte seus XMLs aqui");
+        JLabel title = new JLabel("Adicione seus XMLs");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 26f));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel subtitle = new JLabel("Importe uma pasta ou um arquivo XML para iniciar a análise");
+        JLabel subtitle = new JLabel("Arraste arquivos ou uma pasta para esta área");
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel alternative = new JLabel("ou");
+        alternative.setForeground(new Color(150, 150, 150));
+        alternative.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton choose = new JButton("Escolher pasta ou XML...");
         choose.setIcon(new OutlineIcon(OutlineIcon.Kind.IMPORT));
@@ -74,7 +77,9 @@ public final class DropZonePanel extends JPanel {
         dropArea.add(title);
         dropArea.add(Box.createVerticalStrut(12));
         dropArea.add(subtitle);
-        dropArea.add(Box.createVerticalStrut(34));
+        dropArea.add(Box.createVerticalStrut(20));
+        dropArea.add(alternative);
+        dropArea.add(Box.createVerticalStrut(12));
         dropArea.add(choose);
         dropArea.add(Box.createVerticalStrut(12));
         dropArea.add(includeSubfolders);
@@ -124,6 +129,7 @@ public final class DropZonePanel extends JPanel {
         icon.setTransferHandler(handler);
         title.setTransferHandler(handler);
         subtitle.setTransferHandler(handler);
+        alternative.setTransferHandler(handler);
         hint.setTransferHandler(handler);
     }
 
