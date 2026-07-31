@@ -17,10 +17,6 @@ contábeis e fiscais a localizar inconsistências antes de tratar os documentos 
 > cegamente: confirme a situação no [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe),
 > que faz uma validação mais precisa, documento a documento.
 
-> **Ferramenta auxiliar e independente.** O projeto não tem vínculo com Receita Federal, SEFAZ ou
-> qualquer órgão público. Ele não substitui a orientação fiscal nem a validação definitiva do
-> ambiente autorizador.
-
 **Navegação rápida:** [Instalação](#instalação) •
 [Validação em camadas](#validação-em-camadas) • [Como usar](#como-usar) •
 [Atualizações](#atualizações) • [Reportar um problema](#reportar-um-problema) •
