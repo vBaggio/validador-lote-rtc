@@ -53,7 +53,7 @@ gh release view vX.Y.Z
 
 `build.gradle` lê a versão de `-PappVersion`, que o workflow passa a partir de
 `${GITHUB_REF_NAME#v}` — não precisa (nem deve) editar `version` em `build.gradle` manualmente
-para uma release; o default ali (`findProperty('appVersion') ?: '0.2.0'`) é só para build local
+para uma release; o default ali (`findProperty('appVersion') ?: '0.2.1'`) é só para build local
 (D-062). **Atualize esse default** a cada release para não ficar defasado.
 
 ## 4. macOS DMG: conhecido quebrado em `0.x.x` {#macos-dmg-conhecido-quebrado}

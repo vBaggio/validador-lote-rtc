@@ -988,3 +988,50 @@ pelo dono) e o `java.exe` não rastreado do runtime local. Sem push/PR/merge. Co
 
 DÉBITO: nuance do código 8 do `cCredPres` (ponto 3) — sem efeito hoje, documentado para não virar
 "correção" equivocada numa sessão futura que só olhe o JSON sem reler o HTML bruto do portal.
+
+## Sessão 31/07/2026 — harness de release, UI de bases e cobertura (branch `chore/consolida-sessao`)
+
+Consolidação de três frentes desta sessão, todas verificadas com `clean test` verde antes do PR.
+
+**Harness de release (D-062, D-063).** `App.applicationVersion()` tinha `DEVELOPMENT_APP_VERSION`
+hardcoded como fallback fora do jpackage; ela dessincronizava de `build.gradle` em silêncio e
+prendeu o rótulo do rodapé e a checagem de atualização em `0.1.2` por dois releases, fazendo o dev
+build sempre "pedir" atualização. Agora `processResources` grava a versão de `build.gradle` em
+`app-version.properties` e o app lê o recurso — fonte única (D-062). O job macOS do `release.yml`
+falha em toda tag `0.x.x` desde `v0.1.0` (jpackage recusa `--app-version` começando em zero);
+diagnosticado e **deliberadamente não corrigido** (D-063), porque qualquer workaround faria a versão
+exibida no mac divergir de Windows/Linux — reavaliar em `v1.0.0`. `docs/operacao-release.md` passa a
+registrar gatilho, política semver, passo a passo, correção de release publicada e assinatura de
+código (inexistente, decisão do design v0).
+
+**UI do diálogo de bases.** Card estático do `cCredPres`: a tabela é embarcada sem canal automático
+(D-061) e era invisível ao usuário. Modelada como entrada que nunca passa pelo `ArtifactUpdateCoordinator`
+nem entra nos contadores `available`/`failed`. ACHADO no aceite do dono, com duas causas reais
+medidas no painel renderizado offscreen (não supostas): a coluna de cards não acompanhava a largura
+do viewport, então um status longo a esticava para 792px dentro de 740px — sem barra horizontal, a
+borda direita e o botão de expandir ficavam fora da área clicável; e a altura máxima do card era um
+número mágico (58px), cortando a segunda linha de texto que quebra. Corrigido com `Scrollable`
+(`getScrollableTracksViewportWidth`) e altura máxima seguindo a preferida. Teste novo falha com
+qualquer um dos dois valores antigos (verificação por mutação, §5).
+
+**Cobertura UB/W.** `docs/pesquisa/candidatas-rejeicao-pos-b6.md` atualizado: `1150 / UB54a-10`
+migra de "não recomendar/cálculo" para entregue (D-061), as duas linhas de `cCredPres` foram
+reauditadas (só a identidade do código sobe para `S-E`; indicadores por subgrupo seguem `T`), e a
+família **W** (21 códigos W35–W60, D-060) ganhou seção própria, conferida um a um contra
+`TaxTotalizationRule`. Fechamento: 33 entregues em UB, família W registrada à parte.
+
+DIVERGÊNCIA JULGADA: `CURRENT.md` afirmava que `candidatas-rejeicao-pos-b6.md` tinha "duas versões a
+reconciliar". É falso e foi herdado sem checagem — `git log --follow` mostra reconciliação única em
+`f91e27a`. O débito real era o documento estar defasado, agora resolvido.
+
+DÉBITO (pré-existente, não desta sessão): `ExternalSourcesUseCaseTest.blockedFactoryKeepsTheGate
+ClosedWithoutBlockingPublicationDrain` falha 4/4 quando rodado isolado e passa na suíte completa —
+confirmado também em `origin/main` (`5b57954`) num worktree limpo, portanto não é regressão desta
+sessão. É teste de concorrência dependente de ordem/timing: um teste que só passa acompanhado não
+protege de forma confiável. Precisa de correção própria.
+
+DÚVIDA DO DONO, RESPONDIDA SEM MUDAR CÓDIGO: por que um XML com `gCompraGov` continua "não avaliado"
+mesmo com a tabela `cCredPres` embarcada. São mecanismos independentes — a tabela alimenta a
+1150/UB54a-10 (que de fato rodou e acusou nesse XML), enquanto o não avaliado da compra governamental
+é a 1034/UB27-10, fora de escopo por D-030 porque exige a aritmética de `pAliqEfet` com
+`gCompraGov/pRedutor`. Nenhuma tabela resolveria isso; é território da Calculadora.

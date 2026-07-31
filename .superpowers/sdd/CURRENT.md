@@ -78,12 +78,16 @@ conferir tarefa a tarefa se cada plano fechou por inteiro ou só em parte.
   futura da tabela (ver ledger, linha ~989).
 - README não documenta instalação em macOS (o instalador nunca saiu por D-063) — hoje README só
   fala de Windows/Linux, silêncio sobre mac; considerar nota explícita em vez de omissão.
+- `ExternalSourcesUseCaseTest.blockedFactoryKeepsTheGateClosedWithoutBlockingPublicationDrain` é
+  flaky **pré-existente**: falha 4/4 isolado, passa na suíte completa; confirmado em `origin/main`
+  (`5b57954`), não é regressão da sessão de 31/07. Teste de concorrência dependente de ordem.
 
 ## Próximos passos propostos (para priorização do dono, nenhum iniciado)
 
-1. **Fechar o harness**: abrir PR de `chore/release-harness` (D-062/D-063 + `operacao-release.md`);
-   arquivar os planos de B6–B8; atualizar `docs/context.md` (índice + a frase de "v1" que hoje
-   promete "conferência de valores via motor oficial" sem qualificar o pré-plano da Calculadora).
+1. **Fechar o harness**: ~~abrir PR~~ feito em `chore/consolida-sessao` (release `v0.2.1`). Resta
+   arquivar os planos de B6–B8 em `plans/done/` e atualizar `docs/context.md` (índice + a frase de
+   "v1" que hoje promete "conferência de valores via motor oficial" sem qualificar o pré-plano da
+   Calculadora).
 2. **Calculadora — Fase A (spike)**, só depois do item 1, condicionada às respostas da seção 8 do
    pré-plano (público-alvo, corpus anonimizado, mensagem para dados simulados, setup do usuário,
    limiar de cobertura). Gate A: só segue para Fase B se houver subconjunto real de XMLs

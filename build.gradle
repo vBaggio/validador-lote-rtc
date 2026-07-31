@@ -5,7 +5,7 @@ plugins {
 
 group = 'br.com.validadorlote'
 // A release tag supplies the version in CI; keep a usable development default locally.
-version = findProperty('appVersion') ?: '0.2.0'
+version = findProperty('appVersion') ?: '0.2.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
