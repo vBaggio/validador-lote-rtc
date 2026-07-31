@@ -9,6 +9,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
@@ -47,7 +48,7 @@ public final class ResultsPanel extends JPanel {
     private final JButton clear = new JButton("Limpar");
     private final JButton removeValid = new JButton("Remover válidos");
     private final JButton validate = new JButton("Validar pendentes");
-    private final JButton cancel = new JButton("Interromper");
+    private final JButton cancel = new JButton("Abortar validação");
     private final TransferHandler dropHandler;
     private final Runnable modalOpened;
     private final Runnable modalClosed;
@@ -102,8 +103,8 @@ public final class ResultsPanel extends JPanel {
         add.addActionListener(event -> chooseInput(presenter));
         remove.setIcon(new OutlineIcon(OutlineIcon.Kind.DELETE));
         remove.addActionListener(event -> removeSelected(presenter));
-        clear.setIcon(new OutlineIcon(OutlineIcon.Kind.DELETE));
-        clear.addActionListener(event -> presenter.clearRequested());
+        clear.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
+        clear.addActionListener(event -> confirmClear(presenter));
         removeValid.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
         removeValid.addActionListener(event -> presenter.removeValidRequested());
         validate.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
@@ -303,6 +304,16 @@ public final class ResultsPanel extends JPanel {
         } finally {
             modalClosed.run();
         }
+    }
+
+    private void confirmClear(MainPresenter presenter) {
+        if (!clear.isEnabled()) return;
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Limpar todos os documentos do lote?",
+                "Limpar lote",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+        if (choice == JOptionPane.YES_OPTION) presenter.clearRequested();
     }
 
     /** JTable com listras quase imperceptíveis, mantendo a seleção intacta. */
