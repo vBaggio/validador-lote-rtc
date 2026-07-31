@@ -91,6 +91,10 @@ Para gerar o instalador nativo do sistema operacional atual, use:
 
 No Linux, a geração do instalador requer as ferramentas de empacotamento disponíveis no sistema;
 no Windows, o resultado é um instalador MSI. Os artefatos são criados em `build/jpackage/`.
+Em releases, a versão do MSI vem da tag (`vMAJOR.MINOR.PATCH`) e o instalador usa uma identidade
+estável de produto: ao executar um MSI mais novo no mesmo computador, o Windows atualiza a
+instalação anterior. As configurações e bases do usuário ficam no diretório de dados, separado da
+instalação.
 
 ## Base de validação
 
