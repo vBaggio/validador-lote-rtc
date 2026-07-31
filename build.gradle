@@ -4,7 +4,8 @@ plugins {
 }
 
 group = 'br.com.validadorlote'
-version = '0.1.0'
+// A release tag supplies the version in CI; keep a usable development default locally.
+version = findProperty('appVersion') ?: '0.1.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -316,6 +317,8 @@ tables.classTribCount=${totalCt}
 
 // ---------- Empacotamento (D-008: jlink enxuto no v0) ----------
 def jpackageModules = 'java.base,java.desktop,java.xml,java.logging,java.net.http,java.prefs,jdk.unsupported'
+// This UUID identifies the product across MSI releases. It must never change.
+def windowsUpgradeUuid = '1af12bf9-b54e-42f6-a237-bf7395d57dc2'
 def packagingIcons = layout.projectDirectory.dir('packaging/icons')
 def currentOs = System.getProperty('os.name').toLowerCase(Locale.ROOT)
 
@@ -407,7 +410,8 @@ tasks.register('jpackageInstaller', Exec) {
                 : linuxInstallerType()
         def args = jpackageArgs(type)
         if (currentOs.contains('win')) {
-            args += ['--win-menu', '--win-shortcut', '--win-dir-chooser', '--win-per-user-install']
+            args += ['--win-menu', '--win-shortcut', '--win-dir-chooser', '--win-per-user-install',
+                     '--win-upgrade-uuid', windowsUpgradeUuid]
         }
         commandLine args
     }

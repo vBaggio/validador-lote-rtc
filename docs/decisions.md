@@ -4,6 +4,15 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-055 — MSI usa major upgrade com identidade estável (31/07/2026)
+
+O instalador Windows recebe um `--win-upgrade-uuid` fixo entre releases. A versão do artefato é
+derivada da tag `vMAJOR.MINOR.PATCH` no workflow; uma tag fora desse formato interrompe a geração.
+Assim, executar o MSI de uma versão posterior atualiza a instalação anterior reconhecida pelo
+Windows, sem baixar, remover ou alterar os dados mantidos no diretório do usuário. O UUID não pode
+ser trocado; se houver mudança de produto, ela deve ser deliberada e registrada como nova linha de
+instalação.
+
 ## D-054 — Aviso consultivo de release do aplicativo é independente das bases (30/07/2026)
 
 Depois que a janela principal está visível, o aplicativo consulta uma única vez por processo o

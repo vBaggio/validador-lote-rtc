@@ -26,7 +26,13 @@ jobs:
         run: ./gradlew clean test --console=plain
       - name: Gerar instalador MSI
         shell: bash
-        run: ./gradlew jpackageInstaller --console=plain
+        run: |
+          app_version="${GITHUB_REF_NAME#v}"
+          [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "A tag deve usar MAJOR.MINOR.PATCH; recebido: $app_version"
+            exit 1
+          }
+          ./gradlew jpackageInstaller -PappVersion="$app_version" --console=plain
       - name: Anexar MSI à Release
         uses: softprops/action-gh-release@v2
         with:
