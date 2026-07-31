@@ -117,7 +117,7 @@ class MainPresenterTest {
         public void openExternalSourcesDialog() {
             calls.add("open-sources");
             if (failIfDialogOpensBeforeTerminalSnapshot
-                    && !calls.contains("sources 2 RESTART_REQUIRED")) {
+                    && !calls.contains("sources 3 RESTART_REQUIRED")) {
                 throw new IllegalStateException(
                         "A abertura modal bloqueou a entrega do snapshot terminal");
             }
@@ -457,7 +457,7 @@ class MainPresenterTest {
         sourcePresenter.externalSourcesRequested();
         sourcePresenter.checkExternalSourcesRequested();
 
-        assertThat(calls).anySatisfy(call -> assertThat(call).startsWith("sources 2 "));
+        assertThat(calls).anySatisfy(call -> assertThat(call).startsWith("sources 3 "));
         assertThat(calls).contains("open-sources");
         assertThat(calls).noneMatch(call -> call.startsWith("error:"));
     }
@@ -500,7 +500,7 @@ class MainPresenterTest {
         sourcesPublishUpdateAvailable();
 
         assertThat(calls).doesNotContain("confirm-update");
-        assertThat(calls).contains("sources 2 UPDATES_AVAILABLE");
+        assertThat(calls).contains("sources 3 UPDATES_AVAILABLE");
     }
 
     @Test
@@ -522,8 +522,8 @@ class MainPresenterTest {
 
         sourcesPublishUpdateAvailable();
 
-        assertThat(calls).containsSubsequence("sources 2 APPLYING",
-                "sources 2 RELOADING_RUNTIME", "sources 2 UPDATED_AND_IN_USE",
+        assertThat(calls).containsSubsequence("sources 3 APPLYING",
+                "sources 3 RELOADING_RUNTIME", "sources 3 UPDATED_AND_IN_USE",
                 "bases-updated-in-use");
         assertThat(calls).filteredOn("bases-updated-in-use"::equals).hasSize(1);
         assertThat(calls).doesNotContain("restart-required");
@@ -609,8 +609,8 @@ class MainPresenterTest {
         sourcesPublishUpdateAvailable();
 
         assertThat(calls).containsSubsequence(
-                "sources 2 APPLYING",
-                "sources 2 RESTART_REQUIRED");
+                "sources 3 APPLYING",
+                "sources 3 RESTART_REQUIRED");
         assertThat(calls).doesNotContain("open-sources");
     }
 
@@ -640,7 +640,7 @@ class MainPresenterTest {
         assertThat(schemasAction.applyCalls).isOne();
         assertThat(calls).contains("restart-required");
         assertThat(calls).anySatisfy(call ->
-                assertThat(call).isEqualTo("sources 2 RESTART_REQUIRED"));
+                assertThat(call).isEqualTo("sources 3 RESTART_REQUIRED"));
         assertThat(recordingUiThread.executions).isPositive();
     }
 
