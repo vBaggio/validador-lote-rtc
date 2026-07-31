@@ -45,6 +45,22 @@ class TaxGroupExtractorTest {
     }
 
     @Test
+    void detectsTheZfmClassificationWhenItIsInTheProductAsDefinedByI05k(@TempDir Path dir)
+            throws IOException {
+        Path xml = dir.resolve("i05k.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><tpCredPresIBSZFM>0</tpCredPresIBSZFM></prod>
+                    <imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib></IBSCBS></imposto>
+                  </det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement()
+                .satisfies(group -> assertThat(group.hasTpCredPresIbsZfm()).isTrue());
+    }
+
+    @Test
     void detectsItemWithoutTheGroup() {
         // O caso dominante de 03/08: CRT=3 e nenhum grupo IBS/CBS.
         var grupos = extractor.extract(fixture("nfe-crt3-sem-ibscbs.xml"));
@@ -133,6 +149,48 @@ class TaxGroupExtractorTest {
         // PIS e COFINS também têm <CST>, e vêm antes do IBSCBS no mesmo <imposto>.
         var g = extractor.extract(fixture("nfe-valida.xml")).getFirst();
         assertThat(g.cst()).isEqualTo("000");
+    }
+
+    @Test
+    void readsPresumedCreditCodeAndIbsValueWithinItsOwnGroup(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("credito-presumido.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <gCredPresOper><cCredPres>4</cCredPres><gIBSCredPres>
+                      <vCredPres>0.20</vCredPres>
+                    </gIBSCredPres></gCredPresOper>
+                    <gIBSCBS><gIBSUF><vIBSUF>0.50</vIBSUF></gIBSUF>
+                      <gIBSMun><vIBSMun>0.60</vIBSMun></gIBSMun><vIBS>0.90</vIBS></gIBSCBS>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement().satisfies(group -> {
+            assertThat(group.presumedCreditCode()).isEqualTo("4");
+            assertThat(group.presumedIbsCredit()).isEqualByComparingTo("0.20");
+            assertThat(group.valueIbs()).isEqualByComparingTo("0.90");
+        });
+    }
+
+    @Test
+    void readsItemLevelEstornoCredByItsRealTagNames(@TempDir Path dir) throws IOException {
+        // W59f-10/1176 e W59g-10/1177 comparam o total contra a soma de "gEstornoCred/vIBS"
+        // (texto literal da NT) — mas o XSD nomeia os campos "vIBSEstCred"/"vCBSEstCred"
+        // (TEstornoCred, DFeTiposBasicos_v1.00.xsd:1510-1519), não "vIBS"/"vCBS" simples.
+        Path xml = dir.resolve("estorno.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <gEstornoCred><vIBSEstCred>1.00</vIBSEstCred><vCBSEstCred>2.00</vCBSEstCred></gEstornoCred>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        var g = extractor.extract(xml).getFirst();
+
+        assertThat(g.declaredAmounts()).containsEntry("vIBSEstCred", new BigDecimal("1.00"));
+        assertThat(g.declaredAmounts()).containsEntry("vCBSEstCred", new BigDecimal("2.00"));
     }
 
     @Test

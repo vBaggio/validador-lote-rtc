@@ -912,3 +912,79 @@ EDT para executor daemon; URL de release foi restringida à rota HTTPS oficial. 
 
 HEAD final do B9 na branch `bloco/9-aviso-nova-versao`. Task 51 está commitada, revisada e árvore
 limpa. B9 aguarda aceite do dono; não houve push, PR ou merge.
+
+Task fiscal (31/07/2026): complete (commits `b9c39c6`, `3c9ef12`, `6721773`, `974190d`) —
+`cCredPres` oficial fica embarcada, sem rotina de atualização, com os 13 códigos e vigências IBS/CBS.
+A UB54a/1150 considera a dedução somente quando o indicador oficial exige; a camada de
+totalização passou a cobrir W35, W38/39, W41, W43/44, W46–W48, W53/54, W56/W56a e W58–W59g.
+Campos ausentes não viram zero nem rejeição. Fonte fiscal conferida: NT 2025.002 local e portal
+SVRS; o artigo TecnoSpeed foi usado apenas como referência explicativa. `./gradlew test` e
+`git diff --check` passaram. D-061 registra a fronteira com a Calculadora. Sem push/PR/merge.
+
+### Revisão independente — cCredPres e totalizações IBS/CBS (31/07/2026)
+
+Revisão do handoff `.superpowers/sdd/fiscal-totalizacoes-handoff.md` sobre os commits `b9c39c6`,
+`3c9ef12`, `6721773`, `974190d`, `0e21de2`. Cinco pontos, na ordem do handoff:
+
+1. **Caminhos StAX item×total — 2 achados CORRIGIDOS, sem vazamento de contexto.** O
+   desacoplamento por `emDet`/esfera está correto (nenhum nome de tag do total contaminou o item ou
+   vice-versa — a árvore de ancestrais via `isPath`/flags distingue os dois corretamente em todos os
+   campos revisados). Mas dois campos usavam o **nome de tag errado**, e por isso nunca liam nada em
+   documento real:
+   - `XmlMetadataParser` procurava `total/IBSCBSTot/vBC` para W35-10/1076; o XSD nomeia esse campo
+     `vBCIBSCBS` (`TIBSCBSMonoTot`, `DFeTiposBasicos_v1.00.xsd:563`) — `vBC` só existe no item
+     (`gIBSCBS/vBC`). O total nunca era capturado; a regra ficava sempre `NaoAplicavel`, silenciosa.
+     A fixture-corpus do D-039 tinha `<vBCIBSCBS>0.00</vBCIBSCBS>` (presença mínima, sem intenção de
+     testar valor) e mascarava o bug por coincidência dupla.
+   - `TaxGroupExtractor` escutava `vIBS`/`vCBS` dentro de `gEstornoCred` para W59f-10/1176 e
+     W59g-10/1177; o XSD nomeia os campos do item `vIBSEstCred`/`vCBSEstCred` (`TEstornoCred`,
+     linhas 1510–1519) — nunca `vIBS`/`vCBS`. Sem fixture nem teste cobrindo `gEstornoCred`, o bug
+     não tinha nenhuma rede de segurança.
+
+   Corrigidos em dois commits novos (`fix(rules): lê total/IBSCBSTot/vBCIBSCBS em vez de vBC
+   inexistente`, `fix(rules): lê vIBSEstCred/vCBSEstCred do item, não vIBS/vCBS`), cada um com teste
+   que falha sozinho contra a implementação anterior (sonda de mutação: revertida a correção, o
+   teste novo caiu isolado; restaurada). O primeiro fix expôs um efeito colateral esperado: com o
+   total lido de verdade, as 53 fixtures com o placeholder `vBCIBSCBS=0.00` passaram a divergir do
+   `vBC=200.00` real do item e geravam 1076 espúrio em todo o corpus — ajustadas para `200.00`,
+   preservando a identidade e a intenção original de cada fixture (nenhuma delas testa o valor do
+   total, D-039).
+2. **`TaxTotalizationRule.Sphere` — OK.** Os 21 códigos/`ruleId`/mensagens (W35–W60, exceto W60,
+   fora do escopo declarado como "Implementação futura" na própria NT) conferidos literalmente
+   contra `tmp/NT_2025.002_v1.50_RTC_NF-e_IBS_CBS_IS.md` linhas 4393–4470: batem palavra por
+   palavra, nenhuma mensagem parafraseada, nenhum código inventado. UB54a-10/1150
+   (`ItemIbsCompositionRule`) também confere: fórmula `vIBS = vIBSUF + vIBSMun − vCredPres (se
+   indDeduzCredPres=1)` é a mesma da NT (linha 2792), sem recalcular alíquota/base.
+3. **`ccredpres.json` — OK, confirmado contra o HTML bruto do portal SVRS** (não só o resumo
+   processado do WebFetch, que renderizava os indicadores de "Sim/Não" em `-` genérico e teria
+   levado a uma leitura errada se aceito sem checar; `curl` direto ao portal e parse do HTML cru
+   resolveu). Os 13 códigos, o indicador `deduzTotal` (só 4/7/11 = verdadeiro) e as vigências
+   IBS/CBS embarcadas batem exatamente com o portal. Ressalva sem ação: o código 8 tem
+   `ibsInicio=null` no JSON (mesma codificação usada para "não aplicável"), mas o HTML bruto do
+   portal mostra IBS "Aplicável: Sim" com "Início Vigência: Não informado" — são dois conceitos
+   diferentes que o `null` conflacionou. Não corrigido porque não há efeito prático: o código 8 tem
+   `deduzTotal=false` no portal, então a única consumidora da tabela (`ItemIbsCompositionRule`)
+   nunca deduziria nada por esse código de qualquer forma — o item apenas cai em `NaoAplicavel` em
+   vez de `Conforme` quando declara `cCredPres=8`, o que já é a direção seguramente conservadora do
+   projeto (não avaliado, nunca acusação). Registrado aqui para não ser "corrigido" às cegas depois:
+   se a vigência de IBS do código 8 vier a ganhar `deduzTotal=true` numa atualização futura da
+   tabela, essa distinção entre "não aplicável" e "vigência não informada" passa a importar.
+4. **Falso positivo com total/item ausente ou malformado — não encontrado.** `TaxTotalizationRule`
+   devolve `NaoAplicavel` (nunca `Rejeitado`) quando o total do documento é `null` ou quando
+   qualquer item tem o valor da esfera `null` — revisado o guard completo, e a suíte
+   (`missingItemValueIsNotTurnedIntoZeroOrARejection`) cobre o caso. `ItemIbsCompositionRule` segue
+   o mesmo padrão para os valores de IBS do item e para o crédito presumido. Nenhum caminho soma
+   `null` como zero.
+5. **Nenhuma regra recalcula alíquota/base/diferimento/devolução — OK.** As 21 instâncias de
+   `TaxTotalizationRule` e a `ItemIbsCompositionRule` são só identidade aritmética sobre valores já
+   declarados (soma/subtração), nunca leem `pIBSUF`/`pCBS`/`pRedAliq`/`gDif`/`gDevTrib` para
+   recompor um valor — consistente com D-060/D-061 e fora do escopo da Calculadora (D-061).
+
+**Testes:** `./gradlew test --console=plain` — 597 testes, 0 falhas, 0 erros (antes da revisão: 374
+cobriam só os pacotes tocados; a suíte completa passou depois das correções). `git status`/`git diff
+--check` limpos, preservando intocados `docs/pesquisa/2026-07-31-pre-plano-calculadora.md` (staged
+pelo dono) e o `java.exe` não rastreado do runtime local. Sem push/PR/merge. Commits novos:
+`50d8ad8` e `f79c378`.
+
+DÉBITO: nuance do código 8 do `cCredPres` (ponto 3) — sem efeito hoje, documentado para não virar
+"correção" equivocada numa sessão futura que só olhe o JSON sem reler o HTML bruto do portal.

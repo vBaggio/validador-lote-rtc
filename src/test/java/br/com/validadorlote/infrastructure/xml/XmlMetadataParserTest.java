@@ -77,6 +77,18 @@ class XmlMetadataParserTest {
     }
 
     @Test
+    void readsTheIbsCbsBaseTotalByItsRealTagName(@TempDir Path dir) throws IOException {
+        // W35-10/1076: total/IBSCBSTot/vBCIBSCBS (DFeTiposBasicos_v1.00.xsd:563, TIBSCBSMonoTot),
+        // não "vBC" — esse é o nome do campo homônimo por item (gIBSCBS/vBC, linha 894/1034).
+        var doc = parser.parse(write(dir, "totalbase.xml", NFE.replace(
+                "<IBSCBSTot><vIBS>0.00</vIBS></IBSCBSTot>",
+                "<IBSCBSTot><vBCIBSCBS>123.45</vBCIBSCBS><vIBS>0.00</vIBS></IBSCBSTot>")))
+                .document();
+
+        assertThat(doc.ibsCbsTotals()).containsEntry("vBC", new BigDecimal("123.45"));
+    }
+
+    @Test
     void mapsLinesToItemRanges(@TempDir Path dir) throws IOException {
         var index = parser.parse(write(dir, "doc.xml", NFE)).itemIndex();
 
@@ -161,6 +173,19 @@ class XmlMetadataParserTest {
         assertThat(doc.emitterCnpj()).isEqualTo("14200166000187");
         assertThat(doc.model()).isEqualTo("65");
         assertThat(doc.documentNumber()).isEqualTo("15");
+    }
+
+    @Test
+    void capturesTheEmitterLocationWithoutConfusingItWithTheRecipient(@TempDir Path dir)
+            throws IOException {
+        String xml = NFE.replace("<emit><CNPJ>14200166000187</CNPJ><xNome>TESTE</xNome></emit>",
+                "<emit><CNPJ>14200166000187</CNPJ><xNome>TESTE</xNome><enderEmit>"
+                        + "<cMun>1302603</cMun><UF>AM</UF></enderEmit></emit>");
+
+        var doc = parser.parse(write(dir, "emit-location.xml", xml)).document();
+
+        assertThat(doc.emitterState()).isEqualTo("AM");
+        assertThat(doc.emitterMunicipalityCode()).isEqualTo("1302603");
     }
 
     @Test

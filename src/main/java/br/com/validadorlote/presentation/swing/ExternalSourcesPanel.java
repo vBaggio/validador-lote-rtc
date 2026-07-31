@@ -50,6 +50,8 @@ final class ExternalSourcesPanel extends JPanel {
     private Runnable closeDialog = () -> { };
     private int sourceCardCount;
     private PrimaryAction primaryActionKind = PrimaryAction.CHECK_NOW;
+    private ExternalSourcesSnapshot displayedSnapshot;
+    private String expandedSourceName;
 
     ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry,
             Runnable closeDialog) {
@@ -94,6 +96,7 @@ final class ExternalSourcesPanel extends JPanel {
     }
 
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
+        displayedSnapshot = snapshot;
         rebuildCards(snapshot.sources(), snapshot.phase());
         configureSummary(snapshot);
         configureActions(snapshot.phase());
@@ -144,6 +147,9 @@ final class ExternalSourcesPanel extends JPanel {
     }
 
     private void rebuildCards(List<ExternalSourceState> sources, ExternalSourcesPhase aggregatePhase) {
+        if (sources.stream().noneMatch(source -> source.name().equals(expandedSourceName))) {
+            expandedSourceName = null;
+        }
         stopRemovedSpinners(sourceCards);
         sourceCards.removeAll();
         sourceCardCount = 0;
@@ -226,31 +232,49 @@ final class ExternalSourcesPanel extends JPanel {
     }
 
     private JPanel sourceCard(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
-        JPanel card = new JPanel(new BorderLayout(14, 12));
+        boolean expanded = source.name().equals(expandedSourceName);
+        JPanel card = new JPanel(new BorderLayout(14, expanded ? 12 : 0));
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, expanded ? 190 : 58));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(78, 78, 78)),
-                BorderFactory.createEmptyBorder(12, 16, 12, 16)));
+                BorderFactory.createEmptyBorder(10, 16, 10, 16)));
 
         JLabel name = new JLabel(source.name());
         name.setFont(name.getFont().deriveFont(Font.BOLD, 15f));
-        JLabel purpose = new JLabel(purpose(source.name()));
-        purpose.setForeground(MUTED);
+        Feedback presentation = feedbackFor(source, aggregatePhase);
+        JPanel status = status(source, aggregatePhase, presentation);
         JPanel titleText = new JPanel();
         titleText.setOpaque(false);
         titleText.setLayout(new BoxLayout(titleText, BoxLayout.Y_AXIS));
         titleText.add(name);
         titleText.add(Box.createVerticalStrut(3));
-        titleText.add(purpose);
+        titleText.add(status);
 
         JPanel header = new JPanel(new BorderLayout(16, 0));
         header.setOpaque(false);
         header.add(titleText, BorderLayout.CENTER);
-        header.add(activeBase(source), BorderLayout.EAST);
+        JButton toggle = new JButton(expanded ? "Ocultar" : "Detalhes");
+        toggle.setIcon(new OutlineIcon(expanded ? OutlineIcon.Kind.COLLAPSE : OutlineIcon.Kind.EXPAND,
+                16, MUTED));
+        toggle.setHorizontalTextPosition(JButton.LEFT);
+        toggle.addActionListener(event -> toggleDetails(source.name()));
+        toggle.getAccessibleContext().setAccessibleName((expanded ? "Ocultar" : "Ver")
+                + " detalhes de " + source.name());
+        header.add(toggle, BorderLayout.EAST);
         card.add(header, BorderLayout.NORTH);
 
-        card.add(feedback(source, aggregatePhase), BorderLayout.CENTER);
+        if (!expanded) return card;
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        JLabel purpose = new JLabel(purpose(source.name()));
+        purpose.setForeground(MUTED);
+        content.add(purpose);
+        content.add(Box.createVerticalStrut(8));
+        content.add(activeBase(source));
+        content.add(Box.createVerticalStrut(10));
         JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 2 : 3, 24, 0));
         details.setOpaque(false);
         details.setPreferredSize(new Dimension(0, 40));
@@ -261,8 +285,16 @@ final class ExternalSourcesPanel extends JPanel {
         details.add(detail("Última verificação", format(source.checkedAt())));
         details.add(detail(source.embedded() ? "Incluída em" : "Atualizada em",
                 format(source.updatedAt())));
-        card.add(details, BorderLayout.SOUTH);
+        content.add(details);
+        card.add(content, BorderLayout.CENTER);
         return card;
+    }
+
+    private void toggleDetails(String sourceName) {
+        expandedSourceName = sourceName.equals(expandedSourceName) ? null : sourceName;
+        if (displayedSnapshot != null) {
+            rebuildCards(displayedSnapshot.sources(), displayedSnapshot.phase());
+        }
     }
 
     private static JPanel activeBase(ExternalSourceState source) {
@@ -289,10 +321,10 @@ final class ExternalSourcesPanel extends JPanel {
         return active;
     }
 
-    private JPanel feedback(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
-        Feedback presentation = feedbackFor(source, aggregatePhase);
-        JPanel feedback = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 0));
-        feedback.setOpaque(false);
+    private JPanel status(ExternalSourceState source, ExternalSourcesPhase aggregatePhase,
+            Feedback presentation) {
+        JPanel status = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 0));
+        status.setOpaque(false);
         if (source.phase() == ExternalSourcePhase.CHECKING
                 || source.phase() == ExternalSourcePhase.APPLYING
                 || (aggregatePhase == ExternalSourcesPhase.RELOADING_RUNTIME
@@ -300,7 +332,7 @@ final class ExternalSourcesPanel extends JPanel {
             LoadingSpinner spinner = new LoadingSpinner();
             spinner.setForeground(presentation.color());
             spinner.setRunning(true);
-            feedback.add(spinner);
+            status.add(spinner);
         }
         boolean wrap = source.hasUnsupportedSchemaStructure();
         String visibleText = wrap
@@ -309,8 +341,8 @@ final class ExternalSourcesPanel extends JPanel {
         JLabel label = new JLabel(visibleText, presentation.icon(), JLabel.LEFT);
         label.setForeground(presentation.color());
         label.getAccessibleContext().setAccessibleName(presentation.text());
-        feedback.add(label);
-        return feedback;
+        status.add(label);
+        return status;
     }
 
     private static Feedback feedbackFor(ExternalSourceState source,

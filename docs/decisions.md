@@ -4,6 +4,36 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-061 — cCredPres é snapshot embarcado; totalização cobre identidade, não cálculo (31/07/2026)
+
+A tabela `cCredPres` é embarcada como snapshot oficial de 13 códigos, com indicador de dedução e
+vigências IBS/CBS. Não integra o canal automático de bases: a alteração exige revisão e nova
+release do aplicativo. A camada local confere as identidades declaradas W35, W38/39, W41,
+W43/44, W46–W48, W53/54, W56/W56a e W58–W59g, além da UB54a/1150. Campos ausentes ou ilegíveis
+nunca são convertidos em zero. Regras que reconstituem alíquota, base, diferimento ou devolução
+continuam responsabilidade da Calculadora oficial.
+
+## D-060 — Totalização declarada é camada própria, não calculadora (31/07/2026)
+As regras W41-10 (1080), W46-10 (1084) e W56-10 (1091) comparam, em `BigDecimal`, os totais
+IBS UF, IBS Municipal e CBS declarados em `total/IBSCBSTot` com a soma dos respectivos campos
+nos itens. Não reconstituem tributo nem dependem de tabelas: são uma identidade aritmética
+explícita da NT e permanecem uma camada local, rápida e independente da futura Calculadora. Se
+algum valor necessário estiver ausente ou ilegível, a regra não se aplica; não assume zero nem
+cria rejeição, pois a estrutura já é responsabilidade do XSD.
+
+## D-059 — I05k é campo do produto e a 1166 é independente de cálculo (31/07/2026)
+
+`tpCredPresIBSZFM` (I05k) pertence a `det/prod`, não ao grupo `gCredPresIBSZFM`. Seu valor `0`
+também é informação declarada: não pode ser tratado como ausência. As rejeições 1165 e 1166 leem
+essa presença; a primeira veda o campo na NFC-e e a segunda o veda na NF-e fora de AC, AM, RO,
+RR e dos municípios 1600303/1600600 no AP. A 1166 deve devolver *não avaliado* se faltar UF do
+emitente ou, no AP, município — nunca inferir localização.
+
+Essa validação é de presença e localização, portanto não depende da Calculadora nem da aritmética
+de compra governamental. Os três avisos idênticos de cálculo não coberto (UF, município e CBS)
+são um único limite útil para o mesmo item; o motor os deduplica por mensagem antes de apresentá-los,
+sem deduplicar rejeições nem outras causas distintas.
+
 ## D-058 — Atualização compara a candidata com a base embarcada em instalação limpa (31/07/2026)
 
 Não existir uma referência externa `current` não significa que a base em uso esteja desatualizada:

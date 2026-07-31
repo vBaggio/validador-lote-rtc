@@ -9,7 +9,8 @@ import java.util.function.Predicate;
  * Regra genérica: "se esta tag/grupo está presente [e o modelo é o exigido], foi informado
  * indevidamente". Cobre sete rejeições sem indicador de CST nem exceção — a NT só proíbe a
  * presença, incondicionalmente (1111, 1112) ou restrita ao modelo 65 (1187, 1049, 1138, 1165,
- * 708). Nenhuma instância consulta a tabela oficial, e por isso nenhuma participa da cascata de
+ * 708). A 1165 observa o campo I05k em {@code det/prod}, não o grupo de crédito presumido ZFM.
+ * Nenhuma instância consulta a tabela oficial, e por isso nenhuma participa da cascata de
  * {@link RuleEngine.Precondition} — todas são registradas em {@link RuleEngine#BINDINGS} sem
  * precondição.
  *

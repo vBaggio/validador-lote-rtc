@@ -17,7 +17,9 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -72,7 +74,8 @@ public final class XmlMetadataParser {
     }
 
     private ParsedMetadata read(Path source, XMLStreamReader r) throws XMLStreamException {
-        String root = null, accessKey = null, cnpj = null, emitterName = null, nNF = null,
+        String root = null, accessKey = null, cnpj = null, emitterName = null, emitterState = null,
+                emitterMunicipalityCode = null, nNF = null,
                 mod = null, serie = null, dhEmi = null,
                 crt = null, finNFe = null, tpNFDebito = null;
         // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
@@ -85,6 +88,8 @@ public final class XmlMetadataParser {
         // item, e sustenta as rejeições 1118/1119 (docs/decisions.md D-039). Não cabe no
         // TaxGroupExtractor, que só existe para o conteúdo tributário por item.
         boolean hasIbsCbsTot = false;
+        String totalIbsUf = null, totalIbsMunicipal = null, totalIbs = null, totalCbs = null;
+        Map<String, BigDecimal> ibsCbsTotals = new HashMap<>();
         int infNFeCount = 0;
         List<ReferencedNote> references = new ArrayList<>();
         // refNF/refNFP aberto cujo AAMM ainda não apareceu. Se ele fechar sem o campo, a
@@ -166,6 +171,10 @@ public final class XmlMetadataParser {
                         switch (capturing) {
                             case "CNPJ" -> { if (cnpj == null) cnpj = value; }
                             case "xNome" -> { if (emitterName == null) emitterName = value; }
+                            case "emit/UF" -> { if (emitterState == null) emitterState = value; }
+                            case "emit/cMun" -> {
+                                if (emitterMunicipalityCode == null) emitterMunicipalityCode = value;
+                            }
                             case "nNF" -> { if (nNF == null) nNF = value; }
                             case "mod" -> { if (mod == null) mod = value; }
                             case "serie" -> { if (serie == null) serie = value; }
@@ -174,6 +183,21 @@ public final class XmlMetadataParser {
                             case "finNFe" -> { if (finNFe == null) finNFe = value; }
                             case "tpNFDebito" -> { if (tpNFDebito == null) tpNFDebito = value; }
                             case "pRedutor" -> { if (pRedutor == null) pRedutor = value; }
+                            case "total/vIBSUF" -> { if (totalIbsUf == null) totalIbsUf = value; }
+                            case "total/vIBSMun" -> {
+                                if (totalIbsMunicipal == null) totalIbsMunicipal = value;
+                            }
+                            case "total/vIBS" -> { if (totalIbs == null) totalIbs = value; }
+                            case "total/vCBS" -> { if (totalCbs == null) totalCbs = value; }
+                            case "total/vBC" -> ibsCbsTotals.put("vBC", decimal(value));
+                            case "total/vDifIBSUF", "total/vDevIBSUF", "total/vDifIBSMun",
+                                    "total/vDevIBSMun", "total/vCredPresIBS", "total/vDifCBS",
+                                    "total/vDevCBS", "total/vCredPresCBS" ->
+                                    ibsCbsTotals.put(capturing.substring("total/".length()), decimal(value));
+                            case "total/vIBSMono", "total/vCBSMono", "total/vIBSMonoReten",
+                                    "total/vCBSMonoReten", "total/vIBSMonoRet", "total/vCBSMonoRet",
+                                    "total/vIBSEstCred", "total/vCBSEstCred" ->
+                                    ibsCbsTotals.put(capturing.substring("total/".length()), decimal(value));
                             // NFref aceita até 999 ocorrências: todas contam, nada de "primeira".
                             case "refNFe", "refNFeSig" -> references.add(
                                     new ReferencedNote(capturing, AccessKeyMonth.ofAccessKey(value)));
@@ -209,15 +233,16 @@ public final class XmlMetadataParser {
         if (infNFeCount > 1) {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
-                    new FiscalDocument(source, null, null, null, null, null, null, null, root, null,
-                            null, null, false, null, false, List.of()),
+                    new FiscalDocument(source, null, null, null, null, null, null, null, root,
+                            null, null, null, false, null, false, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
-                new FiscalDocument(source, accessKey, cnpj, emitterName, nNF, parseIssueDate(dhEmi),
-                        mod, serie, root,
+                new FiscalDocument(source, accessKey, cnpj, emitterName, emitterState,
+                        emitterMunicipalityCode, nNF, parseIssueDate(dhEmi), mod, serie, root,
                         crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
-                        references),
+                        decimal(totalIbsUf), decimal(totalIbsMunicipal), decimal(totalIbs),
+                        decimal(totalCbs), references, ibsCbsTotals),
                 ItemLineIndex.of(ranges));
     }
 
@@ -235,6 +260,8 @@ public final class XmlMetadataParser {
     private String targetField(Deque<String> stack) {
         if (isFirst(stack, "CNPJ", "emit")) return "CNPJ";
         if (isFirst(stack, "xNome", "emit")) return "xNome";
+        if (isPath(stack, "UF", "enderEmit", "emit")) return "emit/UF";
+        if (isPath(stack, "cMun", "enderEmit", "emit")) return "emit/cMun";
         if (isFirst(stack, "CRT", "emit")) return "CRT";
         if (isFirst(stack, "nNF", "ide")) return "nNF";
         if (isFirst(stack, "mod", "ide")) return "mod";
@@ -247,6 +274,37 @@ public final class XmlMetadataParser {
         // Único pRedutor de infNFe/ide: o gTribCompraGov do item (TTribCompraGov) não tem campo
         // de mesmo nome — conferido no XSD embarcado.
         if (isFirst(stack, "pRedutor", "gCompraGov")) return "pRedutor";
+        if (isPath(stack, "vIBSUF", "gIBSUF", "gIBS", "IBSCBSTot", "total")) {
+            return "total/vIBSUF";
+        }
+        if (isPath(stack, "vIBSMun", "gIBSMun", "gIBS", "IBSCBSTot", "total")) {
+            return "total/vIBSMun";
+        }
+        if (isPath(stack, "vIBS", "gIBS", "IBSCBSTot", "total")) return "total/vIBS";
+        if (isPath(stack, "vCBS", "gCBS", "IBSCBSTot", "total")) return "total/vCBS";
+        // O total é "vBCIBSCBS" (TIBSCBSMonoTot, DFeTiposBasicos_v1.00.xsd:563), não "vBC" —
+        // esse nome só existe no item (gIBSCBS/vBC, TCIBS/TCIBS_NFe). A chave interna continua
+        // "total/vBC" para casar com Sphere.BASE em TaxTotalizationRule.
+        // O total é "vBCIBSCBS" (TIBSCBSMonoTot, DFeTiposBasicos_v1.00.xsd:563), não "vBC" —
+        // esse nome só existe no item (gIBSCBS/vBC, TCIBS/TCIBS_NFe). A chave interna continua
+        // "total/vBC" para casar com Sphere.BASE em TaxTotalizationRule.
+        if (isPath(stack, "vBCIBSCBS", "IBSCBSTot", "total")) return "total/vBC";
+        if (isPath(stack, "vDif", "gIBSUF", "gIBS", "IBSCBSTot", "total")) return "total/vDifIBSUF";
+        if (isPath(stack, "vDevTrib", "gIBSUF", "gIBS", "IBSCBSTot", "total")) return "total/vDevIBSUF";
+        if (isPath(stack, "vDif", "gIBSMun", "gIBS", "IBSCBSTot", "total")) return "total/vDifIBSMun";
+        if (isPath(stack, "vDevTrib", "gIBSMun", "gIBS", "IBSCBSTot", "total")) return "total/vDevIBSMun";
+        if (isPath(stack, "vCredPres", "gIBS", "IBSCBSTot", "total")) return "total/vCredPresIBS";
+        if (isPath(stack, "vDif", "gCBS", "IBSCBSTot", "total")) return "total/vDifCBS";
+        if (isPath(stack, "vDevTrib", "gCBS", "IBSCBSTot", "total")) return "total/vDevCBS";
+        if (isPath(stack, "vCredPres", "gCBS", "IBSCBSTot", "total")) return "total/vCredPresCBS";
+        if (isPath(stack, "vIBSMono", "gMono", "IBSCBSTot", "total")) return "total/vIBSMono";
+        if (isPath(stack, "vCBSMono", "gMono", "IBSCBSTot", "total")) return "total/vCBSMono";
+        if (isPath(stack, "vIBSMonoReten", "gMono", "IBSCBSTot", "total")) return "total/vIBSMonoReten";
+        if (isPath(stack, "vCBSMonoReten", "gMono", "IBSCBSTot", "total")) return "total/vCBSMonoReten";
+        if (isPath(stack, "vIBSMonoRet", "gMono", "IBSCBSTot", "total")) return "total/vIBSMonoRet";
+        if (isPath(stack, "vCBSMonoRet", "gMono", "IBSCBSTot", "total")) return "total/vCBSMonoRet";
+        if (isPath(stack, "vIBSEstCred", "gEstornoCred", "IBSCBSTot", "total")) return "total/vIBSEstCred";
+        if (isPath(stack, "vCBSEstCred", "gEstornoCred", "IBSCBSTot", "total")) return "total/vCBSEstCred";
         // refNF e refNFP trazem AAMM próprio e explícito no XSD (linhas 341 e 393).
         if (isFirst(stack, "AAMM", "refNF")) return "refNF/AAMM";
         if (isFirst(stack, "AAMM", "refNFP")) return "refNFP/AAMM";
@@ -261,6 +319,14 @@ public final class XmlMetadataParser {
     private boolean isFirst(Deque<String> stack, String element, String parent) {
         var it = stack.iterator();
         return it.hasNext() && it.next().equals(element) && it.hasNext() && it.next().equals(parent);
+    }
+
+    private boolean isPath(Deque<String> stack, String... path) {
+        var it = stack.iterator();
+        for (String element : path) {
+            if (!it.hasNext() || !it.next().equals(element)) return false;
+        }
+        return true;
     }
 
     private String blankToNull(String value) {
