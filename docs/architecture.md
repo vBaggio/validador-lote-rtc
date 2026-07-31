@@ -107,4 +107,4 @@ página oficial da release quando a versão semântica disponível é superior �
 Na tela **Fontes externas**, o rodapé exibe somente a versão compacta da base e reserva os detalhes
 de proveniência para o tooltip. Os cards limitam a largura das colunas para acomodar versões e
 origens sem cortar o conteúdo; o diálogo usa decoração controlada pela aplicação e não oferece
-minimização durante a atualização.
+minimização durante a atualização; o fechamento fica na barra superior da janela.

@@ -42,22 +42,17 @@ final class ExternalSourcesPanel extends JPanel {
     private final JPanel sourceCards = new JPanel();
     private final JLabel summary = new JLabel();
     private final JButton primaryAction = new JButton();
-    private final JButton closeAction = new JButton();
     private final Runnable checkNow;
     private final Runnable applyAvailable;
     private final Runnable retry;
-    private final Runnable closeApplication;
-    private Runnable closeDialog = () -> { };
     private int sourceCardCount;
     private PrimaryAction primaryActionKind = PrimaryAction.CHECK_NOW;
 
-    ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry,
-            Runnable closeApplication) {
+    ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry) {
         super(new BorderLayout(0, 16));
         this.checkNow = checkNow;
         this.applyAvailable = applyAvailable;
         this.retry = retry;
-        this.closeApplication = closeApplication;
         setBorder(BorderFactory.createEmptyBorder(22, 24, 20, 24));
 
         JLabel title = new JLabel("Bases de validação");
@@ -87,14 +82,8 @@ final class ExternalSourcesPanel extends JPanel {
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         primaryAction.addActionListener(event -> runPrimaryAction());
-        closeAction.addActionListener(event -> closeDialog.run());
         actions.add(primaryAction);
-        actions.add(closeAction);
         add(actions, BorderLayout.SOUTH);
-    }
-
-    void setCloseDialog(Runnable closeDialog) {
-        this.closeDialog = closeDialog;
     }
 
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
@@ -110,14 +99,12 @@ final class ExternalSourcesPanel extends JPanel {
     int enabledActionCount() {
         int count = 0;
         if (primaryAction.isVisible() && primaryAction.isEnabled()) count++;
-        if (closeAction.isVisible() && closeAction.isEnabled()) count++;
         return count;
     }
 
     List<String> visibleActions() {
         List<String> actions = new ArrayList<>();
         if (primaryAction.isVisible()) actions.add(primaryAction.getText());
-        if (closeAction.isVisible()) actions.add(closeAction.getText());
         return actions;
     }
 
@@ -170,35 +157,28 @@ final class ExternalSourcesPanel extends JPanel {
 
     private void configureActions(ExternalSourcesPhase phase) {
         primaryAction.setVisible(true);
-        closeAction.setVisible(true);
         primaryAction.setEnabled(true);
-        closeAction.setEnabled(true);
         switch (phase) {
             case UPDATES_AVAILABLE -> {
                 primaryActionKind = PrimaryAction.APPLY;
                 primaryAction.setText("Atualizar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.DATABASE));
-                closeAction.setText("Fechar");
             }
             case FAILED -> {
                 primaryActionKind = PrimaryAction.RETRY;
                 primaryAction.setText("Tentar novamente");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-                closeAction.setText("Fechar");
             }
             case APPLYING, RELOADING_RUNTIME -> {
                 primaryActionKind = PrimaryAction.NONE;
                 primaryAction.setText("Atualizando…");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-                closeAction.setText("Fechar");
                 primaryAction.setEnabled(false);
-                closeAction.setEnabled(false);
             }
             case RESTART_REQUIRED -> {
                 primaryActionKind = PrimaryAction.CHECK_NOW;
                 primaryAction.setText("Verificar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-                closeAction.setText("Fechar");
             }
             case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION, UPDATED_AND_IN_USE -> {
                 primaryActionKind = PrimaryAction.CHECK_NOW;
@@ -206,11 +186,9 @@ final class ExternalSourcesPanel extends JPanel {
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 primaryAction.setEnabled(phase != ExternalSourcesPhase.CHECKING
                         && phase != ExternalSourcesPhase.WAITING_FOR_VALIDATION);
-                closeAction.setText("Fechar");
             }
         }
         primaryAction.getAccessibleContext().setAccessibleName(primaryAction.getText());
-        closeAction.getAccessibleContext().setAccessibleName(closeAction.getText());
     }
 
     private void runPrimaryAction() {

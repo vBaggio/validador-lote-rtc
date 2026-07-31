@@ -13,7 +13,6 @@ import java.awt.CardLayout;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Desktop;
-import java.awt.event.WindowEvent;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -42,8 +41,7 @@ public final class MainFrame extends JFrame implements MainView {
         setIconImage(AppIcon.image());
         resultsPanel = new ResultsPanel(presenter);
         externalSourcesDialog = new ExternalSourcesDialog(this, presenter::checkExternalSourcesRequested,
-                presenter::applyExternalSourcesRequested, presenter::checkExternalSourcesRequested,
-                () -> dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING)));
+                presenter::applyExternalSourcesRequested, presenter::checkExternalSourcesRequested);
         externalSourcesStatusBar = new ExternalSourcesStatusBar(applicationVersion, schemasVersion,
                 presenter::externalSourcesRequested, presenter::checkExternalSourcesRequested);
         root.add(new DropZonePanel(presenter::inputChosen), "drop");
@@ -75,7 +73,7 @@ public final class MainFrame extends JFrame implements MainView {
         String listed = files.stream().limit(8).map(path -> "• " + path.getFileName())
                 .collect(java.util.stream.Collectors.joining("\n"));
         String more = files.size() > 8 ? "\n• e mais " + (files.size() - 8) + " arquivo(s)" : "";
-        JOptionPane.showMessageDialog(this,
+        SwingDialogSupport.showMessage(this,
                 "A seleção continha arquivo(s) inválido(s), que não foram adicionados:\n\n"
                         + listed + more,
                 "Arquivos não adicionados", JOptionPane.WARNING_MESSAGE);
@@ -83,7 +81,7 @@ public final class MainFrame extends JFrame implements MainView {
 
     @Override
     public void showError(String message) {
-        JOptionPane.showMessageDialog(this, message, "Erro", JOptionPane.ERROR_MESSAGE);
+        SwingDialogSupport.showMessage(this, message, "Erro", JOptionPane.ERROR_MESSAGE);
     }
 
     @Override
@@ -109,9 +107,9 @@ public final class MainFrame extends JFrame implements MainView {
                   Há atualizações disponíveis para as bases de validação.
                   Deseja atualizar agora?
                   """;
-        return JOptionPane.showConfirmDialog(this, message.strip(),
+        return SwingDialogSupport.showConfirm(this, message.strip(),
                 "Atualização de bases", JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION;
+                JOptionPane.QUESTION_MESSAGE);
     }
 
     @Override
@@ -137,8 +135,8 @@ public final class MainFrame extends JFrame implements MainView {
                 Versão atual: %s
                 Versão disponível: %s
                 """.formatted(applicationVersion, release.version());
-        int choice = JOptionPane.showOptionDialog(this, message.strip(), "Nova versão disponível",
-                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        int choice = SwingDialogSupport.showOption(this, message.strip(), "Nova versão disponível",
+                JOptionPane.INFORMATION_MESSAGE, options, options[0]);
         if (choice == 1) openReleasePage(release);
     }
 

@@ -102,13 +102,13 @@ class ExternalSourcesPanelTest {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             ExternalSourcesPanel panel = panel();
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(ExternalSourcesPhase.IDLE, 0, 0));
-            assertThat(panel.visibleActions()).containsExactly("Verificar agora", "Fechar");
+            assertThat(panel.visibleActions()).containsExactly("Verificar agora");
 
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(ExternalSourcesPhase.UPDATES_AVAILABLE, 1, 0));
-            assertThat(panel.visibleActions()).containsExactly("Atualizar agora", "Fechar");
+            assertThat(panel.visibleActions()).containsExactly("Atualizar agora");
 
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(ExternalSourcesPhase.FAILED, 0, 2));
-            assertThat(panel.visibleActions()).containsExactly("Tentar novamente", "Fechar");
+            assertThat(panel.visibleActions()).containsExactly("Tentar novamente");
 
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(ExternalSourcesPhase.RESTART_REQUIRED, 0, 0));
             assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.RESTART_REQUIRED)).isTrue();
@@ -128,7 +128,7 @@ class ExternalSourcesPanelTest {
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(
                     ExternalSourcesPhase.UPDATED_AND_IN_USE, 0, 0));
             assertThat(panel.summaryText()).isEqualTo("Bases atualizadas e já em uso.");
-            assertThat(panel.visibleActions()).containsExactly("Verificar agora", "Fechar");
+            assertThat(panel.visibleActions()).containsExactly("Verificar agora");
             assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.UPDATED_AND_IN_USE)).isTrue();
         });
     }
@@ -169,7 +169,7 @@ class ExternalSourcesPanelTest {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             java.util.concurrent.atomic.AtomicInteger applies = new java.util.concurrent.atomic.AtomicInteger();
             ExternalSourcesPanel panel = new ExternalSourcesPanel(() -> { }, applies::incrementAndGet,
-                    () -> { }, () -> { });
+                    () -> { });
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(
                     ExternalSourcesPhase.UPDATES_AVAILABLE, 1, 0));
 
@@ -186,7 +186,7 @@ class ExternalSourcesPanelTest {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             java.util.concurrent.atomic.AtomicInteger applies = new java.util.concurrent.atomic.AtomicInteger();
             ExternalSourcesPanel panel = new ExternalSourcesPanel(() -> { }, applies::incrementAndGet,
-                    () -> { }, () -> { });
+                    () -> { });
             panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(
                     ExternalSourcesPhase.UPDATES_AVAILABLE, 1, 0));
             JButton update = findComponents(panel, JButton.class).stream()
@@ -227,7 +227,7 @@ class ExternalSourcesPanelTest {
     }
 
     private static ExternalSourcesPanel panel() {
-        return new ExternalSourcesPanel(() -> { }, () -> { }, () -> { }, () -> { });
+        return new ExternalSourcesPanel(() -> { }, () -> { }, () -> { });
     }
 
     private static ExternalSourcesSnapshot activitySnapshot(ExternalSourcesPhase phase,

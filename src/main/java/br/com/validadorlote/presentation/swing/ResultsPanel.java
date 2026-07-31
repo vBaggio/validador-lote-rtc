@@ -205,7 +205,7 @@ public final class ResultsPanel extends JPanel {
     private JTable configuredProblemsTable() {
         JTable table = new JTable(problemsModel);
         table.setRowHeight(28);
-        table.setIntercellSpacing(new Dimension(10, 0));
+        table.setIntercellSpacing(new Dimension(0, 0));
         table.setShowVerticalLines(false);
         table.getColumnModel().getColumn(0).setMinWidth(88);
         table.getColumnModel().getColumn(0).setPreferredWidth(96);
