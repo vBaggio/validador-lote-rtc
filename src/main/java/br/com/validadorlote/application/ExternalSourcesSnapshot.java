@@ -10,7 +10,8 @@ public record ExternalSourcesSnapshot(
         int availableCount,
         int failedCount,
         boolean validationActive,
-        long revision) {
+        long revision,
+        String runtimeReloadDetail) {
 
     public ExternalSourcesSnapshot {
         Objects.requireNonNull(phase);
@@ -18,5 +19,11 @@ public record ExternalSourcesSnapshot(
         if (availableCount < 0 || failedCount < 0 || revision < 0) {
             throw new IllegalArgumentException("Contadores do snapshot não podem ser negativos");
         }
+    }
+
+    /** Mantém compatibilidade para snapshots que não carregam falha de recarga de runtime. */
+    public ExternalSourcesSnapshot(ExternalSourcesPhase phase, List<ExternalSourceState> sources,
+            int availableCount, int failedCount, boolean validationActive, long revision) {
+        this(phase, sources, availableCount, failedCount, validationActive, revision, null);
     }
 }

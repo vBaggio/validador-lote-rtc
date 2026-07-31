@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -480,6 +481,113 @@ class ExternalSourcesUseCaseTest {
         assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
     }
 
+    @Test
+    void buildsAndPublishesR2OnlyAfterPhysicalActivationAndTheNextLeaseCapturesIt() {
+        AtomicBoolean physicallyActivated = new AtomicBoolean();
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationRuntime r2 = validationRuntime("r2");
+        schemasAction.applyReturns(candidate -> {
+            physicallyActivated.set(true);
+            return TestAction.manifest(candidate);
+        });
+        sources = managedSources(r1, () -> {
+            assertThat(physicallyActivated.get()).isTrue();
+            return r2;
+        }, Runnable::run);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        coordinator.checkNow();
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.UPDATED_AND_IN_USE);
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r2);
+    }
+
+    @Test
+    void blockedFactoryKeepsTheGateClosedWithoutBlockingPublicationDrain() throws Exception {
+        CountDownLatch enteredFactory = new CountDownLatch(1);
+        CountDownLatch releaseFactory = new CountDownLatch(1);
+        CountDownLatch finishedFactory = new CountDownLatch(1);
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationRuntime r2 = validationRuntime("r2");
+        sources = managedSources(r1, () -> {
+            enteredFactory.countDown();
+            await(releaseFactory);
+            finishedFactory.countDown();
+            return r2;
+        }, command -> Thread.ofPlatform().start(command));
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        coordinator.checkNow();
+        assertThat(sources.applyAvailable()).isTrue();
+        assertThat(enteredFactory.await(5, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RELOADING_RUNTIME);
+        assertThat(sources.tryAcquireValidationLease(r1)).isEmpty();
+        releaseFactory.countDown();
+        assertThat(finishedFactory.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r2);
+    }
+
+    @Test
+    void factoryFailurePreservesR1AndLatchesFallbackWithoutTryingAgain() {
+        AtomicInteger factoryCalls = new AtomicInteger();
+        ValidationRuntime r1 = validationRuntime("r1");
+        sources = managedSources(r1, () -> {
+            factoryCalls.incrementAndGet();
+            throw new IllegalStateException("XSD inválido");
+        }, Runnable::run);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        coordinator.checkNow();
+        sources.applyAvailable();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
+        assertThat(sources.snapshot().runtimeReloadDetail())
+                .contains("ativada em disco")
+                .contains("reinicie o aplicativo")
+                .doesNotContain("XSD inválido");
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r1);
+        coordinator.checkNow();
+        sources.applyAvailable();
+        assertThat(factoryCalls).hasValue(1);
+    }
+
+    @Test
+    void partialActivationBuildsOneCoherentRuntimeFromTheHealthyCurrentAndOldFallback() {
+        AtomicBoolean schemasActivated = new AtomicBoolean();
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationRuntime r2 = validationRuntime("r2");
+        schemasAction.applyReturns(candidate -> {
+            schemasActivated.set(true);
+            return TestAction.manifest(candidate);
+        });
+        tablesAction.applyFails(ArtifactUpdateException.localStorage("tabela indisponível", null));
+        sources = managedSources(r1, () -> {
+            assertThat(schemasActivated.get()).isTrue();
+            return r2;
+        }, Runnable::run);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        tablesAction.checkReturns(available(ArtifactId.FISCAL_TABLES, "2026-07-30"));
+
+        coordinator.checkNow();
+        sources.applyAvailable();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.UPDATED_AND_IN_USE);
+        assertThat(sources.snapshot().failedCount()).isOne();
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r2);
+    }
+
+    private ExternalSourcesUseCase managedSources(ValidationRuntime initial,
+            Supplier<ValidationRuntime> builder, java.util.concurrent.Executor executor) {
+        return new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp), initial, builder, executor);
+    }
+
     private ArtifactUpdateCoordinator coordinator(ArtifactUpdateStateStore state) {
         return new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
                 Duration.ofHours(24), Clock.fixed(NOW, ZoneOffset.UTC), Runnable::run,
@@ -565,6 +673,11 @@ class ExternalSourcesUseCaseTest {
             apply = candidate -> {
                 throw failure;
             };
+        }
+
+        private void applyReturns(java.util.function.Function<ArtifactUpdateCandidate,
+                ArtifactManifest> result) {
+            apply = result;
         }
 
         @Override

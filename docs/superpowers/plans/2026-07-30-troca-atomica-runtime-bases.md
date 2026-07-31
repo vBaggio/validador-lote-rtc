@@ -195,6 +195,8 @@ callbacks que lançam exceção e se a consulta posterior pode invalidar a opera
 
 ## Task 48 — Construção coerente pós-ativação e fallback de memória
 
+**Status:** concluída em `1b1f5db`; revisão independente PASS/PASS após dois fix loops.
+
 **Propósito:** ligar a ativação física já validada à montagem de um conjunto totalmente novo de
 engines/casos de uso, sem reabrir staging nem desmontar o runtime que está atendendo.
 

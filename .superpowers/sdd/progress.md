@@ -856,3 +856,15 @@ sonda de mutação, suíte completa e `git diff --check` passaram. A mudança co
 HEAD `1d98ec9` na branch `bloco/8-troca-runtime-bases`. Tasks 46–47 revisadas e árvore limpa.
 Próxima: Task 48 — factory do grafo completo, construção fora da EDT e publicação de R2 com fallback
 latched para boot. Sem push/PR/merge durante o bloco.
+
+Task 48 (b8): complete (commit `1b1f5db`, revisão independente PASS/PASS após 2 fix loops) —
+factory no composition root recompõe schema, tabelas, regras e caso de uso fora da EDT/stateLock e
+publica R2 sob o ticket do gate. ACHADOS IMPORTANTES corrigidos: testes agora usam stores reais
+para provar schema R2+tabela R1 em falha parcial e `current` R2 + lease R1 + boot seguinte no
+fallback; o snapshot expõe detalhe sanitizado da recarga sem marcar a fonte física APPLIED como
+falha. Mutação, suíte completa, `jpackageImage` e `git diff --check` passaram.
+
+### PARADA — 30/07/2026, Task 48 B8 concluída
+
+HEAD `1b1f5db` na branch `bloco/8-troca-runtime-bases`. Tasks 46–48 revisadas e árvore limpa.
+Próxima: Task 49 — transição de UI para `UPDATED_AND_IN_USE` e fallback de reinício excepcional.
