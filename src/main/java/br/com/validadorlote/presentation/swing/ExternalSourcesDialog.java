@@ -22,14 +22,13 @@ final class ExternalSourcesDialog extends JDialog {
     private static final String ESCAPE_CLOSE = "close-external-sources";
     private final ExternalSourcesPanel panel;
 
-    ExternalSourcesDialog(Window owner, Runnable checkNow, Runnable applyAvailable, Runnable retry,
-            Runnable closeApplication) {
+    ExternalSourcesDialog(Window owner, Runnable checkNow, Runnable applyAvailable, Runnable retry) {
         super(owner, "Atualização de bases", Dialog.ModalityType.APPLICATION_MODAL);
-        setType(Window.Type.UTILITY);
+        // A decoração FlatLaf mantém a barra/título da janela e permite ocultar somente minimizar.
+        SwingDialogSupport.hideMinimizeButton(this);
         setDefaultCloseOperation(HIDE_ON_CLOSE);
         setResizable(false);
-        panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry, closeApplication);
-        panel.setCloseDialog(() -> setVisible(false));
+        panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry, () -> setVisible(false));
         setContentPane(panel);
         getRootPane().getActionMap().put(ESCAPE_CLOSE, new AbstractAction() {
             @Override public void actionPerformed(ActionEvent event) {

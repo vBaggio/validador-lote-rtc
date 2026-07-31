@@ -25,6 +25,10 @@ import java.util.function.Consumer;
 public final class DropZonePanel extends JPanel {
 
     public DropZonePanel(Consumer<Path> onInputChosen) {
+        this(onInputChosen, () -> { }, () -> { });
+    }
+
+    public DropZonePanel(Consumer<Path> onInputChosen, Runnable modalOpened, Runnable modalClosed) {
         setLayout(new GridBagLayout());
 
         JPanel dropArea = new JPanel();
@@ -47,7 +51,7 @@ public final class DropZonePanel extends JPanel {
         choose.setIcon(new OutlineIcon(OutlineIcon.Kind.IMPORT));
         choose.setPreferredSize(new Dimension(250, 40));
         choose.setAlignmentX(Component.CENTER_ALIGNMENT);
-        choose.addActionListener(event -> chooseInput(onInputChosen));
+        choose.addActionListener(event -> chooseInput(onInputChosen, modalOpened, modalClosed));
 
         dropArea.add(Box.createVerticalGlue());
         dropArea.add(icon);
@@ -106,17 +110,22 @@ public final class DropZonePanel extends JPanel {
         hint.setTransferHandler(handler);
     }
 
-    private void chooseInput(Consumer<Path> onInputChosen) {
+    private void chooseInput(Consumer<Path> onInputChosen, Runnable modalOpened, Runnable modalClosed) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         chooser.setDialogTitle("Escolha uma pasta ou um XML");
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File selected = chooser.getSelectedFile();
-            if (isSupported(selected)) {
-                onInputChosen.accept(selected.toPath());
+        modalOpened.run();
+        try {
+            if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                File selected = chooser.getSelectedFile();
+                if (isSupported(selected)) {
+                    onInputChosen.accept(selected.toPath());
+                }
             }
+        } finally {
+            modalClosed.run();
         }
     }
 

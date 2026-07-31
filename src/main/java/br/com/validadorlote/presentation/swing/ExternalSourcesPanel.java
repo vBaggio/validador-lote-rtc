@@ -42,22 +42,21 @@ final class ExternalSourcesPanel extends JPanel {
     private final JPanel sourceCards = new JPanel();
     private final JLabel summary = new JLabel();
     private final JButton primaryAction = new JButton();
-    private final JButton closeAction = new JButton();
+    private final JButton closeAction = new JButton("Fechar");
     private final Runnable checkNow;
     private final Runnable applyAvailable;
     private final Runnable retry;
-    private final Runnable closeApplication;
     private Runnable closeDialog = () -> { };
     private int sourceCardCount;
     private PrimaryAction primaryActionKind = PrimaryAction.CHECK_NOW;
 
     ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry,
-            Runnable closeApplication) {
+            Runnable closeDialog) {
         super(new BorderLayout(0, 16));
         this.checkNow = checkNow;
         this.applyAvailable = applyAvailable;
         this.retry = retry;
-        this.closeApplication = closeApplication;
+        this.closeDialog = closeDialog;
         setBorder(BorderFactory.createEmptyBorder(22, 24, 20, 24));
 
         JLabel title = new JLabel("Bases de validação");
@@ -87,20 +86,20 @@ final class ExternalSourcesPanel extends JPanel {
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         primaryAction.addActionListener(event -> runPrimaryAction());
-        closeAction.addActionListener(event -> closeDialog.run());
+        closeAction.addActionListener(event -> this.closeDialog.run());
         actions.add(primaryAction);
         actions.add(closeAction);
         add(actions, BorderLayout.SOUTH);
-    }
-
-    void setCloseDialog(Runnable closeDialog) {
-        this.closeDialog = closeDialog;
     }
 
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
         rebuildCards(snapshot.sources(), snapshot.phase());
         configureSummary(snapshot);
         configureActions(snapshot.phase());
+    }
+
+    void setCloseDialog(Runnable closeDialog) {
+        this.closeDialog = closeDialog;
     }
 
     int sourceCardCount() {
@@ -127,7 +126,7 @@ final class ExternalSourcesPanel extends JPanel {
 
     private void configureSummary(ExternalSourcesSnapshot snapshot) {
         if (snapshot.phase() == ExternalSourcesPhase.UPDATED_AND_IN_USE) {
-            summary.setText("Bases atualizadas e já em uso.");
+            summary.setText("Bases atualizadas.");
             summary.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             summary.setForeground(SUCCESS);
             summary.setVisible(true);
@@ -178,19 +177,16 @@ final class ExternalSourcesPanel extends JPanel {
                 primaryActionKind = PrimaryAction.APPLY;
                 primaryAction.setText("Atualizar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.DATABASE));
-                closeAction.setText("Fechar");
             }
             case FAILED -> {
                 primaryActionKind = PrimaryAction.RETRY;
                 primaryAction.setText("Tentar novamente");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-                closeAction.setText("Fechar");
             }
             case APPLYING, RELOADING_RUNTIME -> {
                 primaryActionKind = PrimaryAction.NONE;
                 primaryAction.setText("Atualizando…");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-                closeAction.setText("Fechar");
                 primaryAction.setEnabled(false);
                 closeAction.setEnabled(false);
             }
@@ -198,7 +194,6 @@ final class ExternalSourcesPanel extends JPanel {
                 primaryActionKind = PrimaryAction.CHECK_NOW;
                 primaryAction.setText("Verificar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-                closeAction.setText("Fechar");
             }
             case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION, UPDATED_AND_IN_USE -> {
                 primaryActionKind = PrimaryAction.CHECK_NOW;
@@ -206,7 +201,6 @@ final class ExternalSourcesPanel extends JPanel {
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 primaryAction.setEnabled(phase != ExternalSourcesPhase.CHECKING
                         && phase != ExternalSourcesPhase.WAITING_FOR_VALIDATION);
-                closeAction.setText("Fechar");
             }
         }
         primaryAction.getAccessibleContext().setAccessibleName(primaryAction.getText());
@@ -250,7 +244,9 @@ final class ExternalSourcesPanel extends JPanel {
         card.add(title, BorderLayout.NORTH);
 
         card.add(feedback(source, aggregatePhase), BorderLayout.CENTER);
-        JPanel details = new JPanel(new GridLayout(1, 4, 18, 0));
+        JPanel details = new JPanel(new GridLayout(1, 4, 14, 0));
+        details.setPreferredSize(new Dimension(0, 40));
+        details.setMinimumSize(new Dimension(0, 40));
         details.add(detail("Base ativa", source.activeVersion()));
         details.add(detail("Última verificação", format(source.checkedAt())));
         details.add(detail("Origem", origin(source.origin())));
@@ -313,7 +309,8 @@ final class ExternalSourcesPanel extends JPanel {
 
     private static JLabel detail(String label, String value) {
         return new JLabel("<html><span style='color:#9c9c9c'>" + label + "</span><br>"
-                + escape(value == null ? "—" : value) + "</html>");
+                + "<div style='width:125px'>" + escape(value == null ? "—" : value)
+                + "</div></html>");
     }
 
     private static String purpose(String sourceName) {
@@ -326,6 +323,8 @@ final class ExternalSourcesPanel extends JPanel {
 
     private static String origin(String origin) {
         if (origin.contains("dfe-portal.svrs.rs.gov.br")) return "Portal da SVRS";
+        if (origin.contains("github.io")) return "GitHub Pages (canal oficial)";
+        if (origin.contains("github.com")) return "GitHub (canal oficial)";
         if (origin.contains("acbr")) return "Espelho técnico ACBr";
         return origin;
     }

@@ -60,9 +60,24 @@ class ExternalSourcesStatusBarTest {
             assertThat(statusBar.statusIcon()).isNull();
 
             statusBar.showSnapshot(snapshot(ExternalSourcesPhase.UPDATED_AND_IN_USE, 0, 0));
-            assertThat(statusBar.statusText()).isEqualTo("Bases atualizadas e já em uso");
+            assertThat(statusBar.statusText()).isEqualTo("Bases atualizadas");
             assertThat(statusBar.isSpinnerRunning()).isFalse();
             assertThat(statusBar.statusIcon()).isNotNull();
+        });
+    }
+
+    @Test
+    void footerKeepsTheSchemaVersionCompactAndFullProvenanceInTooltip() throws Exception {
+        runOnEdt(() -> {
+            ExternalSourcesStatusBar statusBar = new ExternalSourcesStatusBar("0.1.0",
+                    "schemas 010e_v1.02-r2 (canal curado; publicado em 2026-07-30; Portal Nacional; https://example.test)",
+                    "IT 2025.002",
+                    () -> { }, () -> { });
+
+            assertThat(statusBar.getComponent(0)).isInstanceOf(javax.swing.JLabel.class);
+            javax.swing.JLabel version = (javax.swing.JLabel) statusBar.getComponent(0);
+            assertThat(version.getText()).isEqualTo("v0.1.0  ·  schemas 010e_v1.02-r2  ·  tabelas IT 2025.002");
+            assertThat(version.getToolTipText()).contains("https://example.test");
         });
     }
 

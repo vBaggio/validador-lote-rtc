@@ -87,7 +87,8 @@ public final class App {
         var applicationUpdate = new ApplicationUpdateUseCase(APP_VERSION,
                 new GitHubReleaseChecker(SafeHttpsClient.forGitHubRelease()), applicationUpdateExecutor);
         UiBootstrap.launch(APP_VERSION, initialRuntime.useCase(),
-                initialRuntime.bases().schemaProvenance(), externalSources, applicationUpdate,
+                initialRuntime.bases().schemaProvenance(), initialRuntime.bases().tableVersion(),
+                externalSources, applicationUpdate,
                 coordinator::checkAfterBoot);
     }
 

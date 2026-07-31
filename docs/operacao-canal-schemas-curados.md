@@ -70,7 +70,7 @@ carregados no processo.
 | Cenário | Resultado obrigatório |
 |---|---|
 | Offline, DNS, conexão lenta ou timeout | A base embarcada ou a última `current` íntegra valida como antes; há falha recuperável visível; não há reinício necessário. |
-| Release válida com sequência maior | A candidata aparece; após confirmação ela é ativada, o runtime completo é montado fora da EDT e a nova closure entra em uso na mesma sessão. O sucesso diz **Bases atualizadas e já em uso**, sem pedir reinício. |
+| Release válida com sequência maior | A candidata aparece; após confirmação ela é ativada, o runtime completo é montado fora da EDT e a nova closure entra em uso na mesma sessão. O sucesso diz **Bases atualizadas**, sem pedir reinício. |
 | Falha de montagem após ativação física | `current` novo permanece íntegro em disco; o runtime anterior continua validando nesta sessão e a tela explica que a base será usada no próximo boot. |
 | Hash do ZIP, assinatura, redirect ou traversal de ZIP inválido | Não há candidata; staging e `current` não mudam; a fonte inválida fica visível como falha recuperável. |
 | Release assinada com closure quebrada/incompatível ou `minimumAppVersion` maior | O feedback diz **estrutura não suportada**; a base anterior permanece ativa; atualização de tabela ainda pode prosseguir; schemas não armam reinício necessário. |

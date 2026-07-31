@@ -19,6 +19,15 @@ public interface MainView {
 
     void openExternalSourcesDialog();
 
+    /** Informa se a janela de bases já está aberta e oferecendo o mesmo feedback ao usuário. */
+    default boolean isExternalSourcesDialogOpen() {
+        return false;
+    }
+
+    default boolean isModalDialogOpen() {
+        return isExternalSourcesDialogOpen();
+    }
+
     boolean confirmExternalSourcesUpdate(ExternalSourcesSnapshot snapshot);
 
     void showBasesUpdatedAndInUse(ExternalSourcesSnapshot snapshot);

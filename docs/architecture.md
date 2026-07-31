@@ -103,3 +103,8 @@ ele consulta em background apenas a última release estável do repositório ofi
 resposta é limitada, tem prazo curto e falhas de rede, HTTP, JSON ou navegador são silenciosas.
 Ele não compartilha estado, agendamento, confirmação ou ativação com as bases; somente oferece a
 página oficial da release quando a versão semântica disponível é superior à instalada.
+
+Na tela **Fontes externas**, o rodapé exibe somente a versão compacta da base e reserva os detalhes
+de proveniência para o tooltip. Os cards limitam a largura das colunas para acomodar versões e
+origens sem cortar o conteúdo; o diálogo usa decoração controlada pela aplicação e não oferece
+minimização durante a atualização; o fechamento fica na barra superior da janela.

@@ -10,6 +10,7 @@ import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.util.Objects;
 
 /** Rodapé que expõe o estado agregado das bases sem disputar atenção com o lote. */
 final class ExternalSourcesStatusBar extends JPanel {
@@ -26,11 +27,21 @@ final class ExternalSourcesStatusBar extends JPanel {
 
     ExternalSourcesStatusBar(String applicationVersion, String schemasVersion, Runnable openSources,
             Runnable retry) {
+        this(applicationVersion, schemasVersion, "", openSources, retry);
+    }
+
+    ExternalSourcesStatusBar(String applicationVersion, String schemasVersion, String tableVersion,
+            Runnable openSources, Runnable retry) {
         super(new BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 12));
-        JLabel version = new JLabel("v" + applicationVersion + "  ·  " + schemasVersion);
+        String compact = "v" + applicationVersion + "  ·  schemas "
+                + compactSchemaVersion(schemasVersion);
+        String compactTable = compactVersion(tableVersion);
+        if (!compactTable.isBlank()) compact += "  ·  tabelas " + compactTable;
+        JLabel version = new JLabel(compact);
         version.setForeground(MUTED);
-        add(version, BorderLayout.WEST);
+        version.setToolTipText((schemasVersion + " · " + tableVersion).strip());
+        add(version, BorderLayout.CENTER);
 
         JPanel state = new JPanel(new FlowLayout(FlowLayout.RIGHT, 7, 0));
         state.setOpaque(false);
@@ -123,7 +134,7 @@ final class ExternalSourcesStatusBar extends JPanel {
                     WARNING, null);
             case RELOADING_RUNTIME -> new StatusPresentation("Carregando as bases atualizadas…" + partial,
                     WARNING, null);
-            case UPDATED_AND_IN_USE -> new StatusPresentation("Bases atualizadas e já em uso" + partial,
+            case UPDATED_AND_IN_USE -> new StatusPresentation("Bases atualizadas" + partial,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             case RESTART_REQUIRED -> new StatusPresentation(
                     "Bases atualizadas · reinicie para usar as novas versões" + partial,
@@ -137,6 +148,17 @@ final class ExternalSourcesStatusBar extends JPanel {
         if (failedCount == 0) return "";
         return failedCount == 1 ? " · 1 fonte não respondeu"
                 : " · " + failedCount + " fontes não responderam";
+    }
+
+    private static String compactVersion(String provenance) {
+        String value = Objects.requireNonNullElse(provenance, "").strip();
+        int details = value.indexOf(" (");
+        return details > 0 ? value.substring(0, details) : value;
+    }
+
+    private static String compactSchemaVersion(String provenance) {
+        String value = compactVersion(provenance);
+        return value.startsWith("schemas ") ? value.substring("schemas ".length()) : value;
     }
 
     private record StatusPresentation(String text, Color color, OutlineIcon icon) { }
