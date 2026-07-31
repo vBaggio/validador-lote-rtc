@@ -11,13 +11,20 @@ Aplicativo desktop gratuito para revisar, de uma vez, lotes de XMLs de **NF-e (m
 **NFC-e (modelo 65)** relacionados à Reforma Tributária do Consumo (IBS/CBS). Ele ajuda equipes
 contábeis e fiscais a localizar inconsistências antes de tratar os documentos um a um.
 
+> **Projeto em desenvolvimento:** o aplicativo ainda pode conter erros e resultados incorretos.
+> A proposta é oferecer uma **triagem rápida, em lote e local/offline** — não uma conclusão fiscal
+> definitiva. Se o aplicativo apontar que um documento está errado, não aceite o resultado
+> cegamente: confirme a situação no [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe),
+> que faz uma validação mais precisa, documento a documento.
+
 > **Ferramenta auxiliar e independente.** O projeto não tem vínculo com Receita Federal, SEFAZ ou
 > qualquer órgão público. Ele não substitui a orientação fiscal nem a validação definitiva do
 > ambiente autorizador.
 
 **Navegação rápida:** [Instalação](#instalação) •
 [Validação em camadas](#validação-em-camadas) • [Como usar](#como-usar) •
-[Atualizações](#atualizações) • [Desenvolvimento](#desenvolvimento)
+[Atualizações](#atualizações) • [Reportar um problema](#reportar-um-problema) •
+[Desenvolvimento](#desenvolvimento)
 
 ## O que o aplicativo faz
 
@@ -162,6 +169,19 @@ Para gerar uma imagem da aplicação ou o instalador nativo do sistema atual:
 ```
 
 Os artefatos são criados em `build/jpackage/`.
+
+## Reportar um problema
+
+Encontrou um erro ou algo que não ficou claro? Abra uma [nova issue no GitHub](https://github.com/vBaggio/validador-lote-rtc/issues/new)
+com estas informações:
+
+- versão do aplicativo e sistema operacional;
+- o que você tentou fazer e o que esperava acontecer;
+- o que aconteceu de fato e, se possível, os passos para reproduzir;
+- captura de tela ou mensagem exibida, quando ajudarem a entender o caso.
+
+Não anexe XMLs reais, chaves de acesso, CNPJ ou outros dados fiscais. Se um arquivo for essencial
+para reproduzir o problema, remova os dados sensíveis ou use um exemplo fictício.
 
 ## Licença
 
