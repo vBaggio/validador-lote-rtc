@@ -48,6 +48,7 @@ class ExternalSourcesPanelTest {
 
             assertThat(panel.enabledActionCount()).isZero();
             assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.APPLYING)).isFalse();
+            assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.RELOADING_RUNTIME)).isFalse();
             assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.RESTART_REQUIRED)).isTrue();
         });
     }
@@ -101,6 +102,53 @@ class ExternalSourcesPanelTest {
     }
 
     @Test
+    void updatedRuntimeShowsSuccessAndOnlyNonTerminalActions() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(
+                    ExternalSourcesPhase.RELOADING_RUNTIME, 0, 0));
+            assertThat(panel.enabledActionCount()).isZero();
+
+            panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(
+                    ExternalSourcesPhase.UPDATED_AND_IN_USE, 0, 0));
+            assertThat(panel.summaryText()).isEqualTo("Bases atualizadas e já em uso.");
+            assertThat(panel.visibleActions()).containsExactly("Verificar agora", "Fechar");
+            assertThat(ExternalSourcesDialog.canClose(ExternalSourcesPhase.UPDATED_AND_IN_USE)).isTrue();
+        });
+    }
+
+    @Test
+    void reloadingRuntimeDoesNotTellTheUserAppliedBasesNeedANextBoot() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            ExternalSourceState applied = ExternalSourcesStatusBarTest.source(
+                    ArtifactId.NFE_SCHEMAS, ExternalSourcePhase.APPLIED);
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.RELOADING_RUNTIME,
+                    List.of(applied), 0, 0, false, 3));
+
+            assertThat(allOperationalLabels(panel)).extracting(JLabel::getText)
+                    .contains("Carregando a base atualizada…")
+                    .noneMatch(text -> text.contains("próximo boot"));
+            assertThat(findComponents(panel, LoadingSpinner.class))
+                    .anyMatch(LoadingSpinner::isRunning);
+        });
+    }
+
+    @Test
+    void restartFallbackUsesSanitizedRuntimeDetail() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.RESTART_REQUIRED,
+                    List.of(), 0, 0, false, 3,
+                    "Base ativada em disco.\nReinicie\u0000 o aplicativo."));
+
+            assertThat(panel.summaryText())
+                    .isEqualTo("Base ativada em disco. Reinicie o aplicativo.")
+                    .doesNotContain("\n");
+        });
+    }
+
+    @Test
     void updateActionInvokesOnlyTheApplyCallback() throws Exception {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             java.util.concurrent.atomic.AtomicInteger applies = new java.util.concurrent.atomic.AtomicInteger();
@@ -112,6 +160,25 @@ class ExternalSourcesPanelTest {
             findComponents(panel, JButton.class).stream()
                     .filter(button -> "Atualizar agora".equals(button.getText()))
                     .findFirst().orElseThrow().doClick();
+
+            assertThat(applies).hasValue(1);
+        });
+    }
+
+    @Test
+    void primaryActionUsesStateInsteadOfItsVisibleText() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            java.util.concurrent.atomic.AtomicInteger applies = new java.util.concurrent.atomic.AtomicInteger();
+            ExternalSourcesPanel panel = new ExternalSourcesPanel(() -> { }, applies::incrementAndGet,
+                    () -> { }, () -> { });
+            panel.showSnapshot(ExternalSourcesStatusBarTest.snapshot(
+                    ExternalSourcesPhase.UPDATES_AVAILABLE, 1, 0));
+            JButton update = findComponents(panel, JButton.class).stream()
+                    .filter(button -> "Atualizar agora".equals(button.getText()))
+                    .findFirst().orElseThrow();
+            update.setText("Rótulo alterado");
+
+            update.doClick();
 
             assertThat(applies).hasValue(1);
         });

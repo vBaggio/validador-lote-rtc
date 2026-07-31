@@ -1,29 +1,44 @@
 package br.com.validadorlote.presentation;
 
+import br.com.validadorlote.application.RuntimeBases;
 import br.com.validadorlote.domain.FiscalDocument;
 import br.com.validadorlote.domain.Finding;
 import br.com.validadorlote.domain.FindingKind;
 import br.com.validadorlote.domain.Severity;
 
 import java.util.List;
+import java.util.Objects;
 
 /** Linha da grade de trabalho, inclusive antes de a validação ser solicitada. */
 public record WorkspaceDocument(FiscalDocument document, DocumentStatus status,
-        List<Finding> findings) {
+        List<Finding> findings, RuntimeBases runtimeBases) {
     public WorkspaceDocument {
+        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(status, "status");
         findings = List.copyOf(findings);
+        if (status == DocumentStatus.PENDING || status == DocumentStatus.VALIDATING) {
+            if (runtimeBases != null) {
+                throw new IllegalArgumentException("Documento incompleto não pode ter runtimeBases");
+            }
+        } else if (runtimeBases == null) {
+            throw new IllegalArgumentException("Documento concluído deve ter runtimeBases");
+        }
     }
 
     public static WorkspaceDocument pending(FiscalDocument document) {
-        return new WorkspaceDocument(document, DocumentStatus.PENDING, List.of());
+        return new WorkspaceDocument(document, DocumentStatus.PENDING, List.of(), null);
     }
 
     public WorkspaceDocument withStatus(DocumentStatus newStatus) {
-        return new WorkspaceDocument(document, newStatus, findings);
+        RuntimeBases bases = newStatus == DocumentStatus.PENDING || newStatus == DocumentStatus.VALIDATING
+                ? null : runtimeBases;
+        return new WorkspaceDocument(document, newStatus, findings, bases);
     }
 
-    public WorkspaceDocument withResult(DocumentStatus newStatus, List<Finding> newFindings) {
-        return new WorkspaceDocument(document, newStatus, newFindings);
+    public WorkspaceDocument withResult(DocumentStatus newStatus, List<Finding> newFindings,
+            RuntimeBases newRuntimeBases) {
+        return new WorkspaceDocument(document, newStatus, newFindings,
+                java.util.Objects.requireNonNull(newRuntimeBases, "runtimeBases"));
     }
 
     public static DocumentStatus statusFor(List<Finding> findings) {

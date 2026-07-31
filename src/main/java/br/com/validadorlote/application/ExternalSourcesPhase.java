@@ -8,6 +8,8 @@ public enum ExternalSourcesPhase {
     UPDATES_AVAILABLE,
     WAITING_FOR_VALIDATION,
     APPLYING,
+    RELOADING_RUNTIME,
+    UPDATED_AND_IN_USE,
     RESTART_REQUIRED,
     FAILED
 }

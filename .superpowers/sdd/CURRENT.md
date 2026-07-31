@@ -3,6 +3,26 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
+- **Bloco:** B8 — Troca atômica do runtime de bases — está em execução na branch
+  `bloco/8-troca-runtime-bases`; plano em
+  `docs/superpowers/plans/2026-07-30-troca-atomica-runtime-bases.md`. **Task 46** concluída no
+  commit `f949b89`, revisão independente PASS/PASS após dois fix loops: `ValidationRuntime` e
+  `RuntimeBases` imutáveis, factory de geração thread-safe e associação persistida no resultado.
+  Estados pendentes/em validação não retêm identidade; cancelamento e falha reais retornam a
+  pendente sem geração residual. **Task 47** concluída em `1d98ec9`, revisão PASS/PASS após fix
+  loop: lease é capturada no mesmo gate da ativação, observers não prendem o gate e ticket impede
+  completion atrasado de liberar uma reserva nova. **Task 48** concluída em `1b1f5db`, revisão
+  PASS/PASS após dois fix loops: factory do composition root monta R2 fora da EDT/lock e o publica
+  atomicamente; falha preserva R1, mantém `current` em disco e expõe fallback sanitizado. **Task
+  49** concluída em `f4316b7`, revisão PASS/PASS: sucesso normal informa “Bases atualizadas e já
+  em uso”; recarga e fallback comunicam estados coerentes em rodapé, diálogo e cards. **Task 50**
+  concluída em `9f46867`: operação, arquitetura, contexto, decisão D-053, estratégia de testes,
+  README e roteiro manual agora registram `activate → build → atomic publish`, R1 preservado e
+  fallback excepcional de próximo boot. O fix loop documental corrigiu Javadoc stale do
+  `ArtifactUpdateCoordinator` e marcou D-048 como histórica/substituída por D-053 no boot-only.
+  `clean test`, `jpackageImage` e `git diff --check` passaram novamente. A re-revisão final foi
+  PASS/PASS; B8 está pronto para o aceite runtime do dono, sem push/PR/merge antes dele.
+
 - **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
   `bloco/7-canal-proprio-schemas`; plano em
   `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–5 e a correção

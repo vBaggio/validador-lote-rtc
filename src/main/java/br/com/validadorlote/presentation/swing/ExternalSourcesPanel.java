@@ -49,6 +49,7 @@ final class ExternalSourcesPanel extends JPanel {
     private final Runnable closeApplication;
     private Runnable closeDialog = () -> { };
     private int sourceCardCount;
+    private PrimaryAction primaryActionKind = PrimaryAction.CHECK_NOW;
 
     ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry,
             Runnable closeApplication) {
@@ -97,8 +98,8 @@ final class ExternalSourcesPanel extends JPanel {
     }
 
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
-        rebuildCards(snapshot.sources());
-        configureSummary(snapshot.phase());
+        rebuildCards(snapshot.sources(), snapshot.phase());
+        configureSummary(snapshot);
         configureActions(snapshot.phase());
     }
 
@@ -124,9 +125,14 @@ final class ExternalSourcesPanel extends JPanel {
         return summary.getText();
     }
 
-    private void configureSummary(ExternalSourcesPhase phase) {
-        if (phase == ExternalSourcesPhase.RESTART_REQUIRED) {
-            summary.setText("Atualização concluída. Reinicie o aplicativo para usar as novas versões.");
+    private void configureSummary(ExternalSourcesSnapshot snapshot) {
+        if (snapshot.phase() == ExternalSourcesPhase.UPDATED_AND_IN_USE) {
+            summary.setText("Bases atualizadas e já em uso.");
+            summary.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
+            summary.setForeground(SUCCESS);
+            summary.setVisible(true);
+        } else if (snapshot.phase() == ExternalSourcesPhase.RESTART_REQUIRED) {
+            summary.setText(sanitizedRuntimeReloadDetail(snapshot.runtimeReloadDetail()));
             summary.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             summary.setForeground(SUCCESS);
             summary.setVisible(true);
@@ -137,13 +143,13 @@ final class ExternalSourcesPanel extends JPanel {
         }
     }
 
-    private void rebuildCards(List<ExternalSourceState> sources) {
+    private void rebuildCards(List<ExternalSourceState> sources, ExternalSourcesPhase aggregatePhase) {
         stopRemovedSpinners(sourceCards);
         sourceCards.removeAll();
         sourceCardCount = 0;
         for (ExternalSourceState source : sources) {
             if (source.isCalculator()) continue;
-            sourceCards.add(sourceCard(source));
+            sourceCards.add(sourceCard(source, aggregatePhase));
             sourceCards.add(Box.createVerticalStrut(10));
             sourceCardCount++;
         }
@@ -169,16 +175,19 @@ final class ExternalSourcesPanel extends JPanel {
         closeAction.setEnabled(true);
         switch (phase) {
             case UPDATES_AVAILABLE -> {
+                primaryActionKind = PrimaryAction.APPLY;
                 primaryAction.setText("Atualizar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.DATABASE));
                 closeAction.setText("Fechar");
             }
             case FAILED -> {
+                primaryActionKind = PrimaryAction.RETRY;
                 primaryAction.setText("Tentar novamente");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 closeAction.setText("Fechar");
             }
-            case APPLYING -> {
+            case APPLYING, RELOADING_RUNTIME -> {
+                primaryActionKind = PrimaryAction.NONE;
                 primaryAction.setText("Atualizando…");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 closeAction.setText("Fechar");
@@ -186,11 +195,13 @@ final class ExternalSourcesPanel extends JPanel {
                 closeAction.setEnabled(false);
             }
             case RESTART_REQUIRED -> {
-                primaryAction.setText("Encerrar agora");
-                primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.ERROR));
-                closeAction.setText("Continuar e reiniciar depois");
+                primaryActionKind = PrimaryAction.CHECK_NOW;
+                primaryAction.setText("Verificar agora");
+                primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
+                closeAction.setText("Fechar");
             }
-            case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION -> {
+            case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION, UPDATED_AND_IN_USE -> {
+                primaryActionKind = PrimaryAction.CHECK_NOW;
                 primaryAction.setText("Verificar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 primaryAction.setEnabled(phase != ExternalSourcesPhase.CHECKING
@@ -203,16 +214,23 @@ final class ExternalSourcesPanel extends JPanel {
     }
 
     private void runPrimaryAction() {
-        switch (primaryAction.getText()) {
-            case "Atualizar agora" -> applyAvailable.run();
-            case "Tentar novamente" -> retry.run();
-            case "Encerrar agora" -> closeApplication.run();
-            case "Verificar agora" -> checkNow.run();
-            default -> { }
+        switch (primaryActionKind) {
+            case APPLY -> applyAvailable.run();
+            case RETRY -> retry.run();
+            case CHECK_NOW -> checkNow.run();
+            case NONE -> { }
         }
     }
 
-    private JPanel sourceCard(ExternalSourceState source) {
+    private static String sanitizedRuntimeReloadDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return "Atualização concluída. Reinicie o aplicativo para usar as novas versões.";
+        }
+        return detail.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", "")
+                .replaceAll("\\s+", " ").trim();
+    }
+
+    private JPanel sourceCard(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
         JPanel card = new JPanel(new BorderLayout(14, 12));
         card.setAlignmentX(LEFT_ALIGNMENT);
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
@@ -231,7 +249,7 @@ final class ExternalSourcesPanel extends JPanel {
         title.add(purpose);
         card.add(title, BorderLayout.NORTH);
 
-        card.add(feedback(source), BorderLayout.CENTER);
+        card.add(feedback(source, aggregatePhase), BorderLayout.CENTER);
         JPanel details = new JPanel(new GridLayout(1, 4, 18, 0));
         details.add(detail("Base ativa", source.activeVersion()));
         details.add(detail("Última verificação", format(source.checkedAt())));
@@ -241,12 +259,14 @@ final class ExternalSourcesPanel extends JPanel {
         return card;
     }
 
-    private JPanel feedback(ExternalSourceState source) {
-        Feedback presentation = feedbackFor(source);
+    private JPanel feedback(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
+        Feedback presentation = feedbackFor(source, aggregatePhase);
         JPanel feedback = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 0));
         feedback.setOpaque(false);
         if (source.phase() == ExternalSourcePhase.CHECKING
-                || source.phase() == ExternalSourcePhase.APPLYING) {
+                || source.phase() == ExternalSourcePhase.APPLYING
+                || (aggregatePhase == ExternalSourcesPhase.RELOADING_RUNTIME
+                && source.phase() == ExternalSourcePhase.APPLIED)) {
             LoadingSpinner spinner = new LoadingSpinner();
             spinner.setForeground(presentation.color());
             spinner.setRunning(true);
@@ -263,8 +283,13 @@ final class ExternalSourcesPanel extends JPanel {
         return feedback;
     }
 
-    private static Feedback feedbackFor(ExternalSourceState source) {
+    private static Feedback feedbackFor(ExternalSourceState source,
+            ExternalSourcesPhase aggregatePhase) {
         String detail = source.detail();
+        if (aggregatePhase == ExternalSourcesPhase.RELOADING_RUNTIME
+                && source.phase() == ExternalSourcePhase.APPLIED) {
+            return new Feedback("Carregando a base atualizada…", WARNING, null);
+        }
         if (source.hasUnsupportedSchemaStructure()) {
             return new Feedback(MESSAGES.getString(
                     "externalSources.unsupportedSchemaStructure"), ERROR,
@@ -314,4 +339,6 @@ final class ExternalSourcesPanel extends JPanel {
     }
 
     private record Feedback(String text, Color color, OutlineIcon icon) { }
+
+    private enum PrimaryAction { APPLY, RETRY, CHECK_NOW, NONE }
 }

@@ -2,12 +2,15 @@ package br.com.validadorlote;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
+import br.com.validadorlote.application.ValidationRuntime;
+import br.com.validadorlote.application.ValidationRuntimeFactory;
 import br.com.validadorlote.domain.RootCauseGrouper;
 import br.com.validadorlote.infrastructure.csv.CsvExporter;
 import br.com.validadorlote.infrastructure.fs.FolderScanner;
 import br.com.validadorlote.infrastructure.rules.RuleEngine;
 import br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
+import br.com.validadorlote.infrastructure.tables.TablesManifest;
 import br.com.validadorlote.infrastructure.tables.SafeHttpsClient;
 import br.com.validadorlote.infrastructure.tables.SvrsTableExtractor;
 import br.com.validadorlote.infrastructure.tables.SvrsTableNormalizer;
@@ -39,6 +42,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import br.com.validadorlote.presentation.swing.UiBootstrap;
 
 /** Ponto de entrada: monta o grafo de objetos e entrega à camada de apresentação. */
@@ -58,17 +63,21 @@ public final class App {
         var translator = new XsdErrorTranslator();
         var schemaStore = SchemaArtifactStore.forCurrentUser();
         var tableStore = FiscalTableArtifactStore.forCurrentUser();
-        var schemasRuntime = schemaRuntime(translator, schemaStore);
-        var useCase = new ValidateBatchUseCase(new FolderScanner(), new XmlMetadataParser(),
-                new TaxGroupExtractor(), schemasRuntime.engine(),
-                new RuleEngine(fiscalTables(tableStore)),
-                new RootCauseGrouper(), translator, new CsvExporter(),
-                schemasRuntime.provenance());
+        var runtimeIds = new ValidationRuntimeFactory();
+        Supplier<ValidationRuntime> runtimeBuilder = () -> validationRuntime(translator,
+                schemaStore, tableStore, runtimeIds);
+        ValidationRuntime initialRuntime = runtimeBuilder.get();
         var updateState = ArtifactUpdateStateStore.forCurrentUser();
+        Executor updaterExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "artifact-updater");
+            thread.setDaemon(true);
+            return thread;
+        });
         var coordinator = updateCoordinator(schemaStore, tableStore, updateState,
-                schemasRuntime.activeManifest());
-        var externalSources = new ExternalSourcesUseCase(coordinator, schemaStore, tableStore);
-        UiBootstrap.launch(useCase, schemasRuntime.provenance(), externalSources,
+                schemaRuntime(translator, schemaStore).activeManifest(), updaterExecutor);
+        var externalSources = new ExternalSourcesUseCase(coordinator, schemaStore, tableStore,
+                initialRuntime, runtimeBuilder, updaterExecutor);
+        UiBootstrap.launch(initialRuntime.useCase(), initialRuntime.bases().schemaProvenance(), externalSources,
                 coordinator::checkAfterBoot);
     }
 
@@ -94,16 +103,31 @@ public final class App {
         return local == null ? FiscalTables.load() : local;
     }
 
+    /** Monta um grafo inteiro novo a partir de referências current já verificadas. */
+    static ValidationRuntime validationRuntime(XsdErrorTranslator translator,
+            SchemaArtifactStore schemaStore, FiscalTableArtifactStore tableStore,
+            ValidationRuntimeFactory runtimeFactory) {
+        SchemaRuntime schemas = schemaRuntime(translator, schemaStore);
+        ArtifactManifest tableManifest = tableStore.activeManifestOrNull();
+        TablesManifest embeddedTables = new TablesManifest();
+        String tableVersion = tableManifest == null ? "IT " + embeddedTables.referenceVersion()
+                : tableManifest.version();
+        String tableProvenance = tableManifest == null ? embeddedTables.describe()
+                : tableManifest.sourceUrl();
+        ValidateBatchUseCase useCase = new ValidateBatchUseCase(new FolderScanner(),
+                new XmlMetadataParser(), new TaxGroupExtractor(), schemas.engine(),
+                new RuleEngine(fiscalTables(tableStore)), new RootCauseGrouper(), translator,
+                new CsvExporter(), schemas.provenance());
+        return runtimeFactory.create(useCase, schemas.activeManifest().map(ArtifactManifest::version)
+                .orElse(SchemasVersion.metadata().profile()), schemas.provenance(), tableVersion,
+                tableProvenance);
+    }
+
     private static ArtifactUpdateCoordinator updateCoordinator(SchemaArtifactStore schemaStore,
             FiscalTableArtifactStore tableStore, ArtifactUpdateStateStore updateState,
-            Optional<ArtifactManifest> activeSchemas) {
+            Optional<ArtifactManifest> activeSchemas, Executor executor) {
         var tables = new SvrsTableUpdater(SafeHttpsClient.forSvrs(), new SvrsTableExtractor(),
                 new SvrsTableNormalizer(), tableStore);
-        var executor = Executors.newSingleThreadExecutor(r -> {
-            Thread thread = new Thread(r, "artifact-updater");
-            thread.setDaemon(true);
-            return thread;
-        });
         return new ArtifactUpdateCoordinator(
                 updateActions(schemaUpdater(schemaStore), SCHEMA_CHANNEL_ID, tables, activeSchemas),
                 ArtifactUpdateCoordinator.DEFAULT_INTERVAL, Clock.systemUTC(), executor, event -> { },

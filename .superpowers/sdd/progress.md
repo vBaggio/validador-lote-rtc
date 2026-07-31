@@ -828,3 +828,73 @@ release `010e_v1.02-r2`, ativação confirmada e uso após reinício; detalhes l
 `tmp/runtime-smoke-canal-curado-2026-07-30.md`. As pendências evolutivas e o gate visual do
 instalador Windows foram registrados em `docs/operacao-canal-schemas-curados.md`. Em 30/07/2026,
 o dono autorizou push, abertura de PR e merge do aplicativo.
+
+Task 46 (b8): complete (commit `f949b89`, revisão independente PASS/PASS após 2 fix loops) —
+introduz `ValidationRuntime`/`RuntimeBases` imutáveis, factory thread-safe de gerações e associa a
+identidade da base ao resultado concluído do documento. ACHADOS IMPORTANTES corrigidos: o tipo
+agora proíbe bases em `PENDING`/`VALIDATING`, limpa identidade ao retornar a pendente e exige
+identidade em resultado terminal; a geração passou a ter dono monotônico; e os testes atravessam
+`VALIDATING` antes de cancelar ou lançar, provando que não há geração residual. TDD, suíte completa
+e duas sondas de mutação passaram; D-052 registra que troca posterior não recalcula nem
+reetiqueta resultados.
+
+### PARADA — 30/07/2026, Task 46 B8 concluída
+
+HEAD `f949b89` na branch `bloco/8-troca-runtime-bases`. Task 46 está commitada, revisada e árvore
+limpa. Próxima task: 47 — substituir a admissão booleana por leases capturadas sob o mesmo gate da
+ativação e preparar os testes de concorrência. Não há push, PR ou merge autorizado durante o bloco.
+
+Task 47 (b8): complete (commit `1d98ec9`, revisão independente PASS/PASS após 1 fix loop crítico)
+— introduz lease opaca capturada sob o mesmo lock da reserva de ativação e liberação por identidade
+no presenter. ACHADOS CRÍTICOS corrigidos: observer que lança no dreno não prende lease/reserva; e
+completion atrasado recebe ticket e não pode liberar ativação posterior. Barreiras determinísticas,
+sonda de mutação, suíte completa e `git diff --check` passaram. A mudança concreta de runtime ainda
+é responsabilidade da Task 48.
+
+### PARADA — 30/07/2026, Task 47 B8 concluída
+
+HEAD `1d98ec9` na branch `bloco/8-troca-runtime-bases`. Tasks 46–47 revisadas e árvore limpa.
+Próxima: Task 48 — factory do grafo completo, construção fora da EDT e publicação de R2 com fallback
+latched para boot. Sem push/PR/merge durante o bloco.
+
+Task 48 (b8): complete (commit `1b1f5db`, revisão independente PASS/PASS após 2 fix loops) —
+factory no composition root recompõe schema, tabelas, regras e caso de uso fora da EDT/stateLock e
+publica R2 sob o ticket do gate. ACHADOS IMPORTANTES corrigidos: testes agora usam stores reais
+para provar schema R2+tabela R1 em falha parcial e `current` R2 + lease R1 + boot seguinte no
+fallback; o snapshot expõe detalhe sanitizado da recarga sem marcar a fonte física APPLIED como
+falha. Mutação, suíte completa, `jpackageImage` e `git diff --check` passaram.
+
+### PARADA — 30/07/2026, Task 48 B8 concluída
+
+HEAD `1b1f5db` na branch `bloco/8-troca-runtime-bases`. Tasks 46–48 revisadas e árvore limpa.
+Próxima: Task 49 — transição de UI para `UPDATED_AND_IN_USE` e fallback de reinício excepcional.
+
+Task 49 (b8): complete (commit `f4316b7`, revisão independente PASS/PASS após 1 fix loop) —
+sucesso normal agora informa bases já em uso, sem pedir reinício; fallback conserva detalhe
+sanitizado e reinício excepcional. ACHADO IMPORTANTE corrigido: em `RELOADING_RUNTIME`, cards
+APPLIED exibem carregamento neutro/spinner, nunca “próximo boot”; o texto fica exclusivo de
+`RESTART_REQUIRED`. Mutação, suíte e `git diff --check` passaram.
+
+### PARADA — 30/07/2026, Task 49 B8 concluída
+
+HEAD `f4316b7` na branch `bloco/8-troca-runtime-bases`. Tasks 46–49 revisadas e árvore limpa.
+Próxima: Task 50 — documentação operacional, regressão integrada e roteiro de aceite runtime.
+
+Task 50 (b8): complete (commit `aa3fdf5`, revisão independente PASS/PASS após 1 fix loop) — atualiza
+operação, arquitetura, contexto, README, estratégia de testes e aceite do canal curado para
+`activate → build → atomic publish`; D-053 substitui D-050 no reinício normal. Documenta a lease
+R1, publicação de R2, falha parcial coerente e fallback excepcional: `current` novo é preservado,
+R1 segue atendendo e `RESTART_REQUIRED` explica o próximo boot. Regressões integradas das Tasks
+46–49 (stores reais + executor controlado) sustentam R1→R2, fonte parcial e falha pós-ativação.
+`clean test`, `jpackageImage` e `git diff --check` passaram. Sem débito novo; o roteiro manual e o
+gate visual Windows continuam aceite do dono.
+
+FIX LOOP 1: a revisão encontrou duas referências stale Important. O Javadoc de
+`ArtifactUpdateCoordinator` agora atribui a publicação de runtime ao caso de uso; D-048 foi marcada
+histórica/parcialmente substituída por D-053 e seu texto de boot-only passou a registrar a regra
+superada. `clean test`, `jpackageImage` e `git diff --check` passaram novamente; re-revisão PASS.
+
+### PARADA — 30/07/2026, Task 50 B8 concluída
+
+HEAD `aa3fdf5` na branch `bloco/8-troca-runtime-bases`. Tasks 46–50 estão commitadas e revisadas.
+B8 aguarda o aceite runtime do dono; não há push/PR/merge antes dele.

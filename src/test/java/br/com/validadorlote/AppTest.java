@@ -1,9 +1,20 @@
 package br.com.validadorlote;
 
+import br.com.validadorlote.application.ValidationRuntime;
+import br.com.validadorlote.application.ValidationRuntimeFactory;
+import br.com.validadorlote.application.ExternalSourcesUseCase;
+import br.com.validadorlote.application.ExternalSourcesPhase;
+import br.com.validadorlote.application.ValidationLease;
+import br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore;
 import br.com.validadorlote.infrastructure.tables.SvrsTableUpdater;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
 import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateException;
+import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
+import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import br.com.validadorlote.infrastructure.xml.CuratedSchemaChannelManifest;
 import br.com.validadorlote.infrastructure.xml.CuratedSchemaManifestParser;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
@@ -18,9 +29,13 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -88,6 +103,127 @@ class AppTest {
         assertThat(disabledChannel.detail())
                 .containsIgnoringCase("base curada ativa rtc-curated-7")
                 .doesNotContainIgnoringCase("base embarcada");
+    }
+
+    @Test
+    void buildsANewCompleteRuntimeForEveryGenerationFromTheActiveStores(@TempDir Path temp) {
+        ValidationRuntimeFactory ids = new ValidationRuntimeFactory();
+        SchemaArtifactStore schemas = new SchemaArtifactStore(temp);
+        var tables = new br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore(temp);
+
+        ValidationRuntime r1 = App.validationRuntime(new XsdErrorTranslator(), schemas, tables, ids);
+        ValidationRuntime r2 = App.validationRuntime(new XsdErrorTranslator(), schemas, tables, ids);
+
+        assertThat(r2.useCase()).isNotSameAs(r1.useCase());
+        assertThat(r2.bases().generation()).isGreaterThan(r1.bases().generation());
+        assertThat(r2.bases().schemaVersion()).isEqualTo("010e_v1.02");
+        assertThat(r2.bases().tableVersion()).startsWith("IT ");
+    }
+
+    @Test
+    void partialPhysicalActivationBuildsR2WithTheNewSchemaAndThePreviousRealTable(
+            @TempDir Path temp) throws IOException {
+        SchemaArtifactStore schemas = new SchemaArtifactStore(temp);
+        FiscalTableArtifactStore tables = new FiscalTableArtifactStore(temp);
+        installSchema(schemas, temp, "schemas-r1");
+        installTable(tables, "tables-r1");
+        schemas.prepare(copyEmbeddedSchemas(temp.resolve("schemas-r2")), "schemas-r2",
+                "https://schemas.example/r2", Instant.parse("2026-07-30T12:00:00Z"));
+        ValidationRuntimeFactory ids = new ValidationRuntimeFactory();
+        ValidationRuntime r1 = App.validationRuntime(new XsdErrorTranslator(), schemas, tables, ids);
+        AtomicReference<ValidationRuntime> built = new AtomicReference<>();
+        ArtifactUpdateCoordinator coordinator = coordinator(List.of(
+                activating(ArtifactId.NFE_SCHEMAS, "schemas", candidate -> schemas.activate("schemas-r2")),
+                failingTableAction()), temp);
+        ExternalSourcesUseCase sources = new ExternalSourcesUseCase(coordinator, schemas, tables, r1,
+                () -> built.updateAndGet(ignored -> App.validationRuntime(new XsdErrorTranslator(),
+                        schemas, tables, ids)), Runnable::run);
+
+        coordinator.checkNow();
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(built.get()).isNotNull();
+        assertThat(built.get().useCase()).isNotSameAs(r1.useCase());
+        assertThat(built.get().bases().schemaVersion()).isEqualTo("schemas-r2");
+        assertThat(built.get().bases().tableVersion()).isEqualTo("tables-r1");
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(built.get());
+    }
+
+    @Test
+    void failedInMemoryReloadKeepsRealCurrentR2WhileThisSessionStillLeasesR1(
+            @TempDir Path temp) throws IOException {
+        SchemaArtifactStore schemas = new SchemaArtifactStore(temp);
+        FiscalTableArtifactStore tables = new FiscalTableArtifactStore(temp);
+        installSchema(schemas, temp, "schemas-r1");
+        installTable(tables, "tables-r1");
+        schemas.prepare(copyEmbeddedSchemas(temp.resolve("schemas-r2")), "schemas-r2",
+                "https://schemas.example/r2", Instant.parse("2026-07-30T12:00:00Z"));
+        ValidationRuntimeFactory ids = new ValidationRuntimeFactory();
+        ValidationRuntime r1 = App.validationRuntime(new XsdErrorTranslator(), schemas, tables, ids);
+        ArtifactUpdateCoordinator coordinator = coordinator(List.of(
+                activating(ArtifactId.NFE_SCHEMAS, "schemas", candidate -> schemas.activate("schemas-r2"))),
+                temp);
+        ExternalSourcesUseCase sources = new ExternalSourcesUseCase(coordinator, schemas, tables, r1,
+                () -> { throw new IllegalStateException("compilação simulada falhou"); }, Runnable::run);
+
+        coordinator.checkNow();
+        sources.applyAvailable();
+
+        assertThat(schemas.activeManifestOrNull()).extracting(ArtifactManifest::version)
+                .isEqualTo("schemas-r2");
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
+        assertThat(sources.snapshot().runtimeReloadDetail())
+                .contains("ativada em disco")
+                .contains("reinicie o aplicativo")
+                .doesNotContain("compilação simulada falhou");
+        assertThat(sources.snapshot().failedCount()).isZero();
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r1);
+        ValidationRuntime afterRestart = App.validationRuntime(new XsdErrorTranslator(), schemas,
+                tables, new ValidationRuntimeFactory());
+        assertThat(afterRestart.bases().schemaVersion()).isEqualTo("schemas-r2");
+        assertThat(afterRestart.useCase()).isNotSameAs(r1.useCase());
+    }
+
+    private static ArtifactUpdateCoordinator coordinator(List<ArtifactUpdateAction> actions, Path temp) {
+        return new ArtifactUpdateCoordinator(actions, Duration.ofHours(24),
+                Clock.fixed(Instant.parse("2026-07-30T12:00:00Z"), ZoneOffset.UTC), Runnable::run,
+                event -> { }, new ArtifactUpdateStateStore(temp.resolve("state")));
+    }
+
+    private static ArtifactUpdateAction activating(ArtifactId id, String channel,
+            java.util.function.Function<ArtifactUpdateCandidate, ArtifactManifest> apply) {
+        return new ArtifactUpdateAction() {
+            @Override public ArtifactId artifact() { return id; }
+            @Override public String channelId() { return channel; }
+            @Override public ArtifactCheckResult check() {
+                return ArtifactCheckResult.available(new ArtifactUpdateCandidate(id, "candidate",
+                        "https://updates.example/", Instant.parse("2026-07-30T12:00:00Z"),
+                        "a".repeat(64), "pronta"), "pronta");
+            }
+            @Override public ArtifactManifest apply(ArtifactUpdateCandidate candidate) {
+                return apply.apply(candidate);
+            }
+        };
+    }
+
+    private static ArtifactUpdateAction failingTableAction() {
+        return activating(ArtifactId.FISCAL_TABLES, "tables", candidate -> {
+            throw ArtifactUpdateException.localStorage("tabela indisponível", null);
+        });
+    }
+
+    private static void installSchema(SchemaArtifactStore schemas, Path temp, String version)
+            throws IOException {
+        schemas.install(copyEmbeddedSchemas(temp.resolve(version)), version,
+                "https://schemas.example/" + version, Instant.parse("2026-07-30T12:00:00Z"));
+    }
+
+    private static void installTable(FiscalTableArtifactStore tables, String version)
+            throws IOException {
+        tables.install(Files.readAllBytes(Path.of("src/main/resources/tables/cst-cclasstrib.json")),
+                version, "https://tables.example/" + version, Instant.parse("2026-07-30T12:00:00Z"));
     }
 
     private static CuratedSchemaChannelManifest.SignedRelease curatedRelease() {

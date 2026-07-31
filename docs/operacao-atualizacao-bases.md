@@ -11,12 +11,14 @@ em [`operacao-canal-schemas-curados.md`](./operacao-canal-schemas-curados.md).
 Uma base nova só passa a ser usada depois de quatro etapas separadas:
 
 ```text
-consultar → preparar em staging → confirmar globalmente → ativar → reiniciar
+consultar → preparar em staging → confirmar globalmente → ativar → carregar → publicar em uso
 ```
 
 Consulta e preparo **nunca** alteram a referência ativa (`current`). A confirmação do usuário
-ativa todas as candidatas válidas de uma vez; os engines desta sessão continuam usando o conjunto
-carregado no boot. O reinício é obrigatório para carregar as versões ativadas.
+ativa todas as candidatas válidas de uma vez e, só depois da troca física, monta fora da EDT um
+conjunto completo de engines a partir das referências `current` íntegras. A publicação desse
+conjunto é atômica: novas validações passam a usar R2, enquanto uma já admitida conserva R1 até o
+fim. Reinício não é necessário no sucesso normal.
 
 ## Fluxo normal
 
@@ -34,8 +36,10 @@ carregado no boot. O reinício é obrigatório para carregar as versões ativada
    recusada de forma visível para não misturar referências.
 5. Ao confirmar, a ativação revalida a candidata e troca `current` atomicamente. O diálogo fica
    application-modal durante a operação; não fecha por X, Esc ou Alt+F4.
-6. Ao finalizar, o app mantém **Reinício necessário** até encerrar o processo, inclusive se a
-   persistência do evento terminal falhar depois de a troca física já ter ocorrido.
+6. Ao finalizar a ativação física, o app mostra **Carregando as bases atualizadas** e mantém o
+   gate fechado enquanto monta R2 fora da EDT. Se a montagem vencer, mostra **Bases atualizadas e
+   já em uso** e libera novas validações. Se falhar, preserva R1, mantém `current` novo em disco e
+   mostra **Reinício necessário** com a explicação de que a base será usada no próximo boot.
 
 ## Estado visível e ordem de eventos
 
@@ -51,7 +55,9 @@ um ciclo posterior da EDT, para que nunca bloqueie a entrega de `APPLIED` ou `FA
 | Aguardando validação | há candidata, mas lote ativo | aguardar fim/cancelamento do lote |
 | Falha de consulta | uma ou todas as fontes falharam, sem candidata predominante | tentar novamente |
 | Aplicando | ativação em andamento | nenhuma; fechamento bloqueado |
-| Reinício necessário | ao menos uma base foi ativada nesta sessão | encerrar e reabrir depois |
+| Carregando bases atualizadas | `current` já mudou e R2 está sendo montado fora da EDT | aguardar; validações novas permanecem bloqueadas |
+| Bases atualizadas e já em uso | R2 íntegro foi publicado uma única vez | validar normalmente com a nova geração |
+| Reinício necessário | fallback excepcional: `current` mudou, mas R2 não pôde ser montado | continuar com R1 ou encerrar e reabrir depois |
 
 Em sucesso parcial, uma candidata válida continua visível mesmo se a outra fonte falhar. Em
 `UP_TO_DATE + FAILED`, a falha também permanece visível e oferece retry; o sistema nunca volta a
@@ -69,6 +75,8 @@ Em sucesso parcial, uma candidata válida continua visível mesmo se a outra fon
 | falha parcial | fonte saudável conserva candidata/estado; fonte falha não apaga a outra | confirmação global ativa apenas válidas |
 | listener/UI lança exceção em CHECKING ou APPLYING | operação produz estado terminal, libera gate e isola o listener defeituoso | retry/consulta fresca; sem limbo |
 | falha ao persistir após ativação física | fato físico é preservado e reinício fica latched | não reaplica cegamente; nova consulta reconcilia estado |
+| falha ao montar R2 após ativação física | `current` novo é preservado; R1 continua atendendo e o gate é liberado | feedback explícito de próximo boot; não há reconstrução cega nesta sessão |
+| validação já admitida durante a atualização | conserva a lease de R1 até o resultado | resultado continua marcado com R1; não recalcular silenciosamente |
 | executor rejeita consulta/aplicação | reserva atômica é desfeita e erro chega pela EDT | usuário pode tentar novamente, sem loop de prompt |
 | candidata falha ao aplicar | candidata é bloqueada até nova consulta | não repetir ativação automaticamente |
 | modal em aplicação | fechamento e ações ficam bloqueados, mas snapshots terminais continuam chegando | terminal restaura política de fechamento |
@@ -90,8 +98,10 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
    deve aguardar; ao fim/cancelamento, deve ser oferecido uma única vez.
 6. Confirme a atualização. Durante **Aplicando**, teste X, Esc e Alt+F4: nenhum fecha o diálogo;
    todos os botões ficam indisponíveis, e o terminal não fica preso em spinner.
-7. Ao concluir, confira **Reinício necessário**. Feche e reabra o aplicativo; confirme no diálogo
-   que a versão ativada passou a ser a referência em uso.
+7. Ao concluir, confira literalmente **Bases atualizadas e já em uso**, sem pedido de reinício.
+   Valide um novo XML sem reiniciar e confira a geração R2; o resultado anterior permanece com R1,
+   sem ser recalculado. Induza também uma falha de montagem após ativação: `current` novo deve
+   existir, a sessão ainda valida com R1 e a tela deve explicar que a base será usada no próximo boot.
 8. Rode novamente sem atualização: a tabela idêntica deve ficar **verificada/atualizada**. Quando
    o canal curado estiver configurado, a mesma sequência só fica **verificada/atualizada** se hash
    do ZIP e identidade assinada coincidirem com a base ativa. Sequência menor ou sequência igual
@@ -104,7 +114,12 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
 - [ ] nenhuma combinação de listener, timeout, modal ou executor deixa `CHECKING`/`APPLYING` preso;
 - [ ] timeout do corpo não bloqueia a única operação de atualização;
 - [ ] confirmação e ativação não concorrem com validação de lote;
-- [ ] a ativação é atômica, revalidada e exige reinício para efeito nos engines;
+- [ ] a ativação é atômica, revalidada, monta R2 fora da EDT e publica o runtime completo sem
+  reinício no caminho normal;
+- [ ] uma validação já admitida conserva R1 e seus resultados não são recalculados; uma nova,
+  após a publicação, usa R2;
+- [ ] falha de montagem preserva R1 e `current` novo, informa o fallback de próximo boot e não
+  deixa gate ou spinner presos;
 - [ ] rodapé e diálogo mostram a mesma evolução de estado;
 - [ ] retry não provoca reaplicação cega ou prompts repetidos;
 - [ ] escala Windows 100%, 125% e 150% não corta conteúdo; há rolagem, ícones e ações acessíveis;

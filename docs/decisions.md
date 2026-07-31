@@ -4,6 +4,38 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-053 — Runtime completo é publicado atomicamente após ativação física (30/07/2026)
+
+Substitui D-050 quanto ao reinício como caminho normal. A ativação em disco continua precedida de
+consulta, staging validado, confirmação global e exclusão de validação. Depois de `current` mudar,
+o composition root monta fora da EDT e fora do gate um `ValidationRuntime` inteiro — schema,
+tabelas, `RuleEngine`, caso de uso e proveniência — usando somente referências `current` já
+verificadas. O mesmo gate que admite validação captura a lease de runtime, reserva ativação e se
+mantém fechado até publicar R2 ou concluir o fallback.
+
+Publicação é uma única troca de referência: validações novas capturam R2; uma validação já admitida
+conserva R1 até o resultado e os resultados exibidos nunca são recalculados ou reetiquetados. Falha
+parcial pode compor R2 com a referência nova saudável e a última referência íntegra da fonte que
+falhou. Se a montagem em memória falhar após a ativação física, não se desfaz `current`: R1 segue
+atendendo, `RESTART_REQUIRED` fica latched e a UI explica que a base nova será usada no próximo
+boot. Esse fallback excepcional privilegia uma sessão coerente em vez de tentar reparar engines
+parcialmente ou ocultar o fato persistido.
+
+## D-052 — Resultados guardam a geração imutável do runtime que os produziu (30/07/2026)
+
+Cada validação usa um `ValidationRuntime` imutável, composto pelo caso de uso e por
+`RuntimeBases` legível (versão e proveniência de schemas e tabela, além da geração). Ao concluir
+um documento, o presenter grava esse valor no `WorkspaceDocument`; pendente, validação cancelada
+e falha sem resultado não recebem identidade. Uma troca posterior de runtime não recalcula,
+reetiqueta nem consulta estado global para alterar resultados já exibidos.
+
+`ValidationRuntimeFactory` é o dono thread-safe da sequência: emite gerações estritamente
+crescentes e evita que o caminho de composição produza uma regressão manual. O contrato antecede
+a publicação atômica: nesta etapa ele conserva os construtores legados com uma identidade
+provisória, e a composição definitiva com as bases ativas será responsabilidade do composition
+root. A consequência é que a UI sempre poderá mostrar a proveniência que realmente gerou cada
+achado, mesmo quando a sessão passar a aceitar uma geração posterior.
+
 ## D-051 — Schemas runtime vêm de canal próprio, curado e assinado (30/07/2026)
 
 O runtime de schemas NF-e/NFC-e aceita somente releases completas do canal público próprio,
@@ -32,7 +64,10 @@ publicado em `vBaggio/validador-lote-rtc-bases`: endpoint GitHub Pages, ZIP, `st
 `keyId` `schemas-2026-01` e chave pública Ed25519 foram revisados e embarcados. A manutenção do
 canal continua exigindo revisão humana de cada nova release; não há fallback para SVRS.
 
-## D-050 — Consulta prepara; usuário ativa; engines mudam após reinício (30/07/2026)
+## D-050 — Consulta prepara; usuário ativa; engines mudavam após reinício (30/07/2026, substituída por D-053)
+
+> Registro histórico. D-053 substitui o reinício como fluxo normal e conserva as guardas de
+> consulta, staging, confirmação e ativação desta decisão.
 
 Schemas e tabelas são consultados e validados independentemente em staging. Uma confirmação global
 ativa todas as candidatas válidas; falha de uma fonte preserva sua base anterior sem impedir a
@@ -86,7 +121,11 @@ oficial, portanto não ativa schemas automaticamente. O canal próprio com manif
 promoção humana, então considerado futuro, é a política adotada por D-051. A base embarcada já é o
 fallback offline aprovado.
 
-## D-048 — Atualização externa é consultiva no lote; sem fallback automático para schemas (29/07/2026)
+## D-048 — Atualização externa é consultiva no lote; sem fallback automático para schemas (29/07/2026, parcialmente substituída por D-053)
+
+> Registro histórico. D-053 substitui somente a regra de uso no próximo boot: o runtime completo
+> agora é publicado atomicamente na mesma sessão. Permanecem desta decisão a consulta consultiva,
+> a privacidade e a proibição de fallback automático para schemas.
 
 O rodapé abre a tela discreta **Fontes externas**, que mostra somente metadados locais de schemas,
 tabelas e da Calculadora futura: versão/snapshot ativo, origem, hash abreviado, datas de atualização
@@ -94,11 +133,11 @@ e consulta e resultado recuperável. A ação manual força a mesma rotina de ba
 o coordenador aceita somente uma execução por vez. Ela não mostra nem transmite XML, chave, CNPJ
 ou conteúdo da área de trabalho; falha é estado consultável, nunca modal que interrompe o lote.
 
-Uma candidata que passa o canal autorizado é instalada para uso no **próximo boot**. O lote atual
-conserva os engines que foram montados no bootstrap, impedindo que documentos de uma mesma sessão
-recebam bases diferentes. Para schemas, D-051 define o canal curado e assinado; ACBr e SVRS servem
-somente para pesquisa/proveniência e não autorizam fallback automático, transporte SVN silencioso
-ou ativação local.
+Historicamente, uma candidata que passava o canal autorizado era instalada somente para uso no
+**próximo boot**. D-053 substitui esse trecho: a sessão monta e publica um runtime completo sob o
+mesmo gate da validação, preservando a lease de documentos já admitidos. Para schemas, D-051 define
+o canal curado e assinado; ACBr e SVRS servem somente para pesquisa/proveniência e não autorizam
+fallback automático, transporte SVN silencioso ou ativação local.
 
 As tasks Gradle históricas de sobrescrever resources ficaram bloqueadas de propósito. Elas não são
 um caminho de atualização do usuário: qualquer nova base embarcada é manutenção de release, feita

@@ -1,6 +1,10 @@
 package br.com.validadorlote.application;
 
 import br.com.validadorlote.infrastructure.tables.FiscalTableArtifactStore;
+import br.com.validadorlote.infrastructure.tables.FiscalTables;
+import br.com.validadorlote.infrastructure.csv.CsvExporter;
+import br.com.validadorlote.infrastructure.fs.FolderScanner;
+import br.com.validadorlote.infrastructure.rules.RuleEngine;
 import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactFailureKind;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateAction;
@@ -12,6 +16,12 @@ import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import br.com.validadorlote.infrastructure.xml.SchemaArtifactStore;
+import br.com.validadorlote.application.ValidationRuntime;
+import br.com.validadorlote.infrastructure.xml.SchemaValidatorEngine;
+import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor;
+import br.com.validadorlote.infrastructure.xml.XmlMetadataParser;
+import br.com.validadorlote.infrastructure.xml.XsdErrorTranslator;
+import br.com.validadorlote.domain.RootCauseGrouper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -154,13 +165,43 @@ class ExternalSourcesUseCaseTest {
         schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
         coordinator.checkNow();
 
-        assertThat(sources.tryStartValidation()).isTrue();
+        assertThat(startValidation()).isTrue();
         assertThat(sources.snapshot().phase())
                 .isEqualTo(ExternalSourcesPhase.WAITING_FOR_VALIDATION);
 
-        sources.validationFinished();
+        finishValidation();
         assertThat(sources.snapshot().phase())
                 .isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
+    }
+
+    @Test
+    void validationLeaseCapturesTheEntireRuntimeBeforeAnActivationCanBeReserved() {
+        ValidationRuntime r1 = validationRuntime("r1");
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        coordinator.checkNow();
+
+        ValidationLease lease = sources.tryAcquireValidationLease(r1).orElseThrow();
+
+        assertThat(lease.runtime()).isSameAs(r1);
+        assertThat(sources.applyAvailable()).isFalse();
+
+        sources.validationFinished(lease);
+
+        assertThat(sources.applyAvailable()).isTrue();
+    }
+
+    @Test
+    void onlyTheLeaseThatWasAdmittedCanReleaseTheValidationGate() {
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationLease lease = sources.tryAcquireValidationLease(r1).orElseThrow();
+
+        sources.validationFinished(new ValidationLease(lease.id() + 1, r1));
+
+        assertThat(sources.tryAcquireValidationLease(validationRuntime("r2"))).isEmpty();
+
+        sources.validationFinished(lease);
+
+        assertThat(sources.tryAcquireValidationLease(validationRuntime("r2"))).isPresent();
     }
 
     @Test
@@ -197,7 +238,7 @@ class ExternalSourcesUseCaseTest {
         Thread check = Thread.ofPlatform().start(coordinator::checkNow);
         assertThat(availablePublicationStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
-        assertThat(sources.tryStartValidation()).isTrue();
+        assertThat(startValidation()).isTrue();
         releaseAvailablePublication.countDown();
         check.join(5_000);
         assertThat(check.isAlive()).isFalse();
@@ -251,7 +292,7 @@ class ExternalSourcesUseCaseTest {
     void validationPreventsApplyingAnAvailableCandidate() {
         schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
         coordinator.checkNow();
-        assertThat(sources.tryStartValidation()).isTrue();
+        assertThat(startValidation()).isTrue();
 
         assertThat(sources.applyAvailable()).isFalse();
         assertThat(schemasAction.applyCalls).isZero();
@@ -272,12 +313,66 @@ class ExternalSourcesUseCaseTest {
         assertThat(sources.applyAvailable()).isTrue();
 
         assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.APPLYING);
-        assertThat(sources.tryStartValidation()).isFalse();
+        assertThat(startValidation()).isFalse();
         assertThat(sources.snapshot().validationActive()).isFalse();
 
         updateQueue.removeFirst().run();
-        assertThat(sources.tryStartValidation()).isTrue();
-        sources.validationFinished();
+        assertThat(startValidation()).isTrue();
+        finishValidation();
+    }
+
+    @Test
+    void observerFailureAfterReservationDoesNotLeaveTheValidationGateStuck() {
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        coordinator.checkNow();
+        sources.observe(snapshot -> {
+            if (snapshot.phase() == ExternalSourcesPhase.APPLYING) {
+                throw new IllegalStateException("observer indisponível");
+            }
+        });
+
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(startValidation()).isTrue();
+        finishValidation();
+    }
+
+    @Test
+    void completionOfAnOlderCheckCannotReleaseANewerActivationReservation()
+            throws InterruptedException {
+        List<Runnable> updateQueue = new CopyOnWriteArrayList<>();
+        CountDownLatch oldCompletionStarted = new CountDownLatch(1);
+        CountDownLatch releaseOldCompletion = new CountDownLatch(1);
+        AtomicBoolean blockOnce = new AtomicBoolean(true);
+        coordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                Duration.ofHours(24), Clock.fixed(NOW, ZoneOffset.UTC), updateQueue::add,
+                event -> { }, new ArtifactUpdateStateStore(temp));
+        coordinator.addCompletionListener(() -> {
+            if (blockOnce.compareAndSet(true, false)) {
+                oldCompletionStarted.countDown();
+                await(releaseOldCompletion);
+            }
+        });
+        sources = new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp));
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        assertThat(coordinator.checkNow()).isTrue();
+        Thread oldCheck = Thread.ofPlatform().start(updateQueue.removeFirst());
+        assertThat(oldCompletionStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(sources.applyAvailable()).isTrue();
+        assertThat(startValidation()).isFalse();
+
+        releaseOldCompletion.countDown();
+        oldCheck.join(5_000);
+        assertThat(oldCheck.isAlive()).isFalse();
+        assertThat(startValidation()).isFalse();
+
+        updateQueue.removeFirst().run();
+
+        assertThat(startValidation()).isTrue();
+        finishValidation();
     }
 
     @Test
@@ -301,8 +396,8 @@ class ExternalSourcesUseCaseTest {
                 .hasMessage("executor encerrado");
 
         assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
-        assertThat(sources.tryStartValidation()).isTrue();
-        sources.validationFinished();
+        assertThat(startValidation()).isTrue();
+        finishValidation();
         assertThat(schemasAction.applyCalls).isZero();
     }
 
@@ -386,10 +481,133 @@ class ExternalSourcesUseCaseTest {
         assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
     }
 
+    @Test
+    void buildsAndPublishesR2OnlyAfterPhysicalActivationAndTheNextLeaseCapturesIt() {
+        AtomicBoolean physicallyActivated = new AtomicBoolean();
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationRuntime r2 = validationRuntime("r2");
+        schemasAction.applyReturns(candidate -> {
+            physicallyActivated.set(true);
+            return TestAction.manifest(candidate);
+        });
+        sources = managedSources(r1, () -> {
+            assertThat(physicallyActivated.get()).isTrue();
+            return r2;
+        }, Runnable::run);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        coordinator.checkNow();
+        assertThat(sources.applyAvailable()).isTrue();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.UPDATED_AND_IN_USE);
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r2);
+    }
+
+    @Test
+    void blockedFactoryKeepsTheGateClosedWithoutBlockingPublicationDrain() throws Exception {
+        CountDownLatch enteredFactory = new CountDownLatch(1);
+        CountDownLatch releaseFactory = new CountDownLatch(1);
+        CountDownLatch finishedFactory = new CountDownLatch(1);
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationRuntime r2 = validationRuntime("r2");
+        sources = managedSources(r1, () -> {
+            enteredFactory.countDown();
+            await(releaseFactory);
+            finishedFactory.countDown();
+            return r2;
+        }, command -> Thread.ofPlatform().start(command));
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        coordinator.checkNow();
+        assertThat(sources.applyAvailable()).isTrue();
+        assertThat(enteredFactory.await(5, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RELOADING_RUNTIME);
+        assertThat(sources.tryAcquireValidationLease(r1)).isEmpty();
+        releaseFactory.countDown();
+        assertThat(finishedFactory.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r2);
+    }
+
+    @Test
+    void factoryFailurePreservesR1AndLatchesFallbackWithoutTryingAgain() {
+        AtomicInteger factoryCalls = new AtomicInteger();
+        ValidationRuntime r1 = validationRuntime("r1");
+        sources = managedSources(r1, () -> {
+            factoryCalls.incrementAndGet();
+            throw new IllegalStateException("XSD inválido");
+        }, Runnable::run);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+
+        coordinator.checkNow();
+        sources.applyAvailable();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.RESTART_REQUIRED);
+        assertThat(sources.snapshot().runtimeReloadDetail())
+                .contains("ativada em disco")
+                .contains("reinicie o aplicativo")
+                .doesNotContain("XSD inválido");
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r1);
+        coordinator.checkNow();
+        sources.applyAvailable();
+        assertThat(factoryCalls).hasValue(1);
+    }
+
+    @Test
+    void partialActivationBuildsOneCoherentRuntimeFromTheHealthyCurrentAndOldFallback() {
+        AtomicBoolean schemasActivated = new AtomicBoolean();
+        ValidationRuntime r1 = validationRuntime("r1");
+        ValidationRuntime r2 = validationRuntime("r2");
+        schemasAction.applyReturns(candidate -> {
+            schemasActivated.set(true);
+            return TestAction.manifest(candidate);
+        });
+        tablesAction.applyFails(ArtifactUpdateException.localStorage("tabela indisponível", null));
+        sources = managedSources(r1, () -> {
+            assertThat(schemasActivated.get()).isTrue();
+            return r2;
+        }, Runnable::run);
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        tablesAction.checkReturns(available(ArtifactId.FISCAL_TABLES, "2026-07-30"));
+
+        coordinator.checkNow();
+        sources.applyAvailable();
+
+        assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.UPDATED_AND_IN_USE);
+        assertThat(sources.snapshot().failedCount()).isOne();
+        assertThat(sources.tryAcquireValidationLease(r1)).get()
+                .extracting(ValidationLease::runtime).isSameAs(r2);
+    }
+
+    private ExternalSourcesUseCase managedSources(ValidationRuntime initial,
+            Supplier<ValidationRuntime> builder, java.util.concurrent.Executor executor) {
+        return new ExternalSourcesUseCase(coordinator, new SchemaArtifactStore(temp),
+                new FiscalTableArtifactStore(temp), initial, builder, executor);
+    }
+
     private ArtifactUpdateCoordinator coordinator(ArtifactUpdateStateStore state) {
         return new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
                 Duration.ofHours(24), Clock.fixed(NOW, ZoneOffset.UTC), Runnable::run,
                 event -> { }, state);
+    }
+
+    private ValidationLease activeLease;
+
+    private boolean startValidation() {
+        return sources.tryAcquireValidationLease(validationRuntime("gate"))
+                .map(lease -> {
+                    activeLease = lease;
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    private void finishValidation() {
+        sources.validationFinished(activeLease);
+        activeLease = null;
     }
 
     private ExternalSourceState source(ArtifactId artifact) {
@@ -403,6 +621,16 @@ class ExternalSourcesUseCaseTest {
         return ArtifactCheckResult.available(new ArtifactUpdateCandidate(artifact, version,
                 "https://dfe-portal.svrs.rs.gov.br/", NOW, "0".repeat(64),
                 "Atualização preparada"), "Atualização preparada");
+    }
+
+    private static ValidationRuntime validationRuntime(String version) {
+        XsdErrorTranslator translator = new XsdErrorTranslator();
+        ValidateBatchUseCase useCase = new ValidateBatchUseCase(new FolderScanner(),
+                new XmlMetadataParser(), new TaxGroupExtractor(), new SchemaValidatorEngine(translator),
+                new RuleEngine(FiscalTables.load()), new RootCauseGrouper(), translator,
+                new CsvExporter(), "motor-teste");
+        return new ValidationRuntime(useCase, new RuntimeBases("schemas-" + version,
+                "canal-" + version, "tabelas-" + version, "svrs-" + version, 1));
     }
 
     private static void await(CountDownLatch latch) {
@@ -445,6 +673,11 @@ class ExternalSourcesUseCaseTest {
             apply = candidate -> {
                 throw failure;
             };
+        }
+
+        private void applyReturns(java.util.function.Function<ArtifactUpdateCandidate,
+                ArtifactManifest> result) {
+            apply = result;
         }
 
         @Override
