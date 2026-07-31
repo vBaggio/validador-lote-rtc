@@ -251,11 +251,13 @@ final class ExternalSourcesPanel extends JPanel {
         card.add(header, BorderLayout.NORTH);
 
         card.add(feedback(source, aggregatePhase), BorderLayout.CENTER);
-        JPanel details = new JPanel(new GridLayout(1, 3, 24, 0));
+        JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 2 : 3, 24, 0));
         details.setOpaque(false);
         details.setPreferredSize(new Dimension(0, 40));
         details.setMinimumSize(new Dimension(0, 40));
-        details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
+        if (!source.embedded()) {
+            details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
+        }
         details.add(detail("Última verificação", format(source.checkedAt())));
         details.add(detail(source.embedded() ? "Incluída em" : "Atualizada em",
                 format(source.updatedAt())));

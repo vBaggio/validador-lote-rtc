@@ -75,8 +75,8 @@ class ExternalSourcesPanelTest {
                     0, 0, false, 1));
 
             assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
-                    .contains("Base ativa", "010e_v1.02", "Incluída no aplicativo",
-                            "Portal Nacional da NF-e")
+                    .contains("Base ativa", "010e_v1.02", "Incluída no aplicativo")
+                    .doesNotContain("Origem da base", "Portal Nacional da NF-e")
                     .doesNotContain("Base ativa (embarcada)");
         });
     }
