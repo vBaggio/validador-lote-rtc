@@ -238,7 +238,7 @@ final class ExternalSourcesPanel extends JPanel {
         boolean expanded = source.name().equals(expandedSourceName);
         JPanel card = new JPanel(new BorderLayout(14, expanded ? 12 : 0));
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, expanded ? 190 : 58));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, expanded ? 150 : 58));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(78, 78, 78)),
                 BorderFactory.createEmptyBorder(10, 16, 10, 16)));
@@ -281,15 +281,12 @@ final class ExternalSourcesPanel extends JPanel {
         purpose.setAlignmentX(LEFT_ALIGNMENT);
         content.add(purpose);
         content.add(Box.createVerticalStrut(8));
-        JPanel active = activeBase(source);
-        active.setAlignmentX(LEFT_ALIGNMENT);
-        content.add(active);
-        content.add(Box.createVerticalStrut(10));
-        JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 2 : 3, 24, 0));
+        JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 3 : 4, 24, 0));
         details.setOpaque(false);
         details.setAlignmentX(LEFT_ALIGNMENT);
         details.setPreferredSize(new Dimension(0, 40));
         details.setMinimumSize(new Dimension(0, 40));
+        details.add(activeBase(source));
         if (!source.embedded()) {
             details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
         }
@@ -312,7 +309,7 @@ final class ExternalSourcesPanel extends JPanel {
         JPanel active = new JPanel();
         active.setOpaque(false);
         active.setLayout(new BoxLayout(active, BoxLayout.Y_AXIS));
-        active.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
+        active.setAlignmentX(LEFT_ALIGNMENT);
 
         JLabel caption = new JLabel("Base ativa");
         caption.setForeground(MUTED);
