@@ -4,6 +4,14 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-060 — Totalização declarada é camada própria, não calculadora (31/07/2026)
+As regras W41-10 (1080), W46-10 (1084) e W56-10 (1091) comparam, em `BigDecimal`, os totais
+IBS UF, IBS Municipal e CBS declarados em `total/IBSCBSTot` com a soma dos respectivos campos
+nos itens. Não reconstituem tributo nem dependem de tabelas: são uma identidade aritmética
+explícita da NT e permanecem uma camada local, rápida e independente da futura Calculadora. Se
+algum valor necessário estiver ausente ou ilegível, a regra não se aplica; não assume zero nem
+cria rejeição, pois a estrutura já é responsabilidade do XSD.
+
 ## D-059 — I05k é campo do produto e a 1166 é independente de cálculo (31/07/2026)
 
 `tpCredPresIBSZFM` (I05k) pertence a `det/prod`, não ao grupo `gCredPresIBSZFM`. Seu valor `0`

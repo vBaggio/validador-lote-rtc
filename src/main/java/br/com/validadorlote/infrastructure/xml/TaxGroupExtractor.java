@@ -66,7 +66,26 @@ public final class TaxGroupExtractor {
             boolean hasDifUf, boolean hasDifMun, boolean hasDifCbs,
             boolean hasDevTribUf, boolean hasDevTribMun, boolean hasDevTribCbs,
             boolean hasCredPresOper, boolean hasCredPresIbsZfm, boolean hasTpCredPresIbsZfm,
-            boolean hasTribCompraGov) {}
+            boolean hasTribCompraGov,
+            BigDecimal valueIbsUf, BigDecimal valueIbsMunicipal, BigDecimal valueCbs) {
+
+        /** Compatibilidade para regras que não usam valores de totalização. */
+        public ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
+                String cst, String cClassTrib, String cProdANP,
+                boolean hasReducaoUf, boolean hasReducaoMun, boolean hasReducaoCbs,
+                BigDecimal percReducaoUf, BigDecimal percReducaoMun, BigDecimal percReducaoCbs,
+                ReferencedNote dfeReferenciado,
+                boolean hasDifUf, boolean hasDifMun, boolean hasDifCbs,
+                boolean hasDevTribUf, boolean hasDevTribMun, boolean hasDevTribCbs,
+                boolean hasCredPresOper, boolean hasCredPresIbsZfm, boolean hasTpCredPresIbsZfm,
+                boolean hasTribCompraGov) {
+            this(itemNumber, hasIbsCbsGroup, hasGIbsCbsGroup, cst, cClassTrib, cProdANP,
+                    hasReducaoUf, hasReducaoMun, hasReducaoCbs, percReducaoUf, percReducaoMun,
+                    percReducaoCbs, dfeReferenciado, hasDifUf, hasDifMun, hasDifCbs,
+                    hasDevTribUf, hasDevTribMun, hasDevTribCbs, hasCredPresOper,
+                    hasCredPresIbsZfm, hasTpCredPresIbsZfm, hasTribCompraGov, null, null, null);
+        }
+    }
 
     /** Esfera de tributação em que um subgrupo de redução pode aparecer. */
     private enum Esfera {
@@ -119,6 +138,7 @@ public final class TaxGroupExtractor {
         boolean tribCompraGov = false;
         String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
+        BigDecimal vIbsUf = null, vIbsMunicipal = null, vCbs = null;
         ReferencedNote dfeReferenciado = null;
         // Escopos vivos de dentro do invólucro IBSCBS para gTribCompraGov e do produto para I05k.
         boolean emGIbsCbs = false, emProd = false;
@@ -164,6 +184,7 @@ public final class TaxGroupExtractor {
                         tribCompraGov = false;
                         cst = classTrib = prodANP = null;
                         pUf = pMun = pCbs = null;
+                        vIbsUf = vIbsMunicipal = vCbs = null;
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
@@ -216,6 +237,15 @@ public final class TaxGroupExtractor {
                         else if (esfera == Esfera.MUN) pMun = v;
                         else if (esfera == Esfera.CBS) pCbs = v;
                     }
+                    case "vIBSUF" -> {
+                        if (esfera == Esfera.UF) vIbsUf = decimal(texto(r));
+                    }
+                    case "vIBSMun" -> {
+                        if (esfera == Esfera.MUN) vIbsMunicipal = decimal(texto(r));
+                    }
+                    case "vCBS" -> {
+                        if (esfera == Esfera.CBS) vCbs = decimal(texto(r));
+                    }
                     default -> { /* demais elementos não alimentam nenhuma regra */ }
                 }
             } else if (ev == XMLStreamConstants.END_ELEMENT) {
@@ -240,7 +270,8 @@ public final class TaxGroupExtractor {
                     itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,
                             prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado,
                             difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
-                            credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov));
+                            credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov,
+                            vIbsUf, vIbsMunicipal, vCbs));
                     nItem = null;
                     emDet = false;
                 }

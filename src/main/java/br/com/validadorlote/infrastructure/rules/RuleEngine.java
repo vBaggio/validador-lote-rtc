@@ -85,7 +85,10 @@ public final class RuleEngine {
      */
     private static final List<DocumentRejectionRule> DOCUMENT_RULES = List.of(
             new TotalGroupForbiddenRule(), new TotalGroupRequiredRule(),
-            new CompraGovForbiddenInNfceRule());
+            new CompraGovForbiddenInNfceRule(),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_UF),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MUNICIPAL),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS));
 
     /**
      * As sete rejeições de "grupo/tag informado indevidamente" sem indicador de CST nem exceção
