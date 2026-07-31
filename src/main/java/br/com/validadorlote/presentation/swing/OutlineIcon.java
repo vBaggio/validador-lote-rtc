@@ -14,7 +14,7 @@ final class OutlineIcon implements Icon {
 
     enum Kind {
         IMPORT, DRAG_DROP, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
-        DATABASE, WARNING, COPY
+        DATABASE, WARNING, COPY, FOLDER
     }
 
     private final Kind kind;
@@ -65,6 +65,7 @@ final class OutlineIcon implements Icon {
                 case DATABASE -> databaseIcon(g);
                 case WARNING -> warningIcon(g);
                 case COPY -> copyIcon(g);
+                case FOLDER -> folderIcon(g);
             }
         } finally {
             g.dispose();
@@ -169,5 +170,17 @@ final class OutlineIcon implements Icon {
     private static void copyIcon(Graphics2D g) {
         g.drawRoundRect(8, 3, 12, 14, 2, 2);
         g.drawRoundRect(4, 7, 12, 14, 2, 2);
+    }
+
+    private static void folderIcon(Graphics2D g) {
+        Path2D path = new Path2D.Double();
+        path.moveTo(3, 6);
+        path.lineTo(10, 6);
+        path.lineTo(12, 9);
+        path.lineTo(21, 9);
+        path.lineTo(21, 20);
+        path.lineTo(3, 20);
+        path.closePath();
+        g.draw(path);
     }
 }

@@ -65,7 +65,7 @@ public final class DropZonePanel extends JPanel {
         alternative.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton choose = new JButton("Escolher pasta ou XML...");
-        choose.setIcon(new OutlineIcon(OutlineIcon.Kind.IMPORT));
+        choose.setIcon(new OutlineIcon(OutlineIcon.Kind.FOLDER));
         choose.setPreferredSize(new Dimension(250, 40));
         choose.setAlignmentX(Component.CENTER_ALIGNMENT);
         choose.addActionListener(event -> chooseInput(onInputChosen, includeSubfolders,
