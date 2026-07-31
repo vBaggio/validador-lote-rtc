@@ -5,6 +5,7 @@ import br.com.validadorlote.domain.FindingKind;
 import br.com.validadorlote.domain.FiscalDocument;
 import br.com.validadorlote.domain.NotEvaluatedCause;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
+import br.com.validadorlote.infrastructure.tables.CreditPresumedTable;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor.ItemTaxGroup;
 
 import java.time.LocalDate;
@@ -127,6 +128,7 @@ public final class RuleEngine {
     private static List<RejectionRule> independentItemRules() {
         List<RejectionRule> rules = new ArrayList<>(PRESENCE_FORBIDDEN_RULES);
         rules.add(new ZfmCreditClassificationRule());
+        rules.add(new ItemIbsCompositionRule(CreditPresumedTable.load()));
         return List.copyOf(rules);
     }
 

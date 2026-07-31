@@ -68,7 +68,7 @@ public final class TaxGroupExtractor {
             boolean hasCredPresOper, boolean hasCredPresIbsZfm, boolean hasTpCredPresIbsZfm,
             boolean hasTribCompraGov,
             BigDecimal valueIbsUf, BigDecimal valueIbsMunicipal, BigDecimal valueIbs,
-            BigDecimal valueCbs) {
+            BigDecimal valueCbs, String presumedCreditCode, BigDecimal presumedIbsCredit) {
 
         /** Compatibilidade para regras que não usam valores de totalização. */
         public ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
@@ -84,7 +84,8 @@ public final class TaxGroupExtractor {
                     hasReducaoUf, hasReducaoMun, hasReducaoCbs, percReducaoUf, percReducaoMun,
                     percReducaoCbs, dfeReferenciado, hasDifUf, hasDifMun, hasDifCbs,
                     hasDevTribUf, hasDevTribMun, hasDevTribCbs, hasCredPresOper,
-                    hasCredPresIbsZfm, hasTpCredPresIbsZfm, hasTribCompraGov, null, null, null, null);
+                    hasCredPresIbsZfm, hasTpCredPresIbsZfm, hasTribCompraGov, null, null, null, null,
+                    null, null);
         }
     }
 
@@ -139,13 +140,15 @@ public final class TaxGroupExtractor {
         boolean tribCompraGov = false;
         String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
-        BigDecimal vIbsUf = null, vIbsMunicipal = null, vIbs = null, vCbs = null;
+        BigDecimal vIbsUf = null, vIbsMunicipal = null, vIbs = null, vCbs = null, vCredPresIbs = null;
+        String cCredPres = null;
         ReferencedNote dfeReferenciado = null;
         // Escopos vivos de dentro do invólucro IBSCBS para gTribCompraGov e do produto para I05k.
         boolean emGIbsCbs = false, emProd = false;
         // DFeReferenciado é filho de det/prod, mas não tem o marcador de esfera das reduções:
         // precisa do próprio flag para chaveAcesso não ser lido fora do grupo.
         boolean emDFeReferenciado = false;
+        boolean emCredPresOper = false, emIbsCredit = false;
         // total/IBSCBSTot/gCBS reusa o mesmo nome local que abre a esfera CBS do item (auditoria
         // docs/pesquisa/auditoria-regras-e-leitura.md §4.2): sem este flag, Esfera.of() não
         // consegue distinguir as duas ocorrências só pelo nome. Hoje a colisão é inofensiva por
@@ -186,6 +189,7 @@ public final class TaxGroupExtractor {
                         cst = classTrib = prodANP = null;
                         pUf = pMun = pCbs = null;
                         vIbsUf = vIbsMunicipal = vIbs = vCbs = null;
+                        vCredPresIbs = null; cCredPres = null;
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
@@ -197,7 +201,8 @@ public final class TaxGroupExtractor {
                     // O grupo interno só conta dentro do invólucro do item corrente.
                     case "gIBSCBS" -> { if (emIbsCbs) { temGrupoInterno = true; emGIbsCbs = true; } }
                     // Filhos diretos do invólucro (2º choice de TTribNFe), não de gIBSCBS.
-                    case "gCredPresOper" -> { if (emIbsCbs) credPresOper = true; }
+                    case "gCredPresOper" -> { if (emIbsCbs) { credPresOper = true; emCredPresOper = true; } }
+                    case "gIBSCredPres" -> { if (emCredPresOper) emIbsCredit = true; }
                     case "gCredPresIBSZFM" -> {
                         if (emIbsCbs) credPresIbsZfm = true;
                     }
@@ -232,6 +237,7 @@ public final class TaxGroupExtractor {
                     }
                     case "CST" -> { if (emIbsCbs && cst == null) cst = texto(r); }
                     case "cClassTrib" -> { if (emIbsCbs && classTrib == null) classTrib = texto(r); }
+                    case "cCredPres" -> { if (emCredPresOper && cCredPres == null) cCredPres = texto(r); }
                     case "pRedAliq" -> {
                         BigDecimal v = decimal(texto(r));
                         if (esfera == Esfera.UF) pUf = v;
@@ -250,6 +256,7 @@ public final class TaxGroupExtractor {
                     case "vCBS" -> {
                         if (esfera == Esfera.CBS) vCbs = decimal(texto(r));
                     }
+                    case "vCredPres" -> { if (emIbsCredit) vCredPresIbs = decimal(texto(r)); }
                     default -> { /* demais elementos não alimentam nenhuma regra */ }
                 }
             } else if (ev == XMLStreamConstants.END_ELEMENT) {
@@ -257,6 +264,8 @@ public final class TaxGroupExtractor {
                 if (Esfera.of(nome) != null) esfera = null;
                 if ("IBSCBS".equals(nome)) emIbsCbs = false;
                 if ("gIBSCBS".equals(nome)) emGIbsCbs = false;
+                if ("gCredPresOper".equals(nome)) emCredPresOper = false;
+                if ("gIBSCredPres".equals(nome)) emIbsCredit = false;
                 if ("prod".equals(nome)) emProd = false;
                 if ("DFeReferenciado".equals(nome)) {
                     if (dfeReferenciado == null) {
@@ -275,7 +284,7 @@ public final class TaxGroupExtractor {
                             prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado,
                             difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
                             credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov,
-                            vIbsUf, vIbsMunicipal, vIbs, vCbs));
+                            vIbsUf, vIbsMunicipal, vIbs, vCbs, cCredPres, vCredPresIbs));
                     nItem = null;
                     emDet = false;
                 }

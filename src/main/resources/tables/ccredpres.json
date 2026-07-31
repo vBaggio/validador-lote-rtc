@@ -1,0 +1,15 @@
+[
+  {"codigo":"1","deduzTotal":false,"ibsInicio":"2027-01-01"},
+  {"codigo":"2","deduzTotal":false,"ibsInicio":"2027-01-01"},
+  {"codigo":"3","deduzTotal":false,"ibsInicio":"2029-01-01"},
+  {"codigo":"4","deduzTotal":true,"ibsInicio":"2027-01-01"},
+  {"codigo":"5","deduzTotal":false,"ibsInicio":null},
+  {"codigo":"6","deduzTotal":false,"ibsInicio":null},
+  {"codigo":"7","deduzTotal":true,"ibsInicio":"2027-01-01"},
+  {"codigo":"8","deduzTotal":false,"ibsInicio":null},
+  {"codigo":"9","deduzTotal":false,"ibsInicio":"2029-01-01"},
+  {"codigo":"10","deduzTotal":false,"ibsInicio":"2027-01-01"},
+  {"codigo":"11","deduzTotal":true,"ibsInicio":"2027-01-01"},
+  {"codigo":"12","deduzTotal":false,"ibsInicio":"2029-01-01"},
+  {"codigo":"13","deduzTotal":false,"ibsInicio":null}
+]
