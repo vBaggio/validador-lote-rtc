@@ -19,10 +19,8 @@ contábeis e fiscais a localizar inconsistências antes de tratar os documentos 
 > [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe), que oferece
 > uma conferência mais apurada, realizada individualmente, um arquivo por vez.
 
-**Navegação rápida:** [Instalação](#instalação) •
-[Validação em camadas](#validação-em-camadas) • [Como usar](#como-usar) •
-[Atualizações](#atualizações) • [Reportar um problema](#reportar-um-problema) •
-[Desenvolvimento](#desenvolvimento)
+**Navegação rápida:** [Instalação](#instalação) • [Como usar](#como-usar) •
+[Sugestões e problemas](#sugestões-e-problemas)
 
 ## O que o aplicativo faz
 
@@ -168,10 +166,13 @@ Para gerar uma imagem da aplicação ou o instalador nativo do sistema atual:
 
 Os artefatos são criados em `build/jpackage/`.
 
-## Reportar um problema
+## Sugestões e problemas
 
-Encontrou um erro ou algo que não ficou claro? Abra uma [nova issue no GitHub](https://github.com/vBaggio/validador-lote-rtc/issues/new)
-com estas informações:
+Encontrou um erro, algo que não ficou claro ou tem uma ideia para melhorar o aplicativo? Abra uma
+[nova issue no GitHub](https://github.com/vBaggio/validador-lote-rtc/issues/new). O mesmo canal é
+usado para relatos de problemas e sugestões.
+
+Ao reportar um problema, inclua:
 
 - versão do aplicativo e sistema operacional;
 - o que você tentou fazer e o que esperava acontecer;
@@ -181,7 +182,14 @@ com estas informações:
 Não anexe XMLs reais, chaves de acesso, CNPJ ou outros dados fiscais. Se um arquivo for essencial
 para reproduzir o problema, remova os dados sensíveis ou use um exemplo fictício.
 
+Para uma sugestão, explique brevemente a necessidade e como a mudança ajudaria no uso cotidiano.
+
 ## Licença
 
 [GPL-3.0](./LICENSE) — livre para usar, estudar, modificar e redistribuir; trabalhos derivados
 devem permanecer abertos.
+
+## Contato
+
+- [LinkedIn — Vinícius Baggio](https://www.linkedin.com/in/vbaggio/)
+- [vnc.baggio@gmail.com](mailto:vnc.baggio@gmail.com)
