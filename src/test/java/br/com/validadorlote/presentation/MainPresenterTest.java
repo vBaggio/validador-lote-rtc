@@ -5,6 +5,7 @@ import br.com.validadorlote.application.DocumentValidationResult;
 import br.com.validadorlote.application.RuntimeBases;
 import br.com.validadorlote.application.ValidationRuntimeFactory;
 import br.com.validadorlote.application.ValidationRuntime;
+import br.com.validadorlote.application.ValidationLease;
 import br.com.validadorlote.application.ExternalSourcesPhase;
 import br.com.validadorlote.application.ExternalSourcesSnapshot;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
@@ -424,8 +425,8 @@ class MainPresenterTest {
 
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
 
-        assertThat(observedSources.tryStartValidation()).isTrue();
-        observedSources.validationFinished();
+        ValidationLease lease = acquireObservedLease();
+        observedSources.validationFinished(lease);
 
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(2);
     }
@@ -462,7 +463,7 @@ class MainPresenterTest {
         calls.clear();
 
         sourcesPublishUpdateAvailable();
-        assertThat(observedSources.tryStartValidation()).isTrue();
+        acquireObservedLease();
         queuedUi.runLast();
         queuedUi.runAll();
 
@@ -569,7 +570,7 @@ class MainPresenterTest {
         assertThat(schemasAction.applyCalls).isZero();
         assertThat(observedSources.snapshot().phase())
                 .isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
-        assertThat(observedSources.tryStartValidation()).isTrue();
+        acquireObservedLease();
     }
 
     @Test
@@ -606,7 +607,7 @@ class MainPresenterTest {
         assertThat(schemasAction.applyCalls).isZero();
         assertThat(observedSources.snapshot().phase())
                 .isEqualTo(ExternalSourcesPhase.UPDATES_AVAILABLE);
-        assertThat(observedSources.tryStartValidation()).isTrue();
+        acquireObservedLease();
     }
 
     @Test
@@ -726,6 +727,10 @@ class MainPresenterTest {
                         "Schemas preparados"),
                 "Schemas preparados");
         assertThat(updateCoordinator.checkNow()).isTrue();
+    }
+
+    private ValidationLease acquireObservedLease() {
+        return observedSources.tryAcquireValidationLease(runtime("gate")).orElseThrow();
     }
 
     private final class RecordingUiThread implements UiThread {

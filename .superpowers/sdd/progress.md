@@ -843,3 +843,16 @@ reetiqueta resultados.
 HEAD `f949b89` na branch `bloco/8-troca-runtime-bases`. Task 46 está commitada, revisada e árvore
 limpa. Próxima task: 47 — substituir a admissão booleana por leases capturadas sob o mesmo gate da
 ativação e preparar os testes de concorrência. Não há push, PR ou merge autorizado durante o bloco.
+
+Task 47 (b8): complete (commit `1d98ec9`, revisão independente PASS/PASS após 1 fix loop crítico)
+— introduz lease opaca capturada sob o mesmo lock da reserva de ativação e liberação por identidade
+no presenter. ACHADOS CRÍTICOS corrigidos: observer que lança no dreno não prende lease/reserva; e
+completion atrasado recebe ticket e não pode liberar ativação posterior. Barreiras determinísticas,
+sonda de mutação, suíte completa e `git diff --check` passaram. A mudança concreta de runtime ainda
+é responsabilidade da Task 48.
+
+### PARADA — 30/07/2026, Task 47 B8 concluída
+
+HEAD `1d98ec9` na branch `bloco/8-troca-runtime-bases`. Tasks 46–47 revisadas e árvore limpa.
+Próxima: Task 48 — factory do grafo completo, construção fora da EDT e publicação de R2 com fallback
+latched para boot. Sem push/PR/merge durante o bloco.

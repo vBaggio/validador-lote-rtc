@@ -20,6 +20,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -41,11 +42,14 @@ public final class ExternalSourcesUseCase {
     private final Deque<ExternalSourcesSnapshot> pendingPublications = new ArrayDeque<>();
 
     private volatile ExternalSourcesSnapshot currentSnapshot;
-    private boolean validationActive;
-    private boolean applyingOperation;
+    private ValidationLease validationLease;
+    private boolean activationReserved;
     private boolean publishing;
     private boolean restartRequired;
     private long revision;
+    private long nextLeaseId;
+    private long nextActivationTicket;
+    private long activationTicket;
 
     public ExternalSourcesUseCase(ArtifactUpdateCoordinator coordinator,
             SchemaArtifactStore schemas, FiscalTableArtifactStore tables) {
@@ -72,22 +76,33 @@ public final class ExternalSourcesUseCase {
 
     /** Aplica as candidatas confirmadas somente fora de uma validação de lote. */
     public boolean applyAvailable() {
-        boolean accepted;
         boolean drain;
-        RuntimeException schedulingFailure = null;
+        long ticket;
         synchronized (stateLock) {
-            if (validationActive || applyingOperation) {
+            if (validationLease != null || activationReserved) {
                 return false;
             }
-            applyingOperation = true;
-            try {
-                accepted = coordinator.applyAvailable();
-            } catch (RuntimeException e) {
-                accepted = false;
-                schedulingFailure = e;
-            }
-            if (!accepted) {
-                applyingOperation = false;
+            activationReserved = true;
+            ticket = ++nextActivationTicket;
+            activationTicket = ticket;
+            drain = enqueue(updateSnapshot());
+        }
+        if (drain) {
+            drainPublications();
+        }
+
+        boolean accepted;
+        RuntimeException schedulingFailure = null;
+        try {
+            accepted = coordinator.applyAvailable(ticket);
+        } catch (RuntimeException e) {
+            accepted = false;
+            schedulingFailure = e;
+        }
+        synchronized (stateLock) {
+            if (!accepted && activationTicket == ticket) {
+                activationReserved = false;
+                activationTicket = 0;
             }
             drain = enqueue(updateSnapshot());
         }
@@ -100,33 +115,39 @@ public final class ExternalSourcesUseCase {
         return accepted;
     }
 
-    /** Reserva o gate da validação sem disputar uma ativação já iniciada. */
-    public boolean tryStartValidation() {
+    /**
+     * Captura o runtime inteiro no mesmo lock que protege a reserva de ativação.
+     *
+     * <p>A lease deve ser devolvida a {@link #validationFinished(ValidationLease)} exatamente
+     * uma vez, inclusive quando o agendamento do worker falhar.</p>
+     */
+    public Optional<ValidationLease> tryAcquireValidationLease(ValidationRuntime runtime) {
+        Objects.requireNonNull(runtime, "runtime");
         boolean drain;
+        ValidationLease acquired;
         synchronized (stateLock) {
-            if (applyingOperation) {
-                return false;
+            if (activationReserved || validationLease != null) {
+                return Optional.empty();
             }
-            if (validationActive) {
-                return true;
-            }
-            validationActive = true;
+            acquired = new ValidationLease(++nextLeaseId, runtime);
+            validationLease = acquired;
             drain = enqueue(updateSnapshot());
         }
         if (drain) {
             drainPublications();
         }
-        return true;
+        return Optional.of(acquired);
     }
 
-    /** Libera o gate compartilhado ao terminar ou cancelar a validação do lote. */
-    public void validationFinished() {
+    /** Libera somente a validação que recebeu a lease correspondente. */
+    public void validationFinished(ValidationLease lease) {
+        Objects.requireNonNull(lease, "lease");
         boolean drain;
         synchronized (stateLock) {
-            if (!validationActive) {
+            if (validationLease != lease) {
                 return;
             }
-            validationActive = false;
+            validationLease = null;
             drain = enqueue(updateSnapshot());
         }
         if (drain) {
@@ -141,11 +162,7 @@ public final class ExternalSourcesUseCase {
         }
         boolean drain;
         synchronized (stateLock) {
-            if (event.status() == ArtifactUpdateEvent.Status.CHECKING) {
-                applyingOperation = false;
-            } else if (event.status() == ArtifactUpdateEvent.Status.APPLYING) {
-                applyingOperation = true;
-            } else if (event.status() == ArtifactUpdateEvent.Status.APPLIED) {
+            if (event.status() == ArtifactUpdateEvent.Status.APPLIED) {
                 restartRequired = true;
             }
             currentEvents.put(event.artifact(), event);
@@ -156,10 +173,13 @@ public final class ExternalSourcesUseCase {
         }
     }
 
-    private void operationCompleted() {
+    private void operationCompleted(long completionTicket) {
         boolean drain;
         synchronized (stateLock) {
-            applyingOperation = false;
+            if (completionTicket != 0 && completionTicket == activationTicket) {
+                activationReserved = false;
+                activationTicket = 0;
+            }
             drain = enqueue(updateSnapshot());
         }
         if (drain) {
@@ -189,8 +209,9 @@ public final class ExternalSourcesUseCase {
         int failed = (int) states.stream()
                 .filter(source -> source.phase() == ExternalSourcePhase.FAILED)
                 .count();
+        boolean validationActive = validationLease != null;
         return new ExternalSourcesSnapshot(aggregate(states, validationActive,
-                coordinator.isRunning(), applyingOperation, restartRequired), states,
+                coordinator.isRunning(), activationReserved, restartRequired), states,
                 available, failed, validationActive, revision);
     }
 
@@ -278,7 +299,6 @@ public final class ExternalSourcesUseCase {
     }
 
     private void drainPublications() {
-        RuntimeException failure = null;
         while (true) {
             ExternalSourcesSnapshot snapshot;
             synchronized (stateLock) {
@@ -291,17 +311,10 @@ public final class ExternalSourcesUseCase {
             for (Consumer<ExternalSourcesSnapshot> observer : observers) {
                 try {
                     observer.accept(snapshot);
-                } catch (RuntimeException e) {
-                    if (failure == null) {
-                        failure = e;
-                    } else if (failure != e) {
-                        failure.addSuppressed(e);
-                    }
+                } catch (RuntimeException ignored) {
+                    // Um observador não participa do protocolo de admissão nem pode prender o gate.
                 }
             }
-        }
-        if (failure != null) {
-            throw failure;
         }
     }
 

@@ -120,6 +120,8 @@ final class ExternalSourcesStatusBar extends JPanel {
                     WARNING, new OutlineIcon(OutlineIcon.Kind.WARNING, 18, WARNING));
             case APPLYING -> new StatusPresentation("Atualizando as bases verificadas…" + partial,
                     WARNING, null);
+            case RELOADING_RUNTIME, UPDATED_AND_IN_USE -> new StatusPresentation(
+                    "Atualização de bases em andamento" + partial, WARNING, null);
             case RESTART_REQUIRED -> new StatusPresentation(
                     "Bases atualizadas · reinicie para usar as novas versões" + partial,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));

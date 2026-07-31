@@ -8,12 +8,14 @@ import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.application.ImportedBatch;
 import br.com.validadorlote.application.RuntimeBases;
 import br.com.validadorlote.application.ValidationRuntime;
+import br.com.validadorlote.application.ValidationLease;
 import br.com.validadorlote.application.ValidateBatchUseCase;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 /** Coordena o lote de trabalho: importar primeiro e validar sob solicitação do usuário. */
@@ -101,6 +103,7 @@ public final class MainPresenter {
     public void validateRequested() {
         final List<Path> pending;
         final CancellationToken token;
+        final ValidationLease lease;
         synchronized (workspaceLock) {
             if (validating) return;
             pending = workspace.stream().filter(document -> document.status() == DocumentStatus.PENDING)
@@ -109,9 +112,16 @@ public final class MainPresenter {
                 publishWorkspace();
                 return;
             }
-            if (externalSources != null && !externalSources.tryStartValidation()) {
-                uiThread.execute(() -> requireView().showError(ACTIVATION_IN_PROGRESS));
-                return;
+            if (externalSources != null) {
+                Optional<ValidationLease> acquired =
+                        externalSources.tryAcquireValidationLease(runtime);
+                if (acquired.isEmpty()) {
+                    uiThread.execute(() -> requireView().showError(ACTIVATION_IN_PROGRESS));
+                    return;
+                }
+                lease = acquired.orElseThrow();
+            } else {
+                lease = null;
             }
             validating = true;
             processed = 0;
@@ -121,13 +131,14 @@ public final class MainPresenter {
         }
         publishWorkspace();
         try {
-            background.execute(() -> validatePending(pending, token, runtime));
+            background.execute(() -> validatePending(pending, token,
+                    lease == null ? runtime : lease.runtime(), lease));
         } catch (RuntimeException e) {
             synchronized (workspaceLock) {
                 validating = false;
             }
-            if (externalSources != null) {
-                externalSources.validationFinished();
+            if (lease != null) {
+                externalSources.validationFinished(lease);
             }
             uiThread.execute(() -> {
                 requireView().showError(
@@ -225,7 +236,7 @@ public final class MainPresenter {
     }
 
     private void validatePending(List<Path> pending, CancellationToken token,
-            ValidationRuntime validationRuntime) {
+            ValidationRuntime validationRuntime, ValidationLease lease) {
         for (Path source : pending) {
             if (token.isCancelled() || token != currentToken) break;
             uiThread.execute(() -> setStatus(source, DocumentStatus.VALIDATING, token));
@@ -237,7 +248,7 @@ public final class MainPresenter {
                 uiThread.execute(() -> validationFailed(source, token, e));
             }
         }
-        uiThread.execute(() -> finishValidation(token));
+        uiThread.execute(() -> finishValidation(token, lease));
     }
 
     private void setStatus(Path source, DocumentStatus status, CancellationToken token) {
@@ -266,13 +277,13 @@ public final class MainPresenter {
         if (result.document() == null && !token.isCancelled()) requireView().showInvalidFiles(List.of(source));
     }
 
-    private void finishValidation(CancellationToken token) {
+    private void finishValidation(CancellationToken token, ValidationLease lease) {
         if (token != currentToken) return;
         synchronized (workspaceLock) {
             validating = false;
         }
-        if (externalSources != null) {
-            externalSources.validationFinished();
+        if (lease != null) {
+            externalSources.validationFinished(lease);
         }
         publishOrShowIdle();
     }

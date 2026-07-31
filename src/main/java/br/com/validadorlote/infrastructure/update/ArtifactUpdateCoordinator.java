@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongConsumer;
 import java.util.function.Consumer;
 
 /** Coordena consulta, preparação e ativação sem trocar engines já montados na sessão. */
@@ -34,6 +35,7 @@ public final class ArtifactUpdateCoordinator {
     private final Set<ArtifactId> blockedCandidates = ConcurrentHashMap.newKeySet();
     private final List<Consumer<ArtifactUpdateEvent>> listeners = new CopyOnWriteArrayList<>();
     private final List<Runnable> completionListeners = new CopyOnWriteArrayList<>();
+    private final List<LongConsumer> ticketedCompletionListeners = new CopyOnWriteArrayList<>();
     private final AtomicBoolean running = new AtomicBoolean();
 
     public ArtifactUpdateCoordinator(List<ArtifactUpdateAction> actions, Duration interval, Clock clock,
@@ -88,10 +90,23 @@ public final class ArtifactUpdateCoordinator {
 
     /** Aplica cada candidata confirmada sem impedir que outra fonte prossiga após uma falha. */
     public boolean applyAvailable() {
+        return applyAvailable(0);
+    }
+
+    /**
+     * Aplica candidatas e propaga o ticket do solicitante ao terminal da mesma operação.
+     *
+     * <p>O ticket é opaco para o coordenador; ele permite que o dono de um gate ignore a conclusão
+     * de uma consulta anterior, que pode chegar depois de uma nova ativação ser reservada.</p>
+     */
+    public boolean applyAvailable(long completionTicket) {
+        if (completionTicket < 0) {
+            throw new IllegalArgumentException("Ticket de conclusão inválido");
+        }
         if (candidates.keySet().stream().noneMatch(this::canApply)) {
             return false;
         }
-        return schedule(this::runApplications);
+        return schedule(this::runApplications, completionTicket);
     }
 
     public boolean isRunning() {
@@ -106,12 +121,20 @@ public final class ArtifactUpdateCoordinator {
         completionListeners.add(Objects.requireNonNull(listener));
     }
 
+    public void addCompletionListener(LongConsumer listener) {
+        ticketedCompletionListeners.add(Objects.requireNonNull(listener));
+    }
+
     public ArtifactUpdateStateStore.State state(ArtifactId artifact) {
         ArtifactUpdateAction action = actionsByArtifact.get(artifact);
         return action == null ? null : stateStore.read(artifact, action.channelId());
     }
 
     private boolean schedule(Runnable operation) {
+        return schedule(operation, 0);
+    }
+
+    private boolean schedule(Runnable operation, long completionTicket) {
         if (!running.compareAndSet(false, true)) {
             return false;
         }
@@ -121,7 +144,7 @@ public final class ArtifactUpdateCoordinator {
                     operation.run();
                 } finally {
                     running.set(false);
-                    notifyCompletionListeners();
+                    notifyCompletionListeners(completionTicket);
                 }
             });
             return true;
@@ -277,11 +300,18 @@ public final class ArtifactUpdateCoordinator {
         }
     }
 
-    private void notifyCompletionListeners() {
+    private void notifyCompletionListeners(long completionTicket) {
         RuntimeException failure = null;
         for (Runnable listener : completionListeners) {
             try {
                 listener.run();
+            } catch (RuntimeException e) {
+                failure = collect(failure, e);
+            }
+        }
+        for (LongConsumer listener : ticketedCompletionListeners) {
+            try {
+                listener.accept(completionTicket);
             } catch (RuntimeException e) {
                 failure = collect(failure, e);
             }

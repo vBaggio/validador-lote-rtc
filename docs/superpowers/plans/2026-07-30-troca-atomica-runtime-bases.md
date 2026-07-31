@@ -146,6 +146,8 @@ troca e que `presentation` não constrói infraestrutura.
 
 ## Task 47 — Gate único, leases e publicação atômica do runtime
 
+**Status:** concluída em `1d98ec9`; revisão independente PASS/PASS após um fix loop crítico.
+
 **Propósito:** substituir o booleano de admissão por um protocolo que capture a lease da validação
 e mantenha a reserva da ativação até o runtime novo ser publicado ou falhar.
 

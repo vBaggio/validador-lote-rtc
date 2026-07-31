@@ -190,7 +190,8 @@ final class ExternalSourcesPanel extends JPanel {
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.ERROR));
                 closeAction.setText("Continuar e reiniciar depois");
             }
-            case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION -> {
+            case IDLE, CHECKING, UP_TO_DATE, WAITING_FOR_VALIDATION, RELOADING_RUNTIME,
+                    UPDATED_AND_IN_USE -> {
                 primaryAction.setText("Verificar agora");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 primaryAction.setEnabled(phase != ExternalSourcesPhase.CHECKING

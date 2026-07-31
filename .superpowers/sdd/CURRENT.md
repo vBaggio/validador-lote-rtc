@@ -9,8 +9,10 @@
   commit `f949b89`, revisão independente PASS/PASS após dois fix loops: `ValidationRuntime` e
   `RuntimeBases` imutáveis, factory de geração thread-safe e associação persistida no resultado.
   Estados pendentes/em validação não retêm identidade; cancelamento e falha reais retornam a
-  pendente sem geração residual. Próxima: Task 47, lease de validação e gate único. Não fazer push,
-  PR ou merge antes do aceite runtime do bloco.
+  pendente sem geração residual. **Task 47** concluída em `1d98ec9`, revisão PASS/PASS após fix
+  loop: lease é capturada no mesmo gate da ativação, observers não prendem o gate e ticket impede
+  completion atrasado de liberar uma reserva nova. Próxima: Task 48, construção/publicação de R2.
+  Não fazer push, PR ou merge antes do aceite runtime do bloco.
 
 - **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
   `bloco/7-canal-proprio-schemas`; plano em
