@@ -167,12 +167,9 @@ public final class ResultsPanel extends JPanel {
 
     private static void stylePrimaryAction(JButton button) {
         button.setFont(button.getFont().deriveFont(java.awt.Font.BOLD, button.getFont().getSize2D() + 1f));
-        button.setPreferredSize(new Dimension(176, 38));
+        button.setPreferredSize(new Dimension(200, 38));
         button.setFocusPainted(false);
         button.putClientProperty("JButton.buttonType", "roundRect");
-        button.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(135, 135, 135), 1, true),
-                BorderFactory.createEmptyBorder(8, 16, 8, 16)));
     }
 
     private void configureDocumentsTable() {
