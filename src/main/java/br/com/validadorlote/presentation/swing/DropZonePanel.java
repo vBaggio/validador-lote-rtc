@@ -3,11 +3,14 @@ package br.com.validadorlote.presentation.swing;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.TransferHandler;
+import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.Component;
 import java.awt.Color;
@@ -19,17 +22,28 @@ import java.awt.datatransfer.DataFlavor;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Zona de arrastar-e-soltar de pasta ou XML, com botão alternativo de escolha. */
 public final class DropZonePanel extends JPanel {
 
     public DropZonePanel(Consumer<Path> onInputChosen) {
-        this(onInputChosen, () -> { }, () -> { });
+        this((path, ignored) -> onInputChosen.accept(path), () -> { }, () -> { },
+                new JToggleButton.ToggleButtonModel());
     }
 
     public DropZonePanel(Consumer<Path> onInputChosen, Runnable modalOpened, Runnable modalClosed) {
+        this((path, ignored) -> onInputChosen.accept(path), modalOpened, modalClosed,
+                new JToggleButton.ToggleButtonModel());
+    }
+
+    DropZonePanel(BiConsumer<Path, Boolean> onInputChosen, Runnable modalOpened,
+            Runnable modalClosed, ButtonModel includeSubfoldersModel) {
         setLayout(new GridBagLayout());
+        JCheckBox includeSubfolders = new JCheckBox("Incluir subpastas");
+        includeSubfolders.setModel(includeSubfoldersModel);
+        includeSubfolders.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JPanel dropArea = new JPanel();
         dropArea.setLayout(new BoxLayout(dropArea, BoxLayout.Y_AXIS));
@@ -51,7 +65,8 @@ public final class DropZonePanel extends JPanel {
         choose.setIcon(new OutlineIcon(OutlineIcon.Kind.IMPORT));
         choose.setPreferredSize(new Dimension(250, 40));
         choose.setAlignmentX(Component.CENTER_ALIGNMENT);
-        choose.addActionListener(event -> chooseInput(onInputChosen, modalOpened, modalClosed));
+        choose.addActionListener(event -> chooseInput(onInputChosen, includeSubfolders,
+                modalOpened, modalClosed));
 
         dropArea.add(Box.createVerticalGlue());
         dropArea.add(icon);
@@ -61,6 +76,8 @@ public final class DropZonePanel extends JPanel {
         dropArea.add(subtitle);
         dropArea.add(Box.createVerticalStrut(34));
         dropArea.add(choose);
+        dropArea.add(Box.createVerticalStrut(12));
+        dropArea.add(includeSubfolders);
         dropArea.add(Box.createVerticalStrut(22));
         JLabel hint = new JLabel("A análise é local e não envia seus dados pela rede");
         hint.setFont(hint.getFont().deriveFont(12f));
@@ -92,7 +109,7 @@ public final class DropZonePanel extends JPanel {
                     }
                     for (Object candidate : files) {
                         if (candidate instanceof File file && isSupported(file)) {
-                            onInputChosen.accept(file.toPath());
+                            onInputChosen.accept(file.toPath(), includeSubfolders.isSelected());
                             return true;
                         }
                     }
@@ -110,7 +127,8 @@ public final class DropZonePanel extends JPanel {
         hint.setTransferHandler(handler);
     }
 
-    private void chooseInput(Consumer<Path> onInputChosen, Runnable modalOpened, Runnable modalClosed) {
+    private void chooseInput(BiConsumer<Path, Boolean> onInputChosen, JCheckBox includeSubfolders,
+            Runnable modalOpened, Runnable modalClosed) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         chooser.setDialogTitle("Escolha uma pasta ou um XML");
@@ -121,7 +139,7 @@ public final class DropZonePanel extends JPanel {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 File selected = chooser.getSelectedFile();
                 if (isSupported(selected)) {
-                    onInputChosen.accept(selected.toPath());
+                    onInputChosen.accept(selected.toPath(), includeSubfolders.isSelected());
                 }
             }
         } finally {

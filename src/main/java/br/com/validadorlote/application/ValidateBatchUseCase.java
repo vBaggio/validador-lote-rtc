@@ -118,9 +118,14 @@ public final class ValidateBatchUseCase {
 
     /** Importa XMLs para a grade sem executar schema nem regras fiscais. */
     public ImportedBatch importDocuments(Path input) {
+        return importDocuments(input, true);
+    }
+
+    /** Importa XMLs, incluindo subpastas somente quando solicitado pela interface. */
+    public ImportedBatch importDocuments(Path input, boolean includeSubfolders) {
         List<FiscalDocument> documents = new ArrayList<>();
         List<Path> invalidFiles = new ArrayList<>();
-        for (Path file : scanner.scan(input)) {
+        for (Path file : scanner.scan(input, includeSubfolders)) {
             try {
                 documents.add(parser.parse(file).document());
             } catch (RuntimeException e) {

@@ -6,7 +6,9 @@ import br.com.validadorlote.presentation.WorkspaceDocument;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -16,6 +18,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.TransferHandler;
+import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
@@ -53,6 +56,7 @@ public final class ResultsPanel extends JPanel {
     private final JButton removeValid = new JButton("Remover válidos");
     private final JButton openSelected = new JButton("Abrir arquivo");
     private final JButton copyAccessKey = new JButton("Copiar chave");
+    private final JCheckBox includeSubfolders = new JCheckBox("Incluir subpastas");
     private final JButton validate = new JButton("Validar pendentes");
     private final JButton cancel = new JButton("Abortar validação");
     private final TransferHandler dropHandler;
@@ -60,13 +64,19 @@ public final class ResultsPanel extends JPanel {
     private final Runnable modalClosed;
 
     public ResultsPanel(MainPresenter presenter) {
-        this(presenter, () -> { }, () -> { });
+        this(presenter, () -> { }, () -> { }, new JToggleButton.ToggleButtonModel());
     }
 
     public ResultsPanel(MainPresenter presenter, Runnable modalOpened, Runnable modalClosed) {
+        this(presenter, modalOpened, modalClosed, new JToggleButton.ToggleButtonModel());
+    }
+
+    ResultsPanel(MainPresenter presenter, Runnable modalOpened, Runnable modalClosed,
+            ButtonModel includeSubfoldersModel) {
         setLayout(new BorderLayout(0, 18));
         this.modalOpened = modalOpened;
         this.modalClosed = modalClosed;
+        includeSubfolders.setModel(includeSubfoldersModel);
         setBorder(BorderFactory.createEmptyBorder(26, 32, 22, 32));
 
         summary.setFont(summary.getFont().deriveFont(java.awt.Font.BOLD, 18f));
@@ -140,7 +150,10 @@ public final class ResultsPanel extends JPanel {
         header.add(progress, BorderLayout.EAST);
 
         JPanel toolbar = new JPanel(new BorderLayout());
-        toolbar.add(add, BorderLayout.WEST);
+        JPanel importActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        importActions.add(add);
+        importActions.add(includeSubfolders);
+        toolbar.add(importActions, BorderLayout.WEST);
         JPanel primaryAction = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         primaryAction.add(validate);
         primaryAction.add(cancel);
@@ -176,6 +189,7 @@ public final class ResultsPanel extends JPanel {
         progress.setString(processed + " / " + total);
 
         add.setEnabled(!validating);
+        includeSubfolders.setEnabled(!validating);
         clear.setEnabled(!validating && !documents.isEmpty());
         removeValid.setEnabled(!validating && valid > 0);
         validate.setVisible(!validating);
@@ -314,7 +328,8 @@ public final class ResultsPanel extends JPanel {
         modalOpened.run();
         try {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                presenter.inputChosen(chooser.getSelectedFile().toPath());
+                presenter.inputChosen(chooser.getSelectedFile().toPath(),
+                        includeSubfolders.isSelected());
             }
         } finally {
             modalClosed.run();
@@ -455,7 +470,7 @@ public final class ResultsPanel extends JPanel {
                     boolean imported = false;
                     for (Object candidate : files) {
                         if (candidate instanceof File file && supported(file)) {
-                            presenter.inputChosen(file.toPath());
+                            presenter.inputChosen(file.toPath(), includeSubfolders.isSelected());
                             imported = true;
                         }
                     }

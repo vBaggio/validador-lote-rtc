@@ -92,6 +92,11 @@ public final class MainPresenter {
 
     /** Importa metadados seguros para a grade, sem executar validação fiscal ou schema. */
     public void inputChosen(Path input) {
+        inputChosen(input, false);
+    }
+
+    /** Importa a entrada e inclui subpastas somente quando solicitado pelo usuário. */
+    public void inputChosen(Path input, boolean includeSubfolders) {
         if (validating) return;
         final long generation;
         synchronized (workspaceLock) {
@@ -99,7 +104,7 @@ public final class MainPresenter {
             pendingImports++;
         }
         try {
-            background.execute(() -> importInput(input, generation));
+            background.execute(() -> importInput(input, includeSubfolders, generation));
         } catch (RuntimeException failure) {
             synchronized (workspaceLock) {
                 pendingImports--;
@@ -234,9 +239,9 @@ public final class MainPresenter {
         uiThread.execute(() -> publishExternalSources(snapshot));
     }
 
-    private void importInput(Path input, long generation) {
+    private void importInput(Path input, boolean includeSubfolders, long generation) {
         try {
-            ImportedBatch imported = runtime.useCase().importDocuments(input);
+            ImportedBatch imported = runtime.useCase().importDocuments(input, includeSubfolders);
             uiThread.execute(() -> {
                 try {
                     mergeImport(imported, generation);

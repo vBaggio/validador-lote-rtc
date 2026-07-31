@@ -164,6 +164,20 @@ class MainPresenterTest {
     }
 
     @Test
+    void inputChosenIncludesSubfoldersOnlyWhenRequested(@TempDir Path dir) throws IOException {
+        Path subfolder = Files.createDirectory(dir.resolve("sub"));
+        copyFixture(dir, "nfe-minima-invalida.xml", "direto.xml");
+        copyFixture(subfolder, "nfe-valida-sem-assinatura.xml", "interno.xml");
+
+        presenter.inputChosen(dir);
+        assertThat(lastWorkspace).hasSize(1);
+
+        presenter.clearRequested();
+        presenter.inputChosen(dir, true);
+        assertThat(lastWorkspace).hasSize(2);
+    }
+
+    @Test
     void inputChosenAcceptsASingleXmlFile(@TempDir Path dir) throws IOException {
         Path file = dir.resolve("a.xml");
         copyFixture(dir, "nfe-minima-invalida.xml", file.getFileName().toString());

@@ -14,6 +14,10 @@ import java.util.stream.Stream;
 public final class FolderScanner {
 
     public List<Path> scan(Path input) {
+        return scan(input, true);
+    }
+
+    public List<Path> scan(Path input, boolean includeSubfolders) {
         if (!Files.exists(input)) {
             throw new ScanException("Entrada não encontrada: " + input);
         }
@@ -26,10 +30,11 @@ public final class FolderScanner {
         if (!Files.isDirectory(input)) {
             throw new ScanException("A entrada informada não é uma pasta nem um arquivo XML: " + input);
         }
-        // FOLLOW_LINKS: subpastas que são atalhos/links simbólicos (ex.: para um share de
-        // rede, comum em escritório contábil) também são varridas. Sem isso, Files.walk não
-        // entra nelas e o lote é validado incompleto sem nenhum aviso ao usuário.
-        try (Stream<Path> walk = Files.walk(input, FileVisitOption.FOLLOW_LINKS)) {
+        int maxDepth = includeSubfolders ? Integer.MAX_VALUE : 1;
+        FileVisitOption[] options = includeSubfolders
+                ? new FileVisitOption[] {FileVisitOption.FOLLOW_LINKS}
+                : new FileVisitOption[0];
+        try (Stream<Path> walk = Files.walk(input, maxDepth, options)) {
             return walk.filter(Files::isRegularFile)
                     .filter(FolderScanner::isXml)
                     .sorted()

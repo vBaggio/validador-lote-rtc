@@ -9,6 +9,7 @@ import br.com.validadorlote.domain.ApplicationRelease;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JToggleButton;
 import java.awt.CardLayout;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -47,15 +48,16 @@ public final class MainFrame extends JFrame implements MainView {
         this.applicationVersion = applicationVersion;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setIconImage(AppIcon.image());
+        var includeSubfoldersModel = new JToggleButton.ToggleButtonModel();
         resultsPanel = new ResultsPanel(presenter, this::modalDialogOpened,
-                () -> modalDialogClosed(presenter));
+                () -> modalDialogClosed(presenter), includeSubfoldersModel);
         externalSourcesDialog = new ExternalSourcesDialog(this, presenter::checkExternalSourcesRequested,
                 presenter::applyExternalSourcesRequested, presenter::checkExternalSourcesRequested);
         externalSourcesStatusBar = new ExternalSourcesStatusBar(applicationVersion, schemasVersion,
                 tableVersion, presenter::externalSourcesRequested,
                 presenter::checkExternalSourcesRequested);
         root.add(new DropZonePanel(presenter::inputChosen, this::modalDialogOpened,
-                () -> modalDialogClosed(presenter)), "drop");
+                () -> modalDialogClosed(presenter), includeSubfoldersModel), "drop");
         root.add(resultsPanel, "results");
         JPanel content = new JPanel(new BorderLayout());
         content.add(root, BorderLayout.CENTER);
