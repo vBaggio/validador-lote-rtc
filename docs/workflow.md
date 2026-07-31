@@ -2,7 +2,8 @@
 
 Este arquivo registra o **método**. As regras do produto estão em
 [`architecture.md`](./architecture.md), [`conventions.md`](./conventions.md) e
-[`testing.md`](./testing.md); as decisões, em [`decisions.md`](./decisions.md).
+[`testing.md`](./testing.md); as decisões, em [`decisions.md`](./decisions.md); como cortar e
+corrigir uma release, em [`operacao-release.md`](./operacao-release.md).
 
 Vale igualmente para qualquer agente ou pessoa que trabalhe no projeto. Ferramenta específica só
 aparece em `CLAUDE.md` e `AGENTS.md`, que são adaptadores finos apontando para cá.
