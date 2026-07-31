@@ -912,3 +912,11 @@ EDT para executor daemon; URL de release foi restringida à rota HTTPS oficial. 
 
 HEAD final do B9 na branch `bloco/9-aviso-nova-versao`. Task 51 está commitada, revisada e árvore
 limpa. B9 aguarda aceite do dono; não houve push, PR ou merge.
+
+Task fiscal (31/07/2026): complete (commits `b9c39c6`, `3c9ef12`, `6721773`, `974190d`) —
+`cCredPres` oficial fica embarcada, sem rotina de atualização, com os 13 códigos e vigências IBS/CBS.
+A UB54a/1150 considera a dedução somente quando o indicador oficial exige; a camada de
+totalização passou a cobrir W35, W38/39, W41, W43/44, W46–W48, W53/54, W56/W56a e W58–W59g.
+Campos ausentes não viram zero nem rejeição. Fonte fiscal conferida: NT 2025.002 local e portal
+SVRS; o artigo TecnoSpeed foi usado apenas como referência explicativa. `./gradlew test` e
+`git diff --check` passaram. D-061 registra a fronteira com a Calculadora. Sem push/PR/merge.

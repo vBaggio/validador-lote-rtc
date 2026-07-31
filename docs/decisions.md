@@ -4,6 +4,15 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-061 — cCredPres é snapshot embarcado; totalização cobre identidade, não cálculo (31/07/2026)
+
+A tabela `cCredPres` é embarcada como snapshot oficial de 13 códigos, com indicador de dedução e
+vigências IBS/CBS. Não integra o canal automático de bases: a alteração exige revisão e nova
+release do aplicativo. A camada local confere as identidades declaradas W35, W38/39, W41,
+W43/44, W46–W48, W53/54, W56/W56a e W58–W59g, além da UB54a/1150. Campos ausentes ou ilegíveis
+nunca são convertidos em zero. Regras que reconstituem alíquota, base, diferimento ou devolução
+continuam responsabilidade da Calculadora oficial.
+
 ## D-060 — Totalização declarada é camada própria, não calculadora (31/07/2026)
 As regras W41-10 (1080), W46-10 (1084) e W56-10 (1091) comparam, em `BigDecimal`, os totais
 IBS UF, IBS Municipal e CBS declarados em `total/IBSCBSTot` com a soma dos respectivos campos
