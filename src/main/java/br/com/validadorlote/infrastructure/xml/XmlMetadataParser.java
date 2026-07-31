@@ -72,7 +72,8 @@ public final class XmlMetadataParser {
     }
 
     private ParsedMetadata read(Path source, XMLStreamReader r) throws XMLStreamException {
-        String root = null, accessKey = null, cnpj = null, emitterName = null, nNF = null,
+        String root = null, accessKey = null, cnpj = null, emitterName = null, emitterState = null,
+                emitterMunicipalityCode = null, nNF = null,
                 mod = null, serie = null, dhEmi = null,
                 crt = null, finNFe = null, tpNFDebito = null;
         // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
@@ -166,6 +167,10 @@ public final class XmlMetadataParser {
                         switch (capturing) {
                             case "CNPJ" -> { if (cnpj == null) cnpj = value; }
                             case "xNome" -> { if (emitterName == null) emitterName = value; }
+                            case "emit/UF" -> { if (emitterState == null) emitterState = value; }
+                            case "emit/cMun" -> {
+                                if (emitterMunicipalityCode == null) emitterMunicipalityCode = value;
+                            }
                             case "nNF" -> { if (nNF == null) nNF = value; }
                             case "mod" -> { if (mod == null) mod = value; }
                             case "serie" -> { if (serie == null) serie = value; }
@@ -209,13 +214,13 @@ public final class XmlMetadataParser {
         if (infNFeCount > 1) {
             // Lote enviNFe com várias notas: metadados da 1ª nota valeriam para todas (D-016).
             return new ParsedMetadata(
-                    new FiscalDocument(source, null, null, null, null, null, null, null, root, null,
-                            null, null, false, null, false, List.of()),
+                    new FiscalDocument(source, null, null, null, null, null, null, null, root,
+                            null, null, null, false, null, false, List.of()),
                     ItemLineIndex.of(ranges));
         }
         return new ParsedMetadata(
-                new FiscalDocument(source, accessKey, cnpj, emitterName, nNF, parseIssueDate(dhEmi),
-                        mod, serie, root,
+                new FiscalDocument(source, accessKey, cnpj, emitterName, emitterState,
+                        emitterMunicipalityCode, nNF, parseIssueDate(dhEmi), mod, serie, root,
                         crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
                         references),
                 ItemLineIndex.of(ranges));
@@ -235,6 +240,8 @@ public final class XmlMetadataParser {
     private String targetField(Deque<String> stack) {
         if (isFirst(stack, "CNPJ", "emit")) return "CNPJ";
         if (isFirst(stack, "xNome", "emit")) return "xNome";
+        if (isPath(stack, "UF", "enderEmit", "emit")) return "emit/UF";
+        if (isPath(stack, "cMun", "enderEmit", "emit")) return "emit/cMun";
         if (isFirst(stack, "CRT", "emit")) return "CRT";
         if (isFirst(stack, "nNF", "ide")) return "nNF";
         if (isFirst(stack, "mod", "ide")) return "mod";
@@ -261,6 +268,14 @@ public final class XmlMetadataParser {
     private boolean isFirst(Deque<String> stack, String element, String parent) {
         var it = stack.iterator();
         return it.hasNext() && it.next().equals(element) && it.hasNext() && it.next().equals(parent);
+    }
+
+    private boolean isPath(Deque<String> stack, String... path) {
+        var it = stack.iterator();
+        for (String element : path) {
+            if (!it.hasNext() || !it.next().equals(element)) return false;
+        }
+        return true;
     }
 
     private String blankToNull(String value) {

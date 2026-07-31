@@ -31,7 +31,8 @@ import java.util.List;
  * @param references notas referenciadas em {@code ide/NFref}; nunca nula, vazia quando não há.
  */
 public record FiscalDocument(Path source, String accessKey, String emitterCnpj, String emitterName,
-        String documentNumber, LocalDate issueDate, String model, String series, String rootElement,
+        String emitterState, String emitterMunicipalityCode, String documentNumber, LocalDate issueDate,
+        String model, String series, String rootElement,
         String crt, String finNFe, String tpNFDebito, boolean hasCompraGov,
         BigDecimal pRedutorCompraGov, boolean hasIbsCbsTot, List<ReferencedNote> references) {
 
@@ -40,13 +41,23 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
         references = references == null ? List.of() : List.copyOf(references);
     }
 
+    /** Compatibilidade para chamadores que ainda não precisam da localização do emitente. */
+    public FiscalDocument(Path source, String accessKey, String emitterCnpj, String emitterName,
+            String documentNumber, LocalDate issueDate, String model, String series, String rootElement,
+            String crt, String finNFe, String tpNFDebito, boolean hasCompraGov,
+            BigDecimal pRedutorCompraGov, boolean hasIbsCbsTot, List<ReferencedNote> references) {
+        this(source, accessKey, emitterCnpj, emitterName, null, null, documentNumber, issueDate,
+                model, series, rootElement, crt, finNFe, tpNFDebito, hasCompraGov,
+                pRedutorCompraGov, hasIbsCbsTot, references);
+    }
+
     /** Construtor de compatibilidade para regras que não precisam dos campos de apresentação. */
     public FiscalDocument(Path source, String accessKey, String emitterCnpj, String documentNumber,
             LocalDate issueDate, String model, String rootElement, String crt, String finNFe,
             String tpNFDebito, boolean hasCompraGov, BigDecimal pRedutorCompraGov,
             boolean hasIbsCbsTot, List<ReferencedNote> references) {
-        this(source, accessKey, emitterCnpj, null, documentNumber, issueDate, model, null,
-                rootElement, crt, finNFe, tpNFDebito, hasCompraGov, pRedutorCompraGov,
+        this(source, accessKey, emitterCnpj, null, null, null, documentNumber, issueDate, model,
+                null, rootElement, crt, finNFe, tpNFDebito, hasCompraGov, pRedutorCompraGov,
                 hasIbsCbsTot, references);
     }
 }

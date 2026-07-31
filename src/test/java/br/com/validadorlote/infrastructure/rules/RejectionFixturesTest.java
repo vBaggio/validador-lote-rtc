@@ -58,10 +58,7 @@ class RejectionFixturesTest {
             // Bloco 7 -- mecanismo 5 (grupo proibido no modelo 65)
             new Case("r1006-compragov-nfce.xml", "1006"),
             new Case("r1049-credpresoper-nfce.xml", "1049"),
-            // 1138 e 1165 disparam sempre juntas: tpCredPresIBSZFM é obrigatório dentro de
-            // gCredPresIBSZFM (TCredPresIBSZFM), então nenhum XML XSD-válido isola uma da
-            // outra -- ver decisão do bloco 7.
-            new Case("r1138-credpresibszfm-nfce.xml", "1138", "1165"),
+            new Case("r1138-credpresibszfm-nfce.xml", "1138"),
             new Case("r708-dfereferenciado-nfce.xml", "708"));
     private static final List<String> CONTROL_CASES = List.of(
             "c1115-com-grupo.xml",

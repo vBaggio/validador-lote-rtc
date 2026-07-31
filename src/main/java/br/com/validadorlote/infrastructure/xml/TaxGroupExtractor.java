@@ -52,10 +52,9 @@ public final class TaxGroupExtractor {
      *         (bloco 7).
      * @param hasCredPresIbsZfm presença de {@code IBSCBS/gCredPresIBSZFM}, mesma posição de
      *         {@code hasCredPresOper} — as duas são alternativas do mesmo {@code choice} (bloco 7).
-     * @param hasTpCredPresIbsZfm presença de {@code gCredPresIBSZFM/tpCredPresIBSZFM}, capturada à
-     *         parte de {@link #hasCredPresIbsZfm}: são dois elementos distintos do XML, mesmo
-     *         sendo o segundo obrigatório dentro do primeiro — não presumir um a partir do outro
-     *         (bloco 7).
+     * @param hasTpCredPresIbsZfm presença de {@code det/prod/tpCredPresIBSZFM} (I05k), campo de
+     *         produto independente do grupo {@code gCredPresIBSZFM}. Valor zero ainda conta como
+     *         informado para as rejeições 1165/1166.
      * @param hasTribCompraGov presença de {@code gIBSCBS/gTribCompraGov}, filho de {@code TCIBS}
      *         — de dentro do grupo interno {@code gIBSCBS}, não do invólucro (bloco 7).
      */
@@ -121,10 +120,8 @@ public final class TaxGroupExtractor {
         String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
         ReferencedNote dfeReferenciado = null;
-        // Escopos vivos de dentro do invólucro IBSCBS, para ler filhos que não são esfera-scoped
-        // (gCredPresIBSZFM/tpCredPresIBSZFM) ou que moram um nível abaixo dele (gTribCompraGov,
-        // filho de gIBSCBS/TCIBS, não do invólucro — brief do bloco 7).
-        boolean emGIbsCbs = false, emGCredPresIbsZfm = false;
+        // Escopos vivos de dentro do invólucro IBSCBS para gTribCompraGov e do produto para I05k.
+        boolean emGIbsCbs = false, emProd = false;
         // DFeReferenciado é filho de det/prod, mas não tem o marcador de esfera das reduções:
         // precisa do próprio flag para chaveAcesso não ser lido fora do grupo.
         boolean emDFeReferenciado = false;
@@ -170,20 +167,19 @@ public final class TaxGroupExtractor {
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
-                        emGIbsCbs = emGCredPresIbsZfm = false;
+                        emGIbsCbs = emProd = false;
                         emDet = true;
                     }
+                    case "prod" -> emProd = true;
                     case "IBSCBS" -> { emIbsCbs = true; temGrupo = true; }
                     // O grupo interno só conta dentro do invólucro do item corrente.
                     case "gIBSCBS" -> { if (emIbsCbs) { temGrupoInterno = true; emGIbsCbs = true; } }
                     // Filhos diretos do invólucro (2º choice de TTribNFe), não de gIBSCBS.
                     case "gCredPresOper" -> { if (emIbsCbs) credPresOper = true; }
                     case "gCredPresIBSZFM" -> {
-                        if (emIbsCbs) { credPresIbsZfm = true; emGCredPresIbsZfm = true; }
+                        if (emIbsCbs) credPresIbsZfm = true;
                     }
-                    // tpCredPresIBSZFM é obrigatório dentro de gCredPresIBSZFM, mas capturado à
-                    // parte por decisão do brief: não presumir um a partir do outro.
-                    case "tpCredPresIBSZFM" -> { if (emGCredPresIbsZfm) tpCredPresIbsZfm = true; }
+                    case "tpCredPresIBSZFM" -> { if (emProd) tpCredPresIbsZfm = true; }
                     // Filho de gIBSCBS/TCIBS (não do invólucro) — precisa do escopo emGIbsCbs.
                     case "gTribCompraGov" -> { if (emGIbsCbs) tribCompraGov = true; }
                     case "cProdANP" -> { if (prodANP == null) prodANP = texto(r); }
@@ -227,7 +223,7 @@ public final class TaxGroupExtractor {
                 if (Esfera.of(nome) != null) esfera = null;
                 if ("IBSCBS".equals(nome)) emIbsCbs = false;
                 if ("gIBSCBS".equals(nome)) emGIbsCbs = false;
-                if ("gCredPresIBSZFM".equals(nome)) emGCredPresIbsZfm = false;
+                if ("prod".equals(nome)) emProd = false;
                 if ("DFeReferenciado".equals(nome)) {
                     if (dfeReferenciado == null) {
                         // O grupo abriu, mas chaveAcesso não veio (ausente, vazia ou conteúdo

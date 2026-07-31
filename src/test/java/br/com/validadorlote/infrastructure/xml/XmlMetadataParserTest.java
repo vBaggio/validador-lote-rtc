@@ -164,6 +164,19 @@ class XmlMetadataParserTest {
     }
 
     @Test
+    void capturesTheEmitterLocationWithoutConfusingItWithTheRecipient(@TempDir Path dir)
+            throws IOException {
+        String xml = NFE.replace("<emit><CNPJ>14200166000187</CNPJ><xNome>TESTE</xNome></emit>",
+                "<emit><CNPJ>14200166000187</CNPJ><xNome>TESTE</xNome><enderEmit>"
+                        + "<cMun>1302603</cMun><UF>AM</UF></enderEmit></emit>");
+
+        var doc = parser.parse(write(dir, "emit-location.xml", xml)).document();
+
+        assertThat(doc.emitterState()).isEqualTo("AM");
+        assertThat(doc.emitterMunicipalityCode()).isEqualTo("1302603");
+    }
+
+    @Test
     void mixedContentFieldIsTreatedAsAbsent(@TempDir Path dir) throws IOException {
         String xml = "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe Id=\"NFe" + KEY + "\">"
                 + "<emit><CNPJ>1<b/>2</CNPJ></emit><ide><nNF>15</nNF></ide>"

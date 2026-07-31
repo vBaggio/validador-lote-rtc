@@ -1,6 +1,7 @@
 package br.com.validadorlote.infrastructure.rules;
 
 import br.com.validadorlote.domain.Finding;
+import br.com.validadorlote.domain.FindingKind;
 import br.com.validadorlote.domain.FiscalDocument;
 import br.com.validadorlote.domain.NotEvaluatedCause;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
@@ -116,6 +117,15 @@ public final class RuleEngine {
                     "Rejeição: NFC-e não pode referenciar documento fiscal",
                     item -> item.dfeReferenciado() != null, "65"));
 
+    /** Regras de presença não dependem do invólucro IBSCBS nem de tabela e rodam para todo item. */
+    private static final List<RejectionRule> INDEPENDENT_ITEM_RULES = independentItemRules();
+
+    private static List<RejectionRule> independentItemRules() {
+        List<RejectionRule> rules = new ArrayList<>(PRESENCE_FORBIDDEN_RULES);
+        rules.add(new ZfmCreditClassificationRule());
+        return List.copyOf(rules);
+    }
+
     /**
      * Todas as regras de item, na ordem em que a NT as numera. A ordem também escolhe quem fala
      * por uma causa suprimida: dentro de um grupo suprimido, o primeiro que tem o que dizer diz,
@@ -175,10 +185,6 @@ public final class RuleEngine {
                 binding(new ComprasGovComposicaoRequiredRule(),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ComprasGovComposicaoForbiddenRule())));
-        // Mecanismos 3 e 5 (bloco 7): nenhuma consulta à tabela oficial — sem precondição.
-        for (RejectionRule rule : PRESENCE_FORBIDDEN_RULES) {
-            bindings.add(binding(rule));
-        }
         return List.copyOf(bindings);
     }
 
@@ -261,6 +267,13 @@ public final class RuleEngine {
             LocalDate operationDate, List<Finding> out) {
         var ctx = new RuleContext(document, item, tables, operationDate);
 
+        boolean verified = false;
+        for (RejectionRule rule : INDEPENDENT_ITEM_RULES) {
+            RuleOutcome outcome = rule.evaluate(ctx);
+            verified |= isVerdict(outcome);
+            report(out, ctx, rule, outcome, NotEvaluatedCause.RULE_SPECIFIC);
+        }
+
         RuleOutcome root = GROUP_REQUIRED.evaluate(ctx);
         report(out, ctx, GROUP_REQUIRED, root, NotEvaluatedCause.RULE_SPECIFIC);
         if (operationDate == null || !item.hasIbsCbsGroup()) {
@@ -272,7 +285,7 @@ public final class RuleEngine {
 
         EnumSet<Precondition> missing = missingPreconditions(item, operationDate);
         EnumSet<Precondition> reported = EnumSet.noneOf(Precondition.class);
-        boolean verified = isVerdict(root);
+        verified |= isVerdict(root);
         for (Binding binding : BINDINGS) {
             Precondition cause = rootCause(binding, missing);
             if (cause == null) {
@@ -333,6 +346,11 @@ public final class RuleEngine {
             return true;
         }
         if (outcome instanceof RuleOutcome.NaoAvaliado naoAvaliado) {
+            if (out.stream().anyMatch(finding -> finding.kind() == FindingKind.NOT_EVALUATED
+                    && java.util.Objects.equals(finding.itemNumber(), item)
+                    && java.util.Objects.equals(finding.friendlyMessage(), naoAvaliado.motivo()))) {
+                return false;
+            }
             // A regra que desistiu vai junto com a causa: é ela que separa "modelo desconhecido"
             // de "CRT ilegível" dentro de RULE_SPECIFIC, sem obrigar ninguém a ler o texto.
             out.add(Finding.notEvaluated(document.source(), document.accessKey(), item,

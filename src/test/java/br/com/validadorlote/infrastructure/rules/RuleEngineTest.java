@@ -214,6 +214,19 @@ class RuleEngineTest {
     }
 
     @Test
+    void identicalGovernmentPurchaseCalculationLimitsAreReportedOnlyOncePerItem() {
+        var document = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
+                DATA, "55", "NFe", "3", null, null, true, new BigDecimal("5"), true, List.of());
+        var findings = achados(document, item().cst("000").classTrib("000001")
+                .reducaoNasTresEsferas("0").tribCompraGov());
+
+        assertThat(findings).singleElement().satisfies(f -> {
+            assertThat(f.kind()).isEqualTo(FindingKind.NOT_EVALUATED);
+            assertThat(f.friendlyMessage()).contains("gCompraGov");
+        });
+    }
+
+    @Test
     void notEvaluatedFindingsCanBeAggregatedWithoutReadingText() {
         // O que a Task 9 precisa fazer: "não avaliei 3 itens — 2 por CST fora da base, 1 por
         // classificação" sem casar substring de motivo nenhum.

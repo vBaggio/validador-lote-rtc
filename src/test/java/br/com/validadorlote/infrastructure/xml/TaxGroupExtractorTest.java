@@ -45,6 +45,22 @@ class TaxGroupExtractorTest {
     }
 
     @Test
+    void detectsTheZfmClassificationWhenItIsInTheProductAsDefinedByI05k(@TempDir Path dir)
+            throws IOException {
+        Path xml = dir.resolve("i05k.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><tpCredPresIBSZFM>0</tpCredPresIBSZFM></prod>
+                    <imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib></IBSCBS></imposto>
+                  </det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement()
+                .satisfies(group -> assertThat(group.hasTpCredPresIbsZfm()).isTrue());
+    }
+
+    @Test
     void detectsItemWithoutTheGroup() {
         // O caso dominante de 03/08: CRT=3 e nenhum grupo IBS/CBS.
         var grupos = extractor.extract(fixture("nfe-crt3-sem-ibscbs.xml"));
