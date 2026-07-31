@@ -26,7 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/** Consulta e atualiza metadados de artefatos; não toca XMLs nem troca engines já em uso. */
+/** Consulta artefatos e publica runtime completo sem alterar engines de validações já admitidas. */
 public final class ExternalSourcesUseCase {
 
     private static final String SVRS = "https://dfe-portal.svrs.rs.gov.br/";

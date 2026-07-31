@@ -879,3 +879,22 @@ APPLIED exibem carregamento neutro/spinner, nunca “próximo boot”; o texto f
 
 HEAD `f4316b7` na branch `bloco/8-troca-runtime-bases`. Tasks 46–49 revisadas e árvore limpa.
 Próxima: Task 50 — documentação operacional, regressão integrada e roteiro de aceite runtime.
+
+Task 50 (b8): complete (commit `aa3fdf5`, revisão independente PASS/PASS após 1 fix loop) — atualiza
+operação, arquitetura, contexto, README, estratégia de testes e aceite do canal curado para
+`activate → build → atomic publish`; D-053 substitui D-050 no reinício normal. Documenta a lease
+R1, publicação de R2, falha parcial coerente e fallback excepcional: `current` novo é preservado,
+R1 segue atendendo e `RESTART_REQUIRED` explica o próximo boot. Regressões integradas das Tasks
+46–49 (stores reais + executor controlado) sustentam R1→R2, fonte parcial e falha pós-ativação.
+`clean test`, `jpackageImage` e `git diff --check` passaram. Sem débito novo; o roteiro manual e o
+gate visual Windows continuam aceite do dono.
+
+FIX LOOP 1: a revisão encontrou duas referências stale Important. O Javadoc de
+`ArtifactUpdateCoordinator` agora atribui a publicação de runtime ao caso de uso; D-048 foi marcada
+histórica/parcialmente substituída por D-053 e seu texto de boot-only passou a registrar a regra
+superada. `clean test`, `jpackageImage` e `git diff --check` passaram novamente; re-revisão PASS.
+
+### PARADA — 30/07/2026, Task 50 B8 concluída
+
+HEAD `aa3fdf5` na branch `bloco/8-troca-runtime-bases`. Tasks 46–50 estão commitadas e revisadas.
+B8 aguarda o aceite runtime do dono; não há push/PR/merge antes dele.

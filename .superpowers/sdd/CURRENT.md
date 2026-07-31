@@ -15,8 +15,13 @@
   PASS/PASS após dois fix loops: factory do composition root monta R2 fora da EDT/lock e o publica
   atomicamente; falha preserva R1, mantém `current` em disco e expõe fallback sanitizado. **Task
   49** concluída em `f4316b7`, revisão PASS/PASS: sucesso normal informa “Bases atualizadas e já
-  em uso”; recarga e fallback comunicam estados coerentes em rodapé, diálogo e cards. Próxima:
-  Task 50, documentação e regressão/aceite runtime. Sem push/PR/merge antes do aceite.
+  em uso”; recarga e fallback comunicam estados coerentes em rodapé, diálogo e cards. **Task 50**
+  concluída em `9f46867`: operação, arquitetura, contexto, decisão D-053, estratégia de testes,
+  README e roteiro manual agora registram `activate → build → atomic publish`, R1 preservado e
+  fallback excepcional de próximo boot. O fix loop documental corrigiu Javadoc stale do
+  `ArtifactUpdateCoordinator` e marcou D-048 como histórica/substituída por D-053 no boot-only.
+  `clean test`, `jpackageImage` e `git diff --check` passaram novamente. A re-revisão final foi
+  PASS/PASS; B8 está pronto para o aceite runtime do dono, sem push/PR/merge antes dele.
 
 - **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
   `bloco/7-canal-proprio-schemas`; plano em

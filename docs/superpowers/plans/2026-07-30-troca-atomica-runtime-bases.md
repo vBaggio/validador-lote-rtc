@@ -290,6 +290,8 @@ mensagem honesta no fallback e que nenhuma ação de tela depende de `getText()`
 
 ## Task 50 — Documentação operacional, regressão integrada e aceite runtime
 
+**Status:** concluída em `aa3fdf5`; revisão independente PASS/PASS após um fix loop.
+
 **Propósito:** substituir formalmente o ciclo que terminava em reinício e fechar o bloco com provas
 reproduzíveis, sem ocultar o fallback excepcional.
 

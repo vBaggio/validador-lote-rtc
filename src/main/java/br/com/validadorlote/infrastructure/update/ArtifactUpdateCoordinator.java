@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongConsumer;
 import java.util.function.Consumer;
 
-/** Coordena consulta, preparação e ativação sem trocar engines já montados na sessão. */
+/** Coordena consulta, preparação e ativação; o runtime é publicado depois pelo caso de uso. */
 public final class ArtifactUpdateCoordinator {
 
     public static final Duration DEFAULT_INTERVAL = Duration.ofHours(4);

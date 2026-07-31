@@ -14,7 +14,8 @@ gate de cobertura — cobertura por criticidade, conferida no review de cada blo
 | `MainPresenter` | importação sem validação, estados incrementais, cancelamento e manutenção do lote com view fake |
 | atualização de artefatos | retentativa somente para falha transitória, staging sem alterar `current`, sucesso parcial visível, persistência por identidade de canal e preservação da base anterior |
 | `SafeHttpsClient` | prazo de conexão, cabeçalhos e corpo; cancelamento no timeout; limite de tamanho aplicado durante streaming |
-| `ExternalSourcesUseCase` e `ArtifactUpdateCoordinator` | snapshots monotônicos, listeners tolerantes a falha desde `CHECKING`, confirmação global, admissão atômica validação↔ativação, rejeição do executor, latch de reinício e recuperação apenas após nova consulta |
+| `ValidationRuntime`, `MainPresenter` e `ExternalSourcesUseCase` | lease capturada no mesmo gate da admissão, geração/proveniência do resultado, publicação R2 única, validação R1 inalterada, concorrência determinística e nenhum engine misturado |
+| `ExternalSourcesUseCase` e `ArtifactUpdateCoordinator` | snapshots monotônicos, listeners tolerantes a falha desde `CHECKING`, confirmação global, admissão atômica validação↔ativação↔recarga, rejeição do executor, fallback de boot latched e recuperação apenas após nova consulta |
 | componentes Swing de fontes | atualização na EDT, rodapé e diálogo com o mesmo snapshot, abertura modal adiada após o dreno, spinner terminal, rolagem/adaptação e fechamento bloqueado durante `APPLYING` |
 
 - Testes **não** asseguram texto integral de mensagem Xerces (localiza por JVM) — asserte `xsdCode`, `field`, `line`.
@@ -24,9 +25,11 @@ gate de cobertura — cobertura por criticidade, conferida no review de cada blo
 - `presentation/` Swing não tem teste automatizado de janelas nativas; presenter e componentes
   isoláveis têm. Escala, corte de conteúdo, ícones e demais aspectos visuais da janela são
   validados manualmente no Windows.
-- Atualização de bases não é exercitada com XMLs de lote: os testes usam ações/fakes de artefato e
-  confirmam que rede, retentativa e persistência não dependem de documento fiscal. Falha posterior
-  a `apply` deve continuar expondo o aviso e `RESTART_REQUIRED`; remover a guarda de admissão ou a
-  entrega terminal precisa derrubar um teste determinístico. Os testes locais do transporte cobrem
-  servidor que envia cabeçalhos e interrompe o corpo; eles não substituem o checklist visual manual
-  do Windows.
+- Atualização de bases não depende de XMLs de lote para rede, retentativa e persistência: esses
+  caminhos usam ações/fakes de artefato. A regressão integrada usa stores reais e executor
+  controlado para provar R1 → ativação física → R2, inclusive fonte parcial; uma validação já
+  admitida conserva R1 e um resultado exibido não muda de geração. Falha posterior a `apply` deve
+  preservar `current`, manter R1 e expor `RESTART_REQUIRED`; remover a guarda de admissão, a
+  publicação atômica ou a entrega terminal precisa derrubar um teste determinístico. Os testes
+  locais do transporte cobrem servidor que envia cabeçalhos e interrompe o corpo; eles não
+  substituem o checklist visual manual do Windows.

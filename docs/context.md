@@ -19,8 +19,10 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
    assinados do canal próprio de schemas curados, no máximo uma vez a cada 4 horas; a ação manual
    **Verificar agora** não se submete a essa janela. A validação do lote continua local. A consulta
    só prepara candidatas:
-   a ativação exige confirmação global do usuário, ocorre fora de uma validação e entra nos engines
-   somente após reinício. A consulta tem prazo também para o corpo HTTP; falhas e rejeições de
+   a ativação exige confirmação global do usuário, ocorre fora de uma validação e monta um runtime
+   completo fora da EDT antes de publicá-lo atomicamente na sessão. Se essa montagem falhar, a base
+   já ativada em disco fica para o próximo boot e o runtime anterior continua atendendo. A consulta
+   tem prazo também para o corpo HTTP; falhas e rejeições de
    agendamento permanecem visíveis e recuperáveis, sem deixar uma base parcial ativa.
 2. **A ferramenta nunca decide tributo** — julgamento vem de artefato oficial (schemas; na v1, motor `regime-geral`).
 3. **Zero pré-requisitos** — instalador nativo com runtime embarcado.

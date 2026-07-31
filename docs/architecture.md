@@ -60,25 +60,30 @@ controle detecta corrupção operacional, mas não autentica alterações feitas
 a mesma conta — ver D-046.
 
 O coordenador consulta schemas e tabelas fora da EDT, uma vez após o boot e depois no intervalo
-operacional. O ciclo é `check → prepare → confirm → activate → restart`: `check` adquire e valida;
-`prepare` grava uma candidata íntegra em staging, sem tocar `current`; uma única confirmação do
-usuário autoriza `activate`; e somente o próximo processo carrega as novas bases nos engines. O
-schema verifica manifesto Ed25519, `releaseSequence`, hash e closure antes de preparar; a tabela
-fiscal mantém o canal SVRS próprio. Uma fonte pode falhar sem bloquear a candidata válida da outra,
-sempre preservando a referência ativa anterior. O endpoint e a chave pública do canal são escolhas
-embarcadas no `App`; indisponibilidade do canal preserva a última `current` íntegra ou o fallback
-embarcado.
+operacional. O ciclo é `check → prepare → confirm → activate → build → atomic publish`: `check`
+adquire e valida; `prepare` grava uma candidata íntegra em staging, sem tocar `current`; uma única
+confirmação do usuário autoriza `activate`; então o composition root monta, fora da EDT e do lock,
+um novo `ValidationRuntime` completo a partir das referências `current` já íntegras. Somente uma
+montagem integral publica a referência de uma vez. O schema verifica manifesto Ed25519,
+`releaseSequence`, hash e closure antes de preparar; a tabela fiscal mantém o canal SVRS próprio.
+Uma fonte pode falhar sem bloquear a candidata válida da outra: o runtime novo combina a referência
+saudável recém-ativada com a última referência íntegra da fonte que falhou. O endpoint e a chave
+pública do canal são escolhas embarcadas no `App`; indisponibilidade do canal preserva a última
+`current` íntegra ou o fallback embarcado.
 
 `ExternalSourcesUseCase` agrega os eventos em snapshots imutáveis com revisão monotônica e é a
 única fonte de estado para presenter, rodapé e diálogo; observadores não são chamados sob lock e
-uma entrega obsoleta não pode sobrescrever estado novo na EDT. Consulta pode coexistir com o lote,
-mas a admissão de validação e ativação é atômica: reservada uma ativação, não começa worker de
-validação; a reserva é liberada também se o executor a recusar. A falha de um listener não impede
-os demais nem o evento terminal, inclusive se ela acontecer ao publicar `CHECKING`. A abertura do
-diálogo application-modal é adiada para o próximo ciclo da EDT, depois do dreno de snapshots, para
-que o modal nunca bloqueie a entrega do estado terminal. Se `activate` já retornou,
-`RESTART_REQUIRED` permanece latched até encerrar o processo mesmo que persista/publicar o evento
-terminal falhe; a candidata não é reaplicada sem uma consulta fresca.
+uma entrega obsoleta não pode sobrescrever estado novo na EDT. O mesmo gate admite uma validação
+e captura sua `ValidationLease` com o runtime no mesmo lock; assim, a validação inteira usa R1,
+mesmo depois da publicação de R2. Reservada uma ativação, não começa worker de validação; depois da
+ativação física, a reserva continua até a publicação de R2 ou o fallback. A construção não ocorre
+sob o lock nem na EDT. A falha de um listener não impede os demais nem o evento terminal, inclusive
+se ela acontecer ao publicar `CHECKING`. A abertura do diálogo application-modal é adiada para o
+próximo ciclo da EDT, depois do dreno de snapshots, para que o modal nunca bloqueie a entrega do
+estado terminal. Se a montagem de runtime falha após `activate`, `RESTART_REQUIRED` permanece
+latched até encerrar o processo: `current` novo é preservado, R1 continua em uso e a candidata não
+é reaplicada sem uma consulta fresca. Em sucesso, `UPDATED_AND_IN_USE` libera o gate e informa que
+as bases já estão em uso; resultados existentes conservam a identidade de R1 e não são recalculados.
 
 O transporte HTTPS tem prazo único para conexão, resposta e leitura completa do corpo. A leitura é
 assíncrona, limitada e cancelável: timeout cancela requisição e assinatura, e corpo acima do limite
@@ -88,6 +93,7 @@ ativação, a reserva é desfeita e o presenter informa a falha sem repetir a co
 
 A tela **Fontes externas** pode forçar a consulta, mas o gate do coordenador recusa duplicação
 enquanto ela está em curso. `ExternalSourcesUseCase` só expõe manifestos e estado local ao
-presenter; não recebe XMLs, chaves ou CNPJ. Os engines do lote são montados uma vez no bootstrap e
-nunca trocados em memória. O catálogo também inventaria a Calculadora para v1, sem
+presenter; não recebe XMLs, chaves ou CNPJ. O bootstrap monta R1 e uma atualização bem-sucedida
+publica R2 atomicamente; nenhum engine mutável é alterado em uma validação em curso. O catálogo
+também inventaria a Calculadora para v1, sem
 download/execução no v0.

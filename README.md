@@ -25,8 +25,10 @@ documentos, chaves, CNPJ ou conteúdo do lote. Os documentos permanecem na sua m
 
 Os XMLs são verificados contra os schemas XSD oficiais embarcados para NF-e/NFC-e. O rodapé abre
 **Fontes externas**, onde é possível conferir origem, versão/snapshot, hash abreviado, últimas
-atualização e verificação, além de solicitar uma nova consulta sem interromper o lote. Uma base
-obtida nessa consulta só é usada no próximo boot, para que o lote atual não misture versões.
+atualização e verificação, além de solicitar uma nova consulta sem interromper o lote. Após a
+confirmação, o aplicativo espera a validação em curso, carrega um conjunto novo de engines e o
+passa a usar sem reinício. Documentos já validados continuam associados à base que os gerou; se a
+montagem em memória falhar, a base fica ativa em disco e será usada no próximo boot.
 
 ## O que o aplicativo não faz
 
@@ -94,8 +96,9 @@ A base atualmente embarcada é o perfil `010e_v1.02`; seu payload foi transporta
 SVN r47146 e identificado por hashes registrados no aplicativo. O runtime de schemas foi projetado
 para aceitar somente releases completas, curadas e assinadas pelo canal próprio do projeto; SVRS e
 ACBr são pesquisa/proveniência, nunca fallback runtime. O canal publicado usa GitHub Pages,
-manifesto Ed25519 e releases imutáveis; a ativação continua exigindo validação local e só terá
-efeito no boot seguinte. A tabela fiscal segue no canal SVRS independente.
+manifesto Ed25519 e releases imutáveis; a ativação continua exigindo validação local, mas o runtime
+completo é reconstruído e publicado atomicamente na mesma sessão. A tabela fiscal segue no canal
+SVRS independente.
 
 As tasks Gradle históricas `updateSchemas` e `updateFiscalTables` estão intencionalmente bloqueadas:
 elas não são a atualização do usuário final e não podem sobrescrever `src/main/resources`. Uma
