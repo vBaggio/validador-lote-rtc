@@ -21,6 +21,8 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -83,11 +85,12 @@ public final class ResultsPanel extends JPanel {
         documentActions.add(removeValid);
         documentActions.add(clear);
         JPanel documentContent = new JPanel(new BorderLayout(0, 8));
-        documentContent.add(new JScrollPane(documentsTable), BorderLayout.CENTER);
+        documentContent.add(flexibleColumnScroll(documentsTable, 6, 260), BorderLayout.CENTER);
         documentContent.add(documentActions, BorderLayout.SOUTH);
         JPanel documents = titledPanel("Documentos Fiscais", documentContent);
         JTable problemsTable = configuredProblemsTable();
-        JPanel problems = titledPanel("Problemas do documento selecionado", new JScrollPane(problemsTable));
+        JPanel problems = titledPanel("Problemas do documento selecionado",
+                flexibleColumnScroll(problemsTable, 1, 520));
         JPanel grids = new JPanel(new GridBagLayout());
         GridBagConstraints documentsConstraints = constraints(0.72, new Insets(0, 0, 0, 0));
         grids.add(documents, documentsConstraints);
@@ -234,7 +237,45 @@ public final class ResultsPanel extends JPanel {
         table.getColumnModel().getColumn(0).setMinWidth(88);
         table.getColumnModel().getColumn(0).setPreferredWidth(96);
         table.getColumnModel().getColumn(0).setMaxWidth(120);
+        table.getColumnModel().getColumn(1).setMinWidth(520);
+        table.getColumnModel().getColumn(1).setPreferredWidth(760);
         return table;
+    }
+
+    /**
+     * Mantém a coluna de texto legível e usa o espaço livre do viewport sem
+     * sacrificar a rolagem horizontal em janelas menores.
+     */
+    private static JScrollPane flexibleColumnScroll(JTable table, int flexibleColumn, int minimumWidth) {
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.getViewport().addComponentListener(new ComponentAdapter() {
+            @Override public void componentResized(ComponentEvent event) {
+                resizeFlexibleColumn(table, event.getComponent().getWidth(), flexibleColumn, minimumWidth);
+            }
+        });
+        resizeFlexibleColumn(table, scroll.getViewport().getWidth(), flexibleColumn, minimumWidth);
+        return scroll;
+    }
+
+    private static void resizeFlexibleColumn(JTable table, int viewportWidth,
+            int flexibleColumn, int minimumWidth) {
+        int fixedWidth = 0;
+        for (int index = 0; index < table.getColumnModel().getColumnCount(); index++) {
+            if (index != flexibleColumn) {
+                fixedWidth += table.getColumnModel().getColumn(index).getWidth();
+            }
+        }
+        int targetWidth = Math.max(minimumWidth, viewportWidth - fixedWidth);
+        var column = table.getColumnModel().getColumn(flexibleColumn);
+        if (column.getWidth() != targetWidth) {
+            column.setPreferredWidth(targetWidth);
+            column.setWidth(targetWidth);
+        }
+        int tableWidth = fixedWidth + targetWidth;
+        Dimension preferred = table.getPreferredSize();
+        if (preferred.width != tableWidth) {
+            table.setPreferredSize(new Dimension(tableWidth, preferred.height));
+        }
     }
 
     private GridBagConstraints constraints(double weightY, Insets insets) {
