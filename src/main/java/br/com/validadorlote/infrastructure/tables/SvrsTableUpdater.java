@@ -7,6 +7,7 @@ import br.com.validadorlote.infrastructure.update.ArtifactCheckResult;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 
 import java.net.URI;
+import java.io.ByteArrayInputStream;
 import java.time.Instant;
 
 /** Obtém uma candidata SVRS, normaliza e a delega ao armazenamento transacional. */
@@ -35,6 +36,11 @@ public final class SvrsTableUpdater {
         String version = "svrs-" + FiscalTableArtifactStore.sha256(candidate).substring(0, 12);
         if (store.isActiveVersion(version)) {
             return ArtifactCheckResult.upToDate("Tabela fiscal já está atualizada");
+        }
+        if (FiscalTables.load(new ByteArrayInputStream(candidate)).semanticFingerprint()
+                .equals(FiscalTables.load().semanticFingerprint())) {
+            return ArtifactCheckResult.upToDate(
+                    "A tabela publicada pela SVRS equivale à tabela embarcada");
         }
         ArtifactManifest manifest = store.prepare(candidate, version, SOURCE.toString(), Instant.now());
         String detail = "Tabela fiscal preparada pela SVRS";

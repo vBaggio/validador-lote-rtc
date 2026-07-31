@@ -118,7 +118,12 @@ public final class CuratedSchemaUpdater {
     private ArtifactCheckResult checkSequence(
             CuratedSchemaChannelManifest.SignedRelease release) {
         ArtifactManifest active = store.activeManifestOrNull();
-        if (active == null || !channelId.equals(active.channelId())) return null;
+        if (active == null || !channelId.equals(active.channelId())) {
+            return sameEmbeddedRelease(release)
+                    ? ArtifactCheckResult.upToDate(
+                            "O canal curado equivale aos schemas embarcados")
+                    : null;
+        }
         if (release.releaseSequence() == active.releaseSequence()) {
             if (!sameSignedRelease(active, release)) {
                 throw ArtifactUpdateException.invalidContent(
@@ -133,6 +138,20 @@ public final class CuratedSchemaUpdater {
                     "Manifesto do canal de schemas tenta rollback da sequência ativa");
         }
         return null;
+    }
+
+    private boolean sameEmbeddedRelease(CuratedSchemaChannelManifest.SignedRelease release) {
+        return SchemasVersion.metadata().curatedRelease().map(embedded -> {
+            if (!channelId.equals(embedded.channelId())
+                    || release.releaseSequence() != embedded.releaseSequence()
+                    || !release.zipSha256().equals(embedded.zipSha256())) {
+                return false;
+            }
+            byte[] canonicalSigned = parser.canonicalSignedBytes(
+                    new CuratedSchemaChannelManifest(1, "identity", release, "identity"));
+            return MessageDigest.isEqual(HexFormat.of().parseHex(embedded.signedReleaseSha256()),
+                    sha256(canonicalSigned));
+        }).orElse(false);
     }
 
     private boolean sameSignedRelease(ArtifactManifest active,

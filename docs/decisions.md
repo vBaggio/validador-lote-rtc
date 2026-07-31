@@ -4,6 +4,21 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-058 — Atualização compara a candidata com a base embarcada em instalação limpa (31/07/2026)
+
+Não existir uma referência externa `current` não significa que a base em uso esteja desatualizada:
+a release do aplicativo pode já conter exatamente a candidata do canal. Para schemas, o manifesto
+de proveniência embarcado guarda a identidade completa da release curada — canal, sequência, hash
+do ZIP e hash canônico de `signed` — e a consulta autenticada retorna “em dia” antes do download
+quando todos coincidem. Para a tabela SVRS, a comparação é feita pelo fingerprint do conteúdo que
+o motor consome, canônico quanto à ordem e à escala decimal; espaço ou serialização JSON diferente
+não cria atualização fictícia.
+
+O manifesto remoto ainda é baixado e sua assinatura Ed25519 ainda é verificada antes dessa decisão.
+Qualquer identidade distinta continua candidata normal, preservando staging, confirmação do usuário
+e guardas anti-rollback. A release deve atualizar os metadados embarcados junto com qualquer base
+curada que ela já carregue.
+
 ## D-057 — Runtime empacotado inclui Ed25519 e o launcher é exercitado no Windows (31/07/2026)
 
 O canal curado de schemas inicializa uma chave pública Ed25519 durante o bootstrap. O módulo

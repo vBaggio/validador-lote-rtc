@@ -88,6 +88,33 @@ class CuratedSchemaUpdaterTest {
     }
 
     @Test
+    void doesNotDownloadWhenTheSignedReleaseIsAlreadyEmbedded() throws IOException {
+        CuratedSchemaChannelManifest.SignedRelease embedded = new CuratedSchemaChannelManifest.SignedRelease(
+                ArtifactId.NFE_SCHEMAS, 2, "010e_v1.02-r2",
+                Instant.parse("2026-07-30T23:30:00Z"), "0.1.0",
+                URI.create("https://vbaggio.github.io/validador-lote-rtc-bases/releases/nfe-schemas/"
+                        + "schemas-010e_v1.02-r2.zip"),
+                "4b9fec28668612e87c171fdf8e2bc14a0832d32043c3a36d93d9d7fc0b8342a2",
+                List.of(
+                        new CuratedSchemaChannelManifest.SourceProvenance("Portal Nacional da NF-e",
+                                URI.create("https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?"
+                                        + "tipoConteudo=BMPFMBoln3w%3D"), "010e_v1.02"),
+                        new CuratedSchemaChannelManifest.SourceProvenance("ACBr",
+                                URI.create("https://svn.code.sf.net/p/acbr/code/trunk2/Exemplos/"
+                                        + "ACBrDFe/Schemas/NFe/"), "r47146")));
+        updater = updater(new Ed25519ManifestVerifier(Map.of(KEY_ID,
+                Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded()))),
+                SafeHttpsClient.SCHEMA_MAX_BYTES, "curated-schemas-stable-v1");
+        transport.respond(MANIFEST_URI, signedManifest(embedded));
+
+        ArtifactCheckResult result = updater.check();
+
+        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UP_TO_DATE);
+        assertThat(result.candidate()).isNull();
+        assertThat(transport.requests()).containsExactly(MANIFEST_URI);
+    }
+
+    @Test
     void applyActivatesOnlyThePreparedSchemaCandidate() throws IOException {
         byte[] validZip = validZip();
         transport.respond(MANIFEST_URI, signedManifest(release(8, sha256(validZip))));
@@ -388,12 +415,17 @@ class CuratedSchemaUpdaterTest {
     }
 
     private CuratedSchemaUpdater updater(Ed25519ManifestVerifier verifier, int zipMaxBytes) {
+        return updater(verifier, zipMaxBytes, CHANNEL);
+    }
+
+    private CuratedSchemaUpdater updater(Ed25519ManifestVerifier verifier, int zipMaxBytes,
+            String channel) {
         SafeHttpsClient manifestHttps = new SafeHttpsClient(Set.of(MANIFEST_URI.getHost()),
                 Duration.ofSeconds(2), 256 * 1024, transport);
         SafeHttpsClient zipHttps = new SafeHttpsClient(Set.of(ZIP_URI.getHost()),
                 Duration.ofSeconds(2), zipMaxBytes, transport);
         return new CuratedSchemaUpdater(manifestHttps, zipHttps, parser, verifier, zip, store,
-                CHANNEL, MANIFEST_URI, "1.2.3");
+                channel, MANIFEST_URI, "1.2.3");
     }
 
     private CuratedSchemaUpdater updater(CuratedSchemaUpdater.SchemaExtractor extractor,
