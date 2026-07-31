@@ -30,9 +30,12 @@ public final class CreditPresumedTable {
                 String code = node.path("codigo").asText();
                 JsonNode start = node.get("ibsInicio");
                 LocalDate ibsStart = start == null || start.isNull() ? null : LocalDate.parse(start.asText());
+                JsonNode cbsStartNode = node.get("cbsInicio");
+                LocalDate cbsStart = cbsStartNode == null || cbsStartNode.isNull()
+                        ? null : LocalDate.parse(cbsStartNode.asText());
                 if (code.isBlank() || !node.path("deduzTotal").isBoolean()
                         || entries.putIfAbsent(code, new CreditPresumedEntry(code,
-                        node.path("deduzTotal").booleanValue(), ibsStart, null)) != null) {
+                        node.path("deduzTotal").booleanValue(), ibsStart, null, cbsStart, null)) != null) {
                     throw new IllegalStateException("Entrada cCredPres inválida: " + code);
                 }
             }
