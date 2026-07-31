@@ -11,6 +11,7 @@ Aplicativo desktop gratuito para revisar, de uma vez, lotes de XMLs de **NF-e (m
 **NFC-e (modelo 65)** relacionados à Reforma Tributária do Consumo (IBS/CBS). Ele ajuda equipes
 contábeis e fiscais a localizar inconsistências antes de tratar os documentos um a um.
 
+> [!WARNING]
 > **Projeto em estágio inicial de desenvolvimento:** o aplicativo ainda pode cometer erros. Sua
 > proposta é oferecer uma forma rápida de fazer a triagem de grandes lotes de notas, com
 > processamento local e sem depender da internet. Caso um documento receba resultado negativo,
