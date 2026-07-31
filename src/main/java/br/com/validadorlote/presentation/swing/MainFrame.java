@@ -9,10 +9,13 @@ import br.com.validadorlote.domain.ApplicationRelease;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JToggleButton;
 import java.awt.CardLayout;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -33,6 +36,7 @@ public final class MainFrame extends JFrame implements MainView {
     private final ExternalSourcesDialog externalSourcesDialog;
     private final ExternalSourcesStatusBar externalSourcesStatusBar;
     private final String applicationVersion;
+    private final MainPresenter presenter;
     private int modalDialogDepth;
 
     public MainFrame(MainPresenter presenter, String applicationVersion, String schemasVersion) {
@@ -42,27 +46,41 @@ public final class MainFrame extends JFrame implements MainView {
     public MainFrame(MainPresenter presenter, String applicationVersion, String schemasVersion,
             String tableVersion) {
         super("Validador de XML em Lote - Reforma Tributária");
+        this.presenter = presenter;
         this.applicationVersion = applicationVersion;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setIconImage(AppIcon.image());
+        var includeSubfoldersModel = new JToggleButton.ToggleButtonModel();
         resultsPanel = new ResultsPanel(presenter, this::modalDialogOpened,
-                () -> modalDialogClosed(presenter));
+                () -> modalDialogClosed(presenter), includeSubfoldersModel);
         externalSourcesDialog = new ExternalSourcesDialog(this, presenter::checkExternalSourcesRequested,
                 presenter::applyExternalSourcesRequested, presenter::checkExternalSourcesRequested);
         externalSourcesStatusBar = new ExternalSourcesStatusBar(applicationVersion, schemasVersion,
                 tableVersion, presenter::externalSourcesRequested,
                 presenter::checkExternalSourcesRequested);
         root.add(new DropZonePanel(presenter::inputChosen, this::modalDialogOpened,
-                () -> modalDialogClosed(presenter)), "drop");
+                () -> modalDialogClosed(presenter), includeSubfoldersModel), "drop");
         root.add(resultsPanel, "results");
         JPanel content = new JPanel(new BorderLayout());
         content.add(root, BorderLayout.CENTER);
         content.add(externalSourcesStatusBar, BorderLayout.SOUTH);
         setContentPane(content);
-        setMinimumSize(new Dimension(1000, 720));
-        setSize(1200, 800);
+        Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        setMinimumSize(minimumWindowSize(screen));
+        setSize(initialWindowSize(screen));
         setLocationRelativeTo(null);
-        setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
+    }
+
+    static Dimension minimumWindowSize(Rectangle screen) {
+        return new Dimension(Math.max(1, Math.min(1000, screen.width - 24)),
+                Math.max(1, Math.min(660, screen.height - 24)));
+    }
+
+    static Dimension initialWindowSize(Rectangle screen) {
+        Dimension minimum = minimumWindowSize(screen);
+        int width = Math.min(1180, Math.max(minimum.width, screen.width - 40));
+        int height = Math.min(700, Math.max(minimum.height, screen.height - 28));
+        return new Dimension(width, height);
     }
 
     @Override
@@ -91,6 +109,25 @@ public final class MainFrame extends JFrame implements MainView {
     @Override
     public void showError(String message) {
         SwingDialogSupport.showMessage(this, message, "Erro", JOptionPane.ERROR_MESSAGE);
+    }
+
+    @Override
+    public void warnRulesEffectiveDateForOlderSimples() {
+        String message = """
+                Este lote contém documento(s) do Simples Nacional emitido(s) antes de 2027.
+
+                Com “Considerar vigência das regras de validação” marcado, esses XMLs serão avaliados como se tivessem sido emitidos a partir de 04/01/2027, quando a obrigatoriedade do grupo IBS/CBS passa a valer para esses regimes.
+
+                Isso pode gerar rejeições em amostras antigas. Ao fechar este aviso, a validação seguirá normalmente.
+                """.strip();
+        modalDialogOpened();
+        try {
+            SwingDialogSupport.showMessage(this, message,
+                    "Atenção à vigência do Simples Nacional",
+                    JOptionPane.WARNING_MESSAGE);
+        } finally {
+            modalDialogClosed(presenter);
+        }
     }
 
     @Override

@@ -12,6 +12,7 @@ import br.com.validadorlote.application.ValidationLease;
 import br.com.validadorlote.application.ValidateBatchUseCase;
 
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -47,6 +48,7 @@ public final class MainPresenter {
             "Aguarde a atualização das bases terminar antes de validar o lote.";
     private static final String APPLICATION_START_FAILED =
             "Não foi possível iniciar a atualização das bases: ";
+    private static final LocalDate START_OF_2027 = LocalDate.of(2027, 1, 1);
 
     public MainPresenter(ValidateBatchUseCase useCase, UiThread uiThread, Executor background) {
         this(new ValidationRuntime(useCase, RuntimeBases.legacy()), uiThread, background, null);
@@ -65,8 +67,9 @@ public final class MainPresenter {
     public MainPresenter(ValidationRuntime runtime, UiThread uiThread, Executor background,
             ExternalSourcesUseCase externalSources) {
         this(runtime, uiThread, background, externalSources,
-                (validationRuntime, source, token) -> validationRuntime.useCase()
-                        .validateDocument(source, true, token));
+                (validationRuntime, source, considerRulesEffectiveDate, token) ->
+                        validationRuntime.useCase().validateDocument(
+                                source, true, considerRulesEffectiveDate, token));
     }
 
     MainPresenter(ValidationRuntime runtime, UiThread uiThread, Executor background,
@@ -92,6 +95,11 @@ public final class MainPresenter {
 
     /** Importa metadados seguros para a grade, sem executar validação fiscal ou schema. */
     public void inputChosen(Path input) {
+        inputChosen(input, false);
+    }
+
+    /** Importa a entrada e inclui subpastas somente quando solicitado pelo usuário. */
+    public void inputChosen(Path input, boolean includeSubfolders) {
         if (validating) return;
         final long generation;
         synchronized (workspaceLock) {
@@ -99,7 +107,7 @@ public final class MainPresenter {
             pendingImports++;
         }
         try {
-            background.execute(() -> importInput(input, generation));
+            background.execute(() -> importInput(input, includeSubfolders, generation));
         } catch (RuntimeException failure) {
             synchronized (workspaceLock) {
                 pendingImports--;
@@ -110,12 +118,26 @@ public final class MainPresenter {
 
     /** Valida somente os documentos que ainda aguardam validação. */
     public void validateRequested() {
+        validateRequested(true);
+    }
+
+    /**
+     * Valida os pendentes usando a data real ou a referência mínima de vigência das regras.
+     */
+    public void validateRequested(boolean considerRulesEffectiveDate) {
+        // Salvaguarda temporária para a transição: amostras 2026 do Simples passam a ser
+        // confrontadas com 2027 quando a simulação está ativa, um resultado fácil de interpretar
+        // como defeito do XML. Pode sair quando esse uso deixar de ser excepcional.
+        if (considerRulesEffectiveDate && hasOlderSimplesPending()) {
+            requireView().warnRulesEffectiveDateForOlderSimples();
+        }
         final List<Path> pending;
         final CancellationToken token;
         final ValidationLease lease;
         synchronized (workspaceLock) {
             if (validating) return;
             pending = workspace.stream().filter(document -> document.status() == DocumentStatus.PENDING)
+                    .sorted(WorkspaceDocumentOrder.DISPLAY)
                     .map(document -> document.document().source()).toList();
             if (pending.isEmpty()) {
                 publishWorkspace();
@@ -141,7 +163,8 @@ public final class MainPresenter {
         publishWorkspace();
         try {
             background.execute(() -> validatePending(pending, token,
-                    lease == null ? runtime : lease.runtime(), lease));
+                    lease == null ? runtime : lease.runtime(), lease,
+                    considerRulesEffectiveDate));
         } catch (RuntimeException e) {
             synchronized (workspaceLock) {
                 validating = false;
@@ -155,6 +178,25 @@ public final class MainPresenter {
                 publishOrShowIdle();
             });
         }
+    }
+
+    private boolean hasOlderSimplesPending() {
+        synchronized (workspaceLock) {
+            return workspace.stream()
+                    .filter(document -> document.status() == DocumentStatus.PENDING)
+                    .map(WorkspaceDocument::document)
+                    .anyMatch(document -> isSimples(document.crt())
+                            && document.issueDate() != null
+                            && document.issueDate().isBefore(START_OF_2027));
+        }
+    }
+
+    private static boolean isSimples(String crt) {
+        if (crt == null) return false;
+        return switch (crt.trim()) {
+            case "1", "2", "4" -> true;
+            default -> false;
+        };
     }
 
     /** Solicita o cancelamento cooperativo da validação corrente. */
@@ -234,9 +276,9 @@ public final class MainPresenter {
         uiThread.execute(() -> publishExternalSources(snapshot));
     }
 
-    private void importInput(Path input, long generation) {
+    private void importInput(Path input, boolean includeSubfolders, long generation) {
         try {
-            ImportedBatch imported = runtime.useCase().importDocuments(input);
+            ImportedBatch imported = runtime.useCase().importDocuments(input, includeSubfolders);
             uiThread.execute(() -> {
                 try {
                     mergeImport(imported, generation);
@@ -282,13 +324,14 @@ public final class MainPresenter {
     }
 
     private void validatePending(List<Path> pending, CancellationToken token,
-            ValidationRuntime validationRuntime, ValidationLease lease) {
+            ValidationRuntime validationRuntime, ValidationLease lease,
+            boolean considerRulesEffectiveDate) {
         for (Path source : pending) {
             if (token.isCancelled() || token != currentToken) break;
             uiThread.execute(() -> setStatus(source, DocumentStatus.VALIDATING, token));
             try {
                 DocumentValidationResult result = validationRunner.validate(validationRuntime, source,
-                        token);
+                        considerRulesEffectiveDate, token);
                 uiThread.execute(() -> applyValidation(source, result, token, validationRuntime.bases()));
             } catch (RuntimeException e) {
                 uiThread.execute(() -> validationFailed(source, token, e));
@@ -442,6 +485,6 @@ public final class MainPresenter {
     @FunctionalInterface
     interface DocumentValidationRunner {
         DocumentValidationResult validate(ValidationRuntime runtime, Path source,
-                CancellationToken token);
+                boolean considerRulesEffectiveDate, CancellationToken token);
     }
 }

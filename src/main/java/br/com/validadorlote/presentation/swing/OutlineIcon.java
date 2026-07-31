@@ -13,8 +13,8 @@ import java.awt.geom.Path2D;
 final class OutlineIcon implements Icon {
 
     enum Kind {
-        IMPORT, DRAG_DROP, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
-        DATABASE, WARNING
+        IMPORT, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
+        DATABASE, WARNING, COPY, FOLDER
     }
 
     private final Kind kind;
@@ -53,7 +53,6 @@ final class OutlineIcon implements Icon {
             g.scale(scale, scale);
             switch (kind) {
                 case IMPORT -> importIcon(g);
-                case DRAG_DROP -> dragDropIcon(g);
                 case EXPORT -> exportIcon(g);
                 case REFRESH -> refreshIcon(g);
                 case CANCEL -> cancelIcon(g);
@@ -64,6 +63,8 @@ final class OutlineIcon implements Icon {
                 case PROGRESS -> progressIcon(g);
                 case DATABASE -> databaseIcon(g);
                 case WARNING -> warningIcon(g);
+                case COPY -> copyIcon(g);
+                case FOLDER -> folderIcon(g);
             }
         } finally {
             g.dispose();
@@ -75,14 +76,6 @@ final class OutlineIcon implements Icon {
         g.drawLine(12, 3, 12, 15);
         g.drawLine(8, 11, 12, 15);
         g.drawLine(16, 11, 12, 15);
-    }
-
-    private static void dragDropIcon(Graphics2D g) {
-        g.drawLine(12, 3, 12, 15);
-        g.drawLine(8, 11, 12, 15);
-        g.drawLine(16, 11, 12, 15);
-        g.drawRoundRect(4, 16, 16, 5, 2, 2);
-        g.drawLine(7, 18, 17, 18);
     }
 
     private static void exportIcon(Graphics2D g) {
@@ -104,7 +97,7 @@ final class OutlineIcon implements Icon {
     }
 
     private static void cancelIcon(Graphics2D g) {
-        g.drawRoundRect(3, 3, 18, 18, 5, 5);
+        g.drawOval(3, 3, 18, 18);
         g.drawLine(8, 8, 16, 16);
         g.drawLine(16, 8, 8, 16);
     }
@@ -163,5 +156,22 @@ final class OutlineIcon implements Icon {
         g.draw(path);
         g.drawLine(12, 9, 12, 14);
         g.fillOval(11, 17, 2, 2);
+    }
+
+    private static void copyIcon(Graphics2D g) {
+        g.drawRoundRect(8, 3, 12, 14, 2, 2);
+        g.drawRoundRect(4, 7, 12, 14, 2, 2);
+    }
+
+    private static void folderIcon(Graphics2D g) {
+        Path2D path = new Path2D.Double();
+        path.moveTo(3, 6);
+        path.lineTo(10, 6);
+        path.lineTo(12, 9);
+        path.lineTo(21, 9);
+        path.lineTo(21, 20);
+        path.lineTo(3, 20);
+        path.closePath();
+        g.draw(path);
     }
 }

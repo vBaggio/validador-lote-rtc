@@ -59,7 +59,14 @@ jobs:
           command -v dpkg-deb
           command -v fakeroot
       - name: Gerar instalador DEB
-        run: ./gradlew jpackageInstaller --console=plain
+        shell: bash
+        run: |
+          app_version="${GITHUB_REF_NAME#v}"
+          [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "A tag deve usar MAJOR.MINOR.PATCH; recebido: $app_version"
+            exit 1
+          }
+          ./gradlew jpackageInstaller -PappVersion="$app_version" --console=plain
       - name: Anexar DEB à Release
         uses: softprops/action-gh-release@v2
         with:
@@ -78,7 +85,14 @@ jobs:
           distribution: temurin
           cache: gradle
       - name: Gerar instalador DMG
-        run: ./gradlew jpackageInstaller --console=plain
+        shell: bash
+        run: |
+          app_version="${GITHUB_REF_NAME#v}"
+          [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "A tag deve usar MAJOR.MINOR.PATCH; recebido: $app_version"
+            exit 1
+          }
+          ./gradlew jpackageInstaller -PappVersion="$app_version" --console=plain
       - name: Anexar DMG à Release
         uses: softprops/action-gh-release@v2
         with:

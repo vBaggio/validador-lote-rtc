@@ -15,6 +15,9 @@ public interface MainView {
 
     void showError(String message);
 
+    /** Alerta sobre a simulação para documentos do Simples emitidos antes de 2027. */
+    default void warnRulesEffectiveDateForOlderSimples() { }
+
     void showExternalSources(ExternalSourcesSnapshot snapshot);
 
     void openExternalSourcesDialog();

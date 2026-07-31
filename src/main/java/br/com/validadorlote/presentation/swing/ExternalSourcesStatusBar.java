@@ -33,7 +33,7 @@ final class ExternalSourcesStatusBar extends JPanel {
     ExternalSourcesStatusBar(String applicationVersion, String schemasVersion, String tableVersion,
             Runnable openSources, Runnable retry) {
         super(new BorderLayout());
-        setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 12));
+        setBorder(BorderFactory.createEmptyBorder(5, 32, 5, 32));
         String compact = "v" + applicationVersion + "  ·  schemas "
                 + compactSchemaVersion(schemasVersion);
         String compactTable = compactVersion(tableVersion);

@@ -3,24 +3,23 @@ package br.com.validadorlote.presentation.swing;
 import br.com.validadorlote.domain.Finding;
 import br.com.validadorlote.presentation.DocumentStatus;
 import br.com.validadorlote.presentation.WorkspaceDocument;
+import br.com.validadorlote.presentation.WorkspaceDocumentOrder;
 
 import javax.swing.Icon;
 import java.awt.Color;
 import javax.swing.table.AbstractTableModel;
-import java.math.BigInteger;
-import java.util.Comparator;
 import java.util.List;
 
 /** Listagem principal: um XML fiscal legível por linha, com seu estado mais relevante. */
 final class DocumentsTableModel extends AbstractTableModel {
 
     private static final String[] COLUMNS = {"Status", "Chave de acesso", "Emitente",
-            "Modelo", "Série", "Num.", "Mensagem / explicação"};
+            "Mod.", "Série", "Num.", "Mensagem / explicação"};
 
     private List<WorkspaceDocument> documents = List.of();
 
     void setDocuments(List<WorkspaceDocument> documents) {
-        this.documents = documents.stream().sorted(defaultOrder()).toList();
+        this.documents = documents.stream().sorted(WorkspaceDocumentOrder.DISPLAY).toList();
         fireTableDataChanged();
     }
 
@@ -89,34 +88,6 @@ final class DocumentsTableModel extends AbstractTableModel {
         return digits.substring(0, 2) + "." + digits.substring(2, 5) + "."
                 + digits.substring(5, 8) + "/" + digits.substring(8, 12) + "-"
                 + digits.substring(12);
-    }
-
-    private static Comparator<WorkspaceDocument> defaultOrder() {
-        return Comparator.comparing((WorkspaceDocument report) -> emitterSortKey(report.document()),
-                        String.CASE_INSENSITIVE_ORDER)
-                .thenComparing(report -> sortText(report.document().model()),
-                        String.CASE_INSENSITIVE_ORDER)
-                .thenComparing(report -> numericKey(report.document().series()),
-                        Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(report -> numericKey(report.document().documentNumber()),
-                        Comparator.nullsLast(Comparator.naturalOrder()));
-    }
-
-    private static String emitterSortKey(br.com.validadorlote.domain.FiscalDocument document) {
-        String name = document.emitterName();
-        return sortText(name == null || name.isBlank() ? document.emitterCnpj() : name);
-    }
-
-    private static String sortText(String value) {
-        return value == null || value.isBlank() ? "\uffff" : value;
-    }
-
-    private static BigInteger numericKey(String value) {
-        try {
-            return value == null || value.isBlank() ? null : new BigInteger(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     private static String model(String value) {

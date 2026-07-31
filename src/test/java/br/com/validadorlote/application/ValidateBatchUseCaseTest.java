@@ -145,6 +145,38 @@ class ValidateBatchUseCaseTest {
     }
 
     @Test
+    void simulationCanEvaluateAJulySampleWithTheAugustRules(@TempDir Path dir) throws IOException {
+        copyFixture(dir, "nfe-crt3-sem-ibscbs.xml", "amostra-julho.xml");
+        Path sample = dir.resolve("amostra-julho.xml");
+
+        var byEmissionDate = useCase.validateDocument(sample, true, false, new CancellationToken());
+        var simulatedAugust = useCase.validateDocument(sample, true, true, new CancellationToken());
+
+        assertThat(byEmissionDate.findings()).noneMatch(
+                finding -> "1115".equals(finding.rejectionCode()));
+        assertThat(simulatedAugust.findings()).anySatisfy(finding -> {
+            assertThat(finding.kind()).isEqualTo(FindingKind.REJECTION_RULE);
+            assertThat(finding.rejectionCode()).isEqualTo("1115");
+        });
+        assertThat(simulatedAugust.document().issueDate())
+                .isEqualTo(java.time.LocalDate.of(2026, 7, 26));
+    }
+
+    @Test
+    void simulationUsesTheSimplesNacionalEffectiveDate(@TempDir Path dir) throws IOException {
+        copyFixture(dir, "rejeicao/c1115-simples-sem-grupo.xml", "simples-2026.xml");
+        Path sample = dir.resolve("simples-2026.xml");
+
+        var byEmissionDate = useCase.validateDocument(sample, true, false, new CancellationToken());
+        var simulatedValidity = useCase.validateDocument(sample, true, true, new CancellationToken());
+
+        assertThat(byEmissionDate.findings()).noneMatch(
+                finding -> "1115".equals(finding.rejectionCode()));
+        assertThat(simulatedValidity.findings()).anySatisfy(
+                finding -> assertThat(finding.rejectionCode()).isEqualTo("1115"));
+    }
+
+    @Test
     void ruleEngineNeverFlagsTheCanonicalDocument(@TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida.xml", "ok.xml");
 

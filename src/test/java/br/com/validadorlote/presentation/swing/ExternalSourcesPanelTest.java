@@ -29,7 +29,8 @@ class ExternalSourcesPanelTest {
                             ExternalSourcesStatusBarTest.source(ArtifactId.NFE_SCHEMAS, ExternalSourcePhase.NOT_CHECKED),
                             ExternalSourcesStatusBarTest.source(ArtifactId.FISCAL_TABLES, ExternalSourcePhase.NOT_CHECKED),
                             new ExternalSourceState(ArtifactId.CALCULATOR, "Nome de apresentação alterável",
-                                    "v1", "local", null, null, null, ExternalSourcePhase.NOT_CHECKED,
+                                    "v1", false, "local", null, null, null, null,
+                                    ExternalSourcePhase.NOT_CHECKED,
                                     null, null, null)),
                     0, 0, false, 1);
 
@@ -41,18 +42,64 @@ class ExternalSourcesPanelTest {
     }
 
     @Test
-    void cardDetailsReserveColumnsThatCanWrapLongValues() throws Exception {
+    void cardDetailsUseFriendlySingleLineOriginsAndKeepTheFullUrlInTooltip() throws Exception {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             ExternalSourcesPanel panel = panel();
             panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.IDLE,
                     List.of(new ExternalSourceState(ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
-                            "010e_v1.02-r2", "https://dfe-portal.svrs.rs.gov.br/", null, null, null,
+                            "010e_v1.02-r2", false, "https://dfe-portal.svrs.rs.gov.br/",
+                            null, null, null, null,
                             ExternalSourcePhase.NOT_CHECKED, null, null, null)),
                     0, 0, false, 1));
 
-            assertThat(findComponents(panel, JLabel.class).stream()
-                    .map(JLabel::getText)
-                    .anyMatch(text -> text.contains("width:125px"))).isTrue();
+            List<JLabel> labels = findComponents(panel, JLabel.class);
+            assertThat(labels).extracting(JLabel::getText)
+                    .contains("Base ativa", "010e_v1.02-r2", "Origem da base",
+                            "Portal DF-e da SVRS")
+                    .noneMatch(text -> text.contains("https://"));
+            assertThat(labels).anyMatch(label ->
+                    "https://dfe-portal.svrs.rs.gov.br/".equals(label.getToolTipText()));
+        });
+    }
+
+    @Test
+    void embeddedBaseIsExplainedInTheHeaderWithoutTakingADetailColumn() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.IDLE,
+                    List.of(new ExternalSourceState(ArtifactId.NFE_SCHEMAS,
+                            "Schemas NF-e/NFC-e", "010e_v1.02", true,
+                            "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx",
+                            null, null, null, null, ExternalSourcePhase.NOT_CHECKED,
+                            null, null, null)),
+                    0, 0, false, 1));
+
+            assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
+                    .contains("Base ativa", "010e_v1.02", "Incluída no aplicativo")
+                    .doesNotContain("Origem da base", "Portal Nacional da NF-e")
+                    .doesNotContain("Base ativa (embarcada)");
+        });
+    }
+
+    @Test
+    void availableUpdateNamesTheCandidateRepositoryWithoutShowingItsUrl() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            panel.showSnapshot(new ExternalSourcesSnapshot(
+                    ExternalSourcesPhase.UPDATES_AVAILABLE,
+                    List.of(new ExternalSourceState(ArtifactId.NFE_SCHEMAS,
+                            "Schemas NF-e/NFC-e", "010e_v1.02", true,
+                            "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx",
+                            "https://vbaggio.github.io/validador-lote-rtc-bases/"
+                                    + "releases/nfe-schemas/schemas-010e_v1.02-r2.zip",
+                            null, null, null, ExternalSourcePhase.UPDATE_AVAILABLE,
+                            null, null, "010e_v1.02-r2")),
+                    1, 0, false, 2));
+
+            assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
+                    .contains("Atualização disponível: 010e_v1.02-r2"
+                            + " · vBaggio/validador-lote-rtc-bases")
+                    .noneMatch(text -> text.contains("github.io"));
         });
     }
 
@@ -206,7 +253,7 @@ class ExternalSourcesPanelTest {
             ExternalSourcesPanel panel = panel();
             ExternalSourceState schemas = new ExternalSourceState(
                     ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
-                    "010e_v1.02 (embarcada)", "Canal curado", null, null, null,
+                    "010e_v1.02", true, "Canal curado", null, null, null, null,
                     ExternalSourcePhase.FAILED,
                     "A estrutura dos schemas mais recentes não é suportada",
                     ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE, null);

@@ -21,6 +21,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -227,7 +228,7 @@ final class ExternalSourcesPanel extends JPanel {
     private JPanel sourceCard(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
         JPanel card = new JPanel(new BorderLayout(14, 12));
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(78, 78, 78)),
                 BorderFactory.createEmptyBorder(12, 16, 12, 16)));
@@ -236,23 +237,56 @@ final class ExternalSourcesPanel extends JPanel {
         name.setFont(name.getFont().deriveFont(Font.BOLD, 15f));
         JLabel purpose = new JLabel(purpose(source.name()));
         purpose.setForeground(MUTED);
-        JPanel title = new JPanel();
-        title.setLayout(new BoxLayout(title, BoxLayout.Y_AXIS));
-        title.add(name);
-        title.add(Box.createVerticalStrut(3));
-        title.add(purpose);
-        card.add(title, BorderLayout.NORTH);
+        JPanel titleText = new JPanel();
+        titleText.setOpaque(false);
+        titleText.setLayout(new BoxLayout(titleText, BoxLayout.Y_AXIS));
+        titleText.add(name);
+        titleText.add(Box.createVerticalStrut(3));
+        titleText.add(purpose);
+
+        JPanel header = new JPanel(new BorderLayout(16, 0));
+        header.setOpaque(false);
+        header.add(titleText, BorderLayout.CENTER);
+        header.add(activeBase(source), BorderLayout.EAST);
+        card.add(header, BorderLayout.NORTH);
 
         card.add(feedback(source, aggregatePhase), BorderLayout.CENTER);
-        JPanel details = new JPanel(new GridLayout(1, 4, 14, 0));
+        JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 2 : 3, 24, 0));
+        details.setOpaque(false);
         details.setPreferredSize(new Dimension(0, 40));
         details.setMinimumSize(new Dimension(0, 40));
-        details.add(detail("Base ativa", source.activeVersion()));
+        if (!source.embedded()) {
+            details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
+        }
         details.add(detail("Última verificação", format(source.checkedAt())));
-        details.add(detail("Origem", origin(source.origin())));
-        details.add(detail("Atualizada em", format(source.updatedAt())));
+        details.add(detail(source.embedded() ? "Incluída em" : "Atualizada em",
+                format(source.updatedAt())));
         card.add(details, BorderLayout.SOUTH);
         return card;
+    }
+
+    private static JPanel activeBase(ExternalSourceState source) {
+        JPanel active = new JPanel();
+        active.setOpaque(false);
+        active.setLayout(new BoxLayout(active, BoxLayout.Y_AXIS));
+        active.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
+
+        JLabel caption = new JLabel("Base ativa");
+        caption.setForeground(MUTED);
+        caption.setAlignmentX(RIGHT_ALIGNMENT);
+        JLabel version = new JLabel(source.activeVersion());
+        version.setFont(version.getFont().deriveFont(Font.BOLD));
+        version.setAlignmentX(RIGHT_ALIGNMENT);
+        active.add(caption);
+        active.add(Box.createVerticalStrut(2));
+        active.add(version);
+        if (source.embedded()) {
+            JLabel embedded = new JLabel("Incluída no aplicativo");
+            embedded.setForeground(MUTED);
+            embedded.setAlignmentX(RIGHT_ALIGNMENT);
+            active.add(embedded);
+        }
+        return active;
     }
 
     private JPanel feedback(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
@@ -297,7 +331,7 @@ final class ExternalSourcesPanel extends JPanel {
             case CHECKING -> new Feedback("Verificando atualização…", WARNING, null);
             case UP_TO_DATE -> new Feedback(detail == null ? "Base já está atualizada" : detail,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
-            case UPDATE_AVAILABLE -> new Feedback("Atualização disponível: " + source.candidateVersion(),
+            case UPDATE_AVAILABLE -> new Feedback(candidateFeedback(source),
                     WARNING, new OutlineIcon(OutlineIcon.Kind.WARNING, 18, WARNING));
             case APPLYING -> new Feedback("Aplicando atualização…", WARNING, null);
             case APPLIED -> new Feedback("Atualização pronta para o próximo boot", SUCCESS,
@@ -307,10 +341,30 @@ final class ExternalSourcesPanel extends JPanel {
         };
     }
 
-    private static JLabel detail(String label, String value) {
-        return new JLabel("<html><span style='color:#9c9c9c'>" + label + "</span><br>"
-                + "<div style='width:125px'>" + escape(value == null ? "—" : value)
-                + "</div></html>");
+    private static String candidateFeedback(ExternalSourceState source) {
+        String channel = friendlyOrigin(source.candidateOrigin());
+        return "Atualização disponível: " + source.candidateVersion()
+                + (channel.isBlank() ? "" : " · " + channel);
+    }
+
+    private static JPanel detail(String label, String value) {
+        return detail(label, value, value);
+    }
+
+    private static JPanel detail(String label, String value, String tooltip) {
+        JPanel detail = new JPanel();
+        detail.setOpaque(false);
+        detail.setLayout(new BoxLayout(detail, BoxLayout.Y_AXIS));
+        JLabel caption = new JLabel(label);
+        caption.setForeground(MUTED);
+        JLabel content = new JLabel(value == null || value.isBlank() ? "—" : value);
+        if (tooltip != null && !tooltip.isBlank()) {
+            content.setToolTipText(tooltip);
+        }
+        detail.add(caption);
+        detail.add(Box.createVerticalStrut(3));
+        detail.add(content);
+        return detail;
     }
 
     private static String purpose(String sourceName) {
@@ -321,12 +375,28 @@ final class ExternalSourcesPanel extends JPanel {
         };
     }
 
-    private static String origin(String origin) {
-        if (origin.contains("dfe-portal.svrs.rs.gov.br")) return "Portal da SVRS";
-        if (origin.contains("github.io")) return "GitHub Pages (canal oficial)";
-        if (origin.contains("github.com")) return "GitHub (canal oficial)";
-        if (origin.contains("acbr")) return "Espelho técnico ACBr";
-        return origin;
+    private static String friendlyOrigin(String origin) {
+        if (origin == null || origin.isBlank()) return "";
+        String lower = origin.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("validador-lote-rtc-bases")
+                && (lower.contains("github.io") || lower.contains("github.com"))) {
+            return "vBaggio/validador-lote-rtc-bases";
+        }
+        if (lower.contains("dfe-portal.svrs.rs.gov.br")) return "Portal DF-e da SVRS";
+        if (lower.contains("nfe.fazenda.gov.br")) return "Portal Nacional da NF-e";
+        if (lower.contains("acbr")) return "Projeto ACBr";
+        try {
+            URI uri = URI.create(origin);
+            String host = uri.getHost();
+            if (host == null) return origin;
+            if ("github.com".equalsIgnoreCase(host)) {
+                String[] parts = uri.getPath().split("/");
+                if (parts.length >= 3) return parts[1] + "/" + parts[2];
+            }
+            return host.replaceFirst("^www\\.", "");
+        } catch (IllegalArgumentException ignored) {
+            return origin;
+        }
     }
 
     private static String format(Instant instant) {

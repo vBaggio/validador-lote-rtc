@@ -6,6 +6,7 @@ import br.com.validadorlote.domain.NotEvaluatedCause;
 import br.com.validadorlote.infrastructure.tables.FiscalTables;
 import br.com.validadorlote.infrastructure.xml.TaxGroupExtractor.ItemTaxGroup;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -196,12 +197,24 @@ public final class RuleEngine {
     }
 
     public RuleEvaluation evaluate(FiscalDocument document, List<ItemTaxGroup> items) {
+        return evaluate(document, items, document.issueDate());
+    }
+
+    /**
+     * Avalia com uma data operacional explícita, sem alterar a data original do documento.
+     *
+     * <p>Esse caminho sustenta a simulação de vigência da interface: um XML de homologação
+     * anterior à virada pode ser confrontado com as regras que passarão a valer, enquanto
+     * metadados, schema e exceções baseadas no próprio documento permanecem intactos.
+     */
+    public RuleEvaluation evaluate(FiscalDocument document, List<ItemTaxGroup> items,
+            LocalDate operationDate) {
         Objects.requireNonNull(document, "document");
         Objects.requireNonNull(items, "items");
         List<Finding> findings = new ArrayList<>();
         int verified = 0;
         for (ItemTaxGroup item : items) {
-            if (evaluateItem(document, item, findings)) {
+            if (evaluateItem(document, item, operationDate, findings)) {
                 verified++;
             }
         }
@@ -244,19 +257,20 @@ public final class RuleEngine {
     }
 
     /** @return se ao menos uma regra chegou a veredito neste item. */
-    private boolean evaluateItem(FiscalDocument document, ItemTaxGroup item, List<Finding> out) {
-        var ctx = new RuleContext(document, item, tables, document.issueDate());
+    private boolean evaluateItem(FiscalDocument document, ItemTaxGroup item,
+            LocalDate operationDate, List<Finding> out) {
+        var ctx = new RuleContext(document, item, tables, operationDate);
 
         RuleOutcome root = GROUP_REQUIRED.evaluate(ctx);
         report(out, ctx, GROUP_REQUIRED, root, NotEvaluatedCause.RULE_SPECIFIC);
-        if (document.issueDate() == null || !item.hasIbsCbsGroup()) {
+        if (operationDate == null || !item.hasIbsCbsGroup()) {
             // Os dois cortes de raiz da cascata. Sem a data do fato gerador nenhuma consulta à
             // tabela é possível; sem o invólucro IBSCBS não existe subgrupo a julgar, e as dez
             // regras restantes só saberiam repetir a causa que a 1115 acabou de reportar.
             return isVerdict(root);
         }
 
-        EnumSet<Precondition> missing = missingPreconditions(document, item);
+        EnumSet<Precondition> missing = missingPreconditions(item, operationDate);
         EnumSet<Precondition> reported = EnumSet.noneOf(Precondition.class);
         boolean verified = isVerdict(root);
         for (Binding binding : BINDINGS) {
@@ -277,7 +291,7 @@ public final class RuleEngine {
      * Consulta de disponibilidade, não de mérito: se o código existe na base para a data. O que
      * o CST ou a classificação <i>exigem</i> continua sendo assunto exclusivo das regras.
      */
-    private EnumSet<Precondition> missingPreconditions(FiscalDocument document, ItemTaxGroup item) {
+    private EnumSet<Precondition> missingPreconditions(ItemTaxGroup item, LocalDate operationDate) {
         EnumSet<Precondition> missing = EnumSet.noneOf(Precondition.class);
         String cst = item.cst();
         if (cst == null) {
@@ -287,11 +301,11 @@ public final class RuleEngine {
             // e CST ausente é o caso mais óbvio de CST fora da tabela — uma regra futura que
             // dependa só da tabela seria roteada errado se aqui o conjunto mentisse.
             missing.add(Precondition.CST_IN_TABLE);
-        } else if (tables.cst(cst, document.issueDate()).isEmpty()) {
+        } else if (tables.cst(cst, operationDate).isEmpty()) {
             missing.add(Precondition.CST_IN_TABLE);
         }
         String classTrib = item.cClassTrib();
-        if (classTrib == null || tables.classTrib(classTrib, document.issueDate()).isEmpty()) {
+        if (classTrib == null || tables.classTrib(classTrib, operationDate).isEmpty()) {
             missing.add(Precondition.CLASS_TRIB_IN_TABLE);
         }
         return missing;

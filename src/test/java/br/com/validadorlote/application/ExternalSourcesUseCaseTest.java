@@ -69,18 +69,22 @@ class ExternalSourcesUseCaseTest {
     @Test
     void reportsEmbeddedProvenanceOnAFreshOfflineInstall() {
         ExternalSourceState schemas = source(ArtifactId.NFE_SCHEMAS);
-        assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02 (embarcada)");
+        assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02");
+        assertThat(schemas.embedded()).isTrue();
         assertThat(schemas.origin()).isEqualTo(
                 "https://www.nfe.fazenda.gov.br/portal/"
                         + "listaConteudo.aspx?tipoConteudo=BMPFMBoln3w%3D");
+        assertThat(schemas.candidateOrigin()).isNull();
         assertThat(schemas.abbreviatedHash()).isEqualTo("1c7401d64600…");
         assertThat(schemas.updatedAt()).isEqualTo(Instant.parse("2026-07-29T00:00:00Z"));
         assertThat(schemas.checkedAt()).isNull();
         assertThat(schemas.phase()).isEqualTo(ExternalSourcePhase.NOT_CHECKED);
 
         ExternalSourceState tables = source(ArtifactId.FISCAL_TABLES);
-        assertThat(tables.activeVersion()).isEqualTo("IT 1.60 (embarcada)");
+        assertThat(tables.activeVersion()).isEqualTo("IT 1.60");
+        assertThat(tables.embedded()).isTrue();
         assertThat(tables.origin()).contains("dfe-portal.svrs.rs.gov.br");
+        assertThat(tables.candidateOrigin()).isNull();
         assertThat(tables.abbreviatedHash()).isNull();
         assertThat(tables.updatedAt()).isEqualTo(Instant.parse("2026-07-27T00:00:00Z"));
         assertThat(tables.checkedAt()).isEqualTo(Instant.parse("2026-07-29T00:00:00Z"));
@@ -100,6 +104,10 @@ class ExternalSourcesUseCaseTest {
         assertThat(snapshot.availableCount()).isOne();
         assertThat(snapshot.failedCount()).isOne();
         assertThat(source(ArtifactId.NFE_SCHEMAS).candidateVersion()).isEqualTo("010e_v1.03");
+        assertThat(source(ArtifactId.NFE_SCHEMAS).origin())
+                .contains("nfe.fazenda.gov.br");
+        assertThat(source(ArtifactId.NFE_SCHEMAS).candidateOrigin())
+                .isEqualTo("https://dfe-portal.svrs.rs.gov.br/");
     }
 
     @Test
@@ -132,7 +140,8 @@ class ExternalSourcesUseCaseTest {
         ExternalSourceState schemas = source(ArtifactId.NFE_SCHEMAS);
         assertThat(schemas.failureKind())
                 .isEqualTo(ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE);
-        assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02 (embarcada)");
+        assertThat(schemas.activeVersion()).isEqualTo("010e_v1.02");
+        assertThat(schemas.embedded()).isTrue();
         assertThat(schemas.candidateVersion()).isNull();
         assertThat(sources.snapshot().phase()).isEqualTo(ExternalSourcesPhase.FAILED);
         assertThat(sources.applyAvailable()).isFalse();

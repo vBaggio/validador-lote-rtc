@@ -1,13 +1,17 @@
 package br.com.validadorlote.presentation.swing;
 
+import com.formdev.flatlaf.extras.FlatSVGIcon;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.TransferHandler;
+import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.Component;
 import java.awt.Color;
@@ -15,21 +19,31 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.datatransfer.DataFlavor;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Zona de arrastar-e-soltar de pasta ou XML, com botão alternativo de escolha. */
 public final class DropZonePanel extends JPanel {
 
     public DropZonePanel(Consumer<Path> onInputChosen) {
-        this(onInputChosen, () -> { }, () -> { });
+        this((path, ignored) -> onInputChosen.accept(path), () -> { }, () -> { },
+                new JToggleButton.ToggleButtonModel());
     }
 
     public DropZonePanel(Consumer<Path> onInputChosen, Runnable modalOpened, Runnable modalClosed) {
+        this((path, ignored) -> onInputChosen.accept(path), modalOpened, modalClosed,
+                new JToggleButton.ToggleButtonModel());
+    }
+
+    DropZonePanel(BiConsumer<Path, Boolean> onInputChosen, Runnable modalOpened,
+            Runnable modalClosed, ButtonModel includeSubfoldersModel) {
         setLayout(new GridBagLayout());
+        JCheckBox includeSubfolders = new JCheckBox("Incluir subpastas");
+        includeSubfolders.setModel(includeSubfoldersModel);
+        includeSubfolders.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JPanel dropArea = new JPanel();
         dropArea.setLayout(new BoxLayout(dropArea, BoxLayout.Y_AXIS));
@@ -38,20 +52,24 @@ public final class DropZonePanel extends JPanel {
                 BorderFactory.createDashedBorder(new Color(115, 115, 115), 1f, 7f, 4f, true),
                 BorderFactory.createEmptyBorder(48, 48, 42, 48)));
 
-        JLabel icon = new JLabel(new OutlineIcon(OutlineIcon.Kind.DRAG_DROP, 48));
+        JLabel icon = new JLabel(new FlatSVGIcon("images/drag-drop.svg", 48, 48));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel title = new JLabel("Arraste e solte seus XMLs aqui");
+        JLabel title = new JLabel("Adicione seus XMLs");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 26f));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel subtitle = new JLabel("Importe uma pasta ou um arquivo XML para iniciar a análise");
+        JLabel subtitle = new JLabel("Arraste arquivos ou uma pasta para esta área");
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel alternative = new JLabel("ou");
+        alternative.setForeground(new Color(150, 150, 150));
+        alternative.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton choose = new JButton("Escolher pasta ou XML...");
-        choose.setIcon(new OutlineIcon(OutlineIcon.Kind.IMPORT));
+        choose.setIcon(new OutlineIcon(OutlineIcon.Kind.FOLDER));
         choose.setPreferredSize(new Dimension(250, 40));
         choose.setAlignmentX(Component.CENTER_ALIGNMENT);
-        choose.addActionListener(event -> chooseInput(onInputChosen, modalOpened, modalClosed));
+        choose.addActionListener(event -> chooseInput(onInputChosen, includeSubfolders,
+                modalOpened, modalClosed));
 
         dropArea.add(Box.createVerticalGlue());
         dropArea.add(icon);
@@ -59,8 +77,12 @@ public final class DropZonePanel extends JPanel {
         dropArea.add(title);
         dropArea.add(Box.createVerticalStrut(12));
         dropArea.add(subtitle);
-        dropArea.add(Box.createVerticalStrut(34));
+        dropArea.add(Box.createVerticalStrut(20));
+        dropArea.add(alternative);
+        dropArea.add(Box.createVerticalStrut(12));
         dropArea.add(choose);
+        dropArea.add(Box.createVerticalStrut(12));
+        dropArea.add(includeSubfolders);
         dropArea.add(Box.createVerticalStrut(22));
         JLabel hint = new JLabel("A análise é local e não envia seus dados pela rede");
         hint.setFont(hint.getFont().deriveFont(12f));
@@ -71,57 +93,38 @@ public final class DropZonePanel extends JPanel {
 
         add(dropArea, new GridBagConstraints());
 
-        TransferHandler handler = new TransferHandler() {
-            @Override
-            public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
-                        && (!support.isDrop()
-                        || (support.getDropAction() & COPY) == COPY);
-            }
-
-            @Override
-            public boolean importData(TransferSupport support) {
-                if (!canImport(support)) {
-                    return false;
-                }
-                try {
-                    Object transferData = support.getTransferable()
-                            .getTransferData(DataFlavor.javaFileListFlavor);
-                    if (!(transferData instanceof List<?> files)) {
-                        return false;
-                    }
-                    for (Object candidate : files) {
-                        if (candidate instanceof File file && isSupported(file)) {
-                            onInputChosen.accept(file.toPath());
-                            return true;
-                        }
-                    }
-                    return false;
-                } catch (Exception ignored) {
-                    return false;
-                }
-            }
-        };
+        XmlFileDropHandler handler =
+                new XmlFileDropHandler(onInputChosen, includeSubfolders::isSelected);
         setTransferHandler(handler);
         dropArea.setTransferHandler(handler);
         icon.setTransferHandler(handler);
         title.setTransferHandler(handler);
         subtitle.setTransferHandler(handler);
+        alternative.setTransferHandler(handler);
+        choose.setTransferHandler(handler);
+        includeSubfolders.setTransferHandler(handler);
         hint.setTransferHandler(handler);
     }
 
-    private void chooseInput(Consumer<Path> onInputChosen, Runnable modalOpened, Runnable modalClosed) {
+    private void chooseInput(BiConsumer<Path, Boolean> onInputChosen, JCheckBox includeSubfolders,
+            Runnable modalOpened, Runnable modalClosed) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        chooser.setMultiSelectionEnabled(true);
         chooser.setDialogTitle("Escolha uma pasta ou um XML");
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
         modalOpened.run();
         try {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                File selected = chooser.getSelectedFile();
-                if (isSupported(selected)) {
-                    onInputChosen.accept(selected.toPath());
+                File[] selected = chooser.getSelectedFiles();
+                if (selected.length == 0 && chooser.getSelectedFile() != null) {
+                    selected = new File[] {chooser.getSelectedFile()};
+                }
+                for (File file : selected) {
+                    if (XmlFileDropHandler.isSupported(file)) {
+                        onInputChosen.accept(file.toPath(), includeSubfolders.isSelected());
+                    }
                 }
             }
         } finally {
@@ -129,8 +132,4 @@ public final class DropZonePanel extends JPanel {
         }
     }
 
-    private static boolean isSupported(File file) {
-        return file.isDirectory() || (file.isFile()
-                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".xml"));
-    }
 }

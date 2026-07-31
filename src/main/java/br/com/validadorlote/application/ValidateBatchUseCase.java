@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,6 +47,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * documento incompleto — ver o adendo da Task 19 em {@code .superpowers/sdd/}.
  */
 public final class ValidateBatchUseCase {
+
+    private static final LocalDate NORMAL_REGIME_VALIDATION_START = LocalDate.of(2026, 8, 3);
+    private static final LocalDate SIMPLES_VALIDATION_START = LocalDate.of(2027, 1, 4);
 
     private final FolderScanner scanner;
     private final XmlMetadataParser parser;
@@ -86,7 +90,8 @@ public final class ValidateBatchUseCase {
             int submitted = 0;
             for (Path file : files) {
                 if (token.isCancelled()) break;
-                fileOf.put(completion.submit(() -> validateOne(file, token)), file);
+                fileOf.put(completion.submit(() -> validateOne(file, token,
+                        request.considerRulesEffectiveDate())), file);
                 submitted++;
             }
             for (int i = 0; i < submitted; i++) {
@@ -118,9 +123,14 @@ public final class ValidateBatchUseCase {
 
     /** Importa XMLs para a grade sem executar schema nem regras fiscais. */
     public ImportedBatch importDocuments(Path input) {
+        return importDocuments(input, true);
+    }
+
+    /** Importa XMLs, incluindo subpastas somente quando solicitado pela interface. */
+    public ImportedBatch importDocuments(Path input, boolean includeSubfolders) {
         List<FiscalDocument> documents = new ArrayList<>();
         List<Path> invalidFiles = new ArrayList<>();
-        for (Path file : scanner.scan(input)) {
+        for (Path file : scanner.scan(input, includeSubfolders)) {
             try {
                 documents.add(parser.parse(file).document());
             } catch (RuntimeException e) {
@@ -133,7 +143,16 @@ public final class ValidateBatchUseCase {
     /** Valida um único XML, para que a interface publique o resultado incrementalmente. */
     public DocumentValidationResult validateDocument(Path file, boolean preEmissionMode,
             CancellationToken token) {
-        DocumentValidation validation = validateOne(file, token);
+        return validateDocument(file, preEmissionMode, true, token);
+    }
+
+    /**
+     * Valida um XML preservando sua data original, com opção de aplicar a referência mínima da
+     * vigência RTC às regras fiscais.
+     */
+    public DocumentValidationResult validateDocument(Path file, boolean preEmissionMode,
+            boolean considerRulesEffectiveDate, CancellationToken token) {
+        DocumentValidation validation = validateOne(file, token, considerRulesEffectiveDate);
         if (isInvalid(validation)) {
             return new DocumentValidationResult(null, validation.findings());
         }
@@ -177,7 +196,8 @@ public final class ValidateBatchUseCase {
      * As três fontes de achado de um arquivo. Cada uma tem seu próprio {@code try/catch}: uma
      * falha inesperada numa não descarta o que a outra já apurou.
      */
-    private DocumentValidation validateOne(Path file, CancellationToken token) {
+    private DocumentValidation validateOne(Path file, CancellationToken token,
+            boolean considerRulesEffectiveDate) {
         if (token.isCancelled()) return new DocumentValidation(null, List.of());
         ParsedMetadata meta;
         try {
@@ -197,7 +217,8 @@ public final class ValidateBatchUseCase {
         }
         try {
             List<ItemTaxGroup> items = taxGroupExtractor.extract(file);
-            findings.addAll(ruleEngine.evaluate(meta.document(), items).findings());
+            LocalDate operationDate = operationDate(meta.document(), considerRulesEffectiveDate);
+            findings.addAll(ruleEngine.evaluate(meta.document(), items, operationDate).findings());
         } catch (UnreadableXmlException e) {
             findings.add(unreadable(file,
                     "Falha ao ler grupos IBS/CBS para avaliação de regras: " + e.getMessage()));
@@ -205,6 +226,19 @@ public final class ValidateBatchUseCase {
             findings.add(unexpected(file, e));
         }
         return new DocumentValidation(meta.document(), findings);
+    }
+
+    private static LocalDate operationDate(FiscalDocument document,
+            boolean considerRulesEffectiveDate) {
+        LocalDate issueDate = document.issueDate();
+        if (!considerRulesEffectiveDate || issueDate == null) {
+            return issueDate;
+        }
+        LocalDate effectiveDate = switch (document.crt() == null ? "" : document.crt().trim()) {
+            case "1", "2", "4" -> SIMPLES_VALIDATION_START;
+            default -> NORMAL_REGIME_VALIDATION_START;
+        };
+        return issueDate.isBefore(effectiveDate) ? effectiveDate : issueDate;
     }
 
     private Finding unreadable(Path file, String message) {

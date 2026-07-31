@@ -33,6 +33,17 @@ class FolderScannerTest {
         assertThat(result).containsExactly(dir.resolve("b.xml"), dir.resolve("sub/a.XML"));
     }
 
+    @Test
+    void ignoresSubfoldersWhenRecursiveScanIsDisabled(@TempDir Path dir) throws IOException {
+        Files.createDirectories(dir.resolve("sub"));
+        Files.writeString(dir.resolve("direto.xml"), "<x/>");
+        Files.writeString(dir.resolve("sub/interno.xml"), "<x/>");
+
+        var result = scanner.scan(dir, false);
+
+        assertThat(result).containsExactly(dir.resolve("direto.xml"));
+    }
+
     /**
      * Cria os arquivos fora da ordem alfabética (z, m, a, y, b...) espalhados em
      * subpastas variadas, para que o teste só passe se a implementação de fato

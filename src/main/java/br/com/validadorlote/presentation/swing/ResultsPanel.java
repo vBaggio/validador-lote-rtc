@@ -6,27 +6,37 @@ import br.com.validadorlote.presentation.WorkspaceDocument;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.TransferHandler;
+import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Desktop;
+import java.awt.Toolkit;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -38,25 +48,37 @@ public final class ResultsPanel extends JPanel {
     private final JProgressBar progress = new JProgressBar();
     private final DocumentsTableModel documentsModel = new DocumentsTableModel();
     private final DocumentProblemsTableModel problemsModel = new DocumentProblemsTableModel();
-    private final JTable documentsTable = new JTable(documentsModel);
+    private final ZebraTable documentsTable = new ZebraTable(documentsModel);
     private final JButton add = new JButton("Adicionar XMLs...");
     private final JButton remove = new JButton("Excluir selecionado");
     private final JButton clear = new JButton("Limpar");
     private final JButton removeValid = new JButton("Remover válidos");
+    private final JButton openSelected = new JButton("Abrir arquivo");
+    private final JButton copyAccessKey = new JButton("Copiar chave");
+    private final JCheckBox includeSubfolders = new JCheckBox("Incluir subpastas");
+    private final JCheckBox considerRulesEffectiveDate = rulesEffectiveDateCheckBox();
+    private final JButton rulesEffectiveDateInfo = new JButton(new OutlineIcon(
+            OutlineIcon.Kind.NEUTRAL, 18));
     private final JButton validate = new JButton("Validar pendentes");
-    private final JButton cancel = new JButton("Interromper");
+    private final JButton cancel = new JButton("Abortar validação");
     private final TransferHandler dropHandler;
     private final Runnable modalOpened;
     private final Runnable modalClosed;
 
     public ResultsPanel(MainPresenter presenter) {
-        this(presenter, () -> { }, () -> { });
+        this(presenter, () -> { }, () -> { }, new JToggleButton.ToggleButtonModel());
     }
 
     public ResultsPanel(MainPresenter presenter, Runnable modalOpened, Runnable modalClosed) {
+        this(presenter, modalOpened, modalClosed, new JToggleButton.ToggleButtonModel());
+    }
+
+    ResultsPanel(MainPresenter presenter, Runnable modalOpened, Runnable modalClosed,
+            ButtonModel includeSubfoldersModel) {
         setLayout(new BorderLayout(0, 18));
         this.modalOpened = modalOpened;
         this.modalClosed = modalClosed;
+        includeSubfolders.setModel(includeSubfoldersModel);
         setBorder(BorderFactory.createEmptyBorder(26, 32, 22, 32));
 
         summary.setFont(summary.getFont().deriveFont(java.awt.Font.BOLD, 18f));
@@ -72,14 +94,26 @@ public final class ResultsPanel extends JPanel {
         documentsTable.getSelectionModel().addListSelectionListener(event -> {
             if (event.getValueIsAdjusting()) return;
             int row = documentsTable.getSelectedRow();
-            problemsModel.setFindings(row < 0 ? List.of()
+            boolean hasRow = row >= 0 && row < documentsModel.getRowCount();
+            problemsModel.setFindings(!hasRow ? List.of()
                     : documentsModel.documentAt(documentsTable.convertRowIndexToModel(row)).findings());
-            remove.setEnabled(row >= 0 && !cancel.isVisible());
+            remove.setEnabled(hasRow && !cancel.isVisible());
+            updateSelectionActions();
         });
 
-        JPanel documents = titledPanel("Documentos Fiscais", new JScrollPane(documentsTable));
-        JTable problemsTable = configuredProblemsTable();
-        JPanel problems = titledPanel("Problemas do documento selecionado", new JScrollPane(problemsTable));
+        JPanel documentActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        documentActions.add(openSelected);
+        documentActions.add(copyAccessKey);
+        documentActions.add(remove);
+        documentActions.add(removeValid);
+        documentActions.add(clear);
+        JPanel documentContent = new JPanel(new BorderLayout(0, 8));
+        documentContent.add(flexibleColumnScroll(documentsTable, 6, 260), BorderLayout.CENTER);
+        documentContent.add(documentActions, BorderLayout.SOUTH);
+        JPanel documents = titledPanel("Documentos Fiscais", documentContent);
+        ZebraTable problemsTable = configuredProblemsTable();
+        JPanel problems = titledPanel("Problemas do documento selecionado",
+                flexibleColumnScroll(problemsTable, 1, 520));
         JPanel grids = new JPanel(new GridBagLayout());
         GridBagConstraints documentsConstraints = constraints(0.72, new Insets(0, 0, 0, 0));
         grids.add(documents, documentsConstraints);
@@ -92,13 +126,29 @@ public final class ResultsPanel extends JPanel {
         remove.setIcon(new OutlineIcon(OutlineIcon.Kind.DELETE));
         remove.addActionListener(event -> removeSelected(presenter));
         clear.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
-        clear.addActionListener(event -> presenter.clearRequested());
+        clear.addActionListener(event -> confirmClear(presenter));
         removeValid.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
         removeValid.addActionListener(event -> presenter.removeValidRequested());
+        openSelected.setIcon(new OutlineIcon(OutlineIcon.Kind.EXPORT));
+        openSelected.addActionListener(event -> openSelectedFile());
+        copyAccessKey.setIcon(new OutlineIcon(OutlineIcon.Kind.COPY));
+        copyAccessKey.addActionListener(event -> copySelectedAccessKey());
+        openSelected.setEnabled(false);
+        copyAccessKey.setEnabled(false);
         validate.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
-        validate.addActionListener(event -> presenter.validateRequested());
+        validate.addActionListener(event ->
+                presenter.validateRequested(considerRulesEffectiveDate.isSelected()));
+        stylePrimaryAction(validate);
+        rulesEffectiveDateInfo.setToolTipText("Entenda como a vigência é considerada");
+        rulesEffectiveDateInfo.getAccessibleContext().setAccessibleName(
+                "Informações sobre a vigência das regras");
+        rulesEffectiveDateInfo.setPreferredSize(new Dimension(30, 30));
+        rulesEffectiveDateInfo.setFocusPainted(false);
+        rulesEffectiveDateInfo.putClientProperty("JButton.buttonType", "roundRect");
+        rulesEffectiveDateInfo.addActionListener(event -> showRulesEffectiveDateInfo());
         cancel.setIcon(new OutlineIcon(OutlineIcon.Kind.CANCEL));
         cancel.addActionListener(event -> presenter.cancelRequested());
+        stylePrimaryAction(cancel);
         cancel.setVisible(false);
 
         JPanel titleBlock = new JPanel();
@@ -109,15 +159,19 @@ public final class ResultsPanel extends JPanel {
         header.add(titleBlock, BorderLayout.WEST);
         header.add(progress, BorderLayout.EAST);
 
-        JPanel secondaryActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        secondaryActions.add(remove);
-        secondaryActions.add(removeValid);
-        secondaryActions.add(clear);
-        secondaryActions.add(validate);
-        secondaryActions.add(cancel);
         JPanel toolbar = new JPanel(new BorderLayout());
-        toolbar.add(add, BorderLayout.WEST);
-        toolbar.add(secondaryActions, BorderLayout.EAST);
+        JPanel importActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        importActions.add(add);
+        importActions.add(includeSubfolders);
+        toolbar.add(importActions, BorderLayout.WEST);
+        JPanel primaryAction = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        JPanel effectiveDateOption = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
+        effectiveDateOption.add(considerRulesEffectiveDate);
+        effectiveDateOption.add(rulesEffectiveDateInfo);
+        primaryAction.add(effectiveDateOption);
+        primaryAction.add(validate);
+        primaryAction.add(cancel);
+        toolbar.add(primaryAction, BorderLayout.EAST);
 
         JPanel north = new JPanel();
         north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
@@ -149,26 +203,68 @@ public final class ResultsPanel extends JPanel {
         progress.setString(processed + " / " + total);
 
         add.setEnabled(!validating);
-        clear.setEnabled(!validating);
+        includeSubfolders.setEnabled(!validating);
+        considerRulesEffectiveDate.setEnabled(canChangeRulesEffectiveDate(validating, completed));
+        clear.setEnabled(!validating && !documents.isEmpty());
         removeValid.setEnabled(!validating && valid > 0);
         validate.setVisible(!validating);
         validate.setEnabled(!validating && pending > 0);
         cancel.setVisible(validating);
         remove.setEnabled(!validating && documentsTable.getSelectedRow() >= 0);
+        updateSelectionActions();
         documentsTable.setTransferHandler(validating ? null : dropHandler);
+    }
+
+    static JCheckBox rulesEffectiveDateCheckBox() {
+        JCheckBox option = new JCheckBox("Considerar vigência das regras de validação", true);
+        option.setToolTipText("Para XMLs anteriores, considera a data de vigência aplicável ao "
+                + "regime. A data original do documento não é alterada.");
+        return option;
+    }
+
+    static boolean canChangeRulesEffectiveDate(boolean validating, long completedDocuments) {
+        return !validating && completedDocuments == 0;
+    }
+
+    static String rulesEffectiveDateExplanation() {
+        return """
+                Quando esta opção está marcada, o aplicativo considera como referência a data de início das regras para cada regime: 03/08/2026 no regime normal e 04/01/2027 no Simples Nacional e MEI.
+
+                Assim, uma amostra antiga pode ser verificada como se tivesse sido emitida durante a vigência aplicável. A data gravada no XML não é alterada.
+
+                Ao desmarcar a opção, cada documento é avaliado estritamente pela sua data de emissão.
+                """.strip();
+    }
+
+    private void showRulesEffectiveDateInfo() {
+        modalOpened.run();
+        try {
+            SwingDialogSupport.showMessage(this, rulesEffectiveDateExplanation(),
+                    "Vigência das regras de validação", JOptionPane.INFORMATION_MESSAGE);
+        } finally {
+            modalClosed.run();
+        }
+    }
+
+    private static void stylePrimaryAction(JButton button) {
+        button.setFont(button.getFont().deriveFont(java.awt.Font.BOLD, button.getFont().getSize2D() + 1f));
+        button.setPreferredSize(new Dimension(200, 38));
+        button.setFocusPainted(false);
+        button.putClientProperty("JButton.buttonType", "roundRect");
     }
 
     private void configureDocumentsTable() {
         documentsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        documentsTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         documentsTable.setRowHeight(34);
         documentsTable.setIntercellSpacing(new Dimension(0, 0));
         documentsTable.setShowVerticalLines(false);
         documentsTable.getColumnModel().getColumn(0).setMinWidth(62);
         documentsTable.getColumnModel().getColumn(0).setPreferredWidth(68);
         documentsTable.getColumnModel().getColumn(0).setMaxWidth(78);
-        documentsTable.getColumnModel().getColumn(1).setMinWidth(390);
-        documentsTable.getColumnModel().getColumn(1).setPreferredWidth(400);
-        documentsTable.getColumnModel().getColumn(1).setMaxWidth(410);
+        documentsTable.getColumnModel().getColumn(1).setMinWidth(360);
+        documentsTable.getColumnModel().getColumn(1).setPreferredWidth(375);
+        documentsTable.getColumnModel().getColumn(1).setMaxWidth(390);
         documentsTable.getColumnModel().getColumn(2).setMinWidth(290);
         documentsTable.getColumnModel().getColumn(2).setPreferredWidth(440);
         documentsTable.getColumnModel().getColumn(3).setMinWidth(52);
@@ -210,15 +306,52 @@ public final class ResultsPanel extends JPanel {
         documentsTable.getColumnModel().getColumn(6).setCellRenderer(message);
     }
 
-    private JTable configuredProblemsTable() {
-        JTable table = new JTable(problemsModel);
+    private ZebraTable configuredProblemsTable() {
+        ZebraTable table = new ZebraTable(problemsModel);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.setRowHeight(28);
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setShowVerticalLines(false);
         table.getColumnModel().getColumn(0).setMinWidth(88);
         table.getColumnModel().getColumn(0).setPreferredWidth(96);
         table.getColumnModel().getColumn(0).setMaxWidth(120);
+        table.getColumnModel().getColumn(1).setMinWidth(520);
+        table.getColumnModel().getColumn(1).setPreferredWidth(760);
         return table;
+    }
+
+    /**
+     * Mantém a coluna de texto legível e usa o espaço livre do viewport sem
+     * sacrificar a rolagem horizontal em janelas menores.
+     */
+    private static JScrollPane flexibleColumnScroll(ZebraTable table, int flexibleColumn,
+            int minimumWidth) {
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.getViewport().addComponentListener(new ComponentAdapter() {
+            @Override public void componentResized(ComponentEvent event) {
+                resizeFlexibleColumn(table, event.getComponent().getWidth(), flexibleColumn, minimumWidth);
+            }
+        });
+        resizeFlexibleColumn(table, scroll.getViewport().getWidth(), flexibleColumn, minimumWidth);
+        return scroll;
+    }
+
+    private static void resizeFlexibleColumn(ZebraTable table, int viewportWidth,
+            int flexibleColumn, int minimumWidth) {
+        int fixedWidth = 0;
+        for (int index = 0; index < table.getColumnModel().getColumnCount(); index++) {
+            if (index != flexibleColumn) {
+                fixedWidth += table.getColumnModel().getColumn(index).getWidth();
+            }
+        }
+        int targetWidth = Math.max(minimumWidth, viewportWidth - fixedWidth);
+        var column = table.getColumnModel().getColumn(flexibleColumn);
+        if (column.getWidth() != targetWidth) {
+            column.setPreferredWidth(targetWidth);
+            column.setWidth(targetWidth);
+        }
+        int tableWidth = fixedWidth + targetWidth;
+        table.setPreferredContentWidth(tableWidth);
     }
 
     private GridBagConstraints constraints(double weightY, Insets insets) {
@@ -235,16 +368,117 @@ public final class ResultsPanel extends JPanel {
     private void chooseInput(MainPresenter presenter) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        chooser.setMultiSelectionEnabled(true);
         chooser.setDialogTitle("Adicionar pasta ou XML ao lote");
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
         modalOpened.run();
         try {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                presenter.inputChosen(chooser.getSelectedFile().toPath());
+                File[] selected = chooser.getSelectedFiles();
+                if (selected.length == 0 && chooser.getSelectedFile() != null) {
+                    selected = new File[] {chooser.getSelectedFile()};
+                }
+                for (File file : selected) {
+                    if (XmlFileDropHandler.isSupported(file)) {
+                        presenter.inputChosen(file.toPath(), includeSubfolders.isSelected());
+                    }
+                }
             }
         } finally {
             modalClosed.run();
+        }
+    }
+
+    private void confirmClear(MainPresenter presenter) {
+        if (!clear.isEnabled()) return;
+        if (SwingDialogSupport.showConfirm(this, "Limpar todos os documentos do lote?", "Limpar lote",
+                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE)) {
+            presenter.clearRequested();
+        }
+    }
+
+    private void updateSelectionActions() {
+        boolean selected = documentsTable.getSelectedRow() >= 0;
+        openSelected.setEnabled(selected);
+        copyAccessKey.setEnabled(selected && selectedAccessKey() != null);
+    }
+
+    private void openSelectedFile() {
+        Path source = selectedSource();
+        if (source == null) return;
+        if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+            SwingDialogSupport.showMessage(this, "Não foi possível abrir arquivos neste ambiente.",
+                    "Abrir arquivo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            Desktop.getDesktop().open(source.toFile());
+        } catch (IOException | RuntimeException failure) {
+            SwingDialogSupport.showMessage(this, "Não foi possível abrir o arquivo selecionado.",
+                    "Abrir arquivo", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void copySelectedAccessKey() {
+        String key = selectedAccessKey();
+        if (key == null) return;
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(key), null);
+        } catch (RuntimeException failure) {
+            SwingDialogSupport.showMessage(this, "Não foi possível copiar a chave de acesso.",
+                    "Copiar chave", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private String selectedAccessKey() {
+        int row = documentsTable.getSelectedRow();
+        if (row < 0 || row >= documentsModel.getRowCount()) return null;
+        String key = documentsModel.documentAt(documentsTable.convertRowIndexToModel(row))
+                .document().accessKey();
+        return key == null || key.isBlank() ? null : key;
+    }
+
+    /** JTable com listras quase imperceptíveis, mantendo a seleção intacta. */
+    static final class ZebraTable extends JTable {
+
+        private int preferredContentWidth = -1;
+
+        ZebraTable(javax.swing.table.TableModel model) {
+            super(model);
+        }
+
+        void setPreferredContentWidth(int width) {
+            if (preferredContentWidth == width) return;
+            preferredContentWidth = width;
+            revalidate();
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferred = super.getPreferredSize();
+            if (preferredContentWidth >= 0) preferred.width = preferredContentWidth;
+            return preferred;
+        }
+
+        @Override
+        public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+            Component component = super.prepareRenderer(renderer, row, column);
+            if (!isRowSelected(row)) {
+                component.setBackground(row % 2 == 0 ? getBackground() : alternateRowColor());
+            }
+            return component;
+        }
+
+        private Color alternateRowColor() {
+            Color base = getBackground();
+            int shift = base.getRed() < 128 ? 5 : -5;
+            return new Color(adjust(base.getRed(), shift), adjust(base.getGreen(), shift),
+                    adjust(base.getBlue(), shift));
+        }
+
+        private static int adjust(int value, int shift) {
+            return Math.max(0, Math.min(255, value + shift));
         }
     }
 
@@ -276,35 +510,7 @@ public final class ResultsPanel extends JPanel {
     }
 
     private TransferHandler fileDropHandler(MainPresenter presenter) {
-        return new TransferHandler() {
-            @Override public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
-                        && (!support.isDrop() || (support.getDropAction() & COPY) == COPY);
-            }
-
-            @Override public boolean importData(TransferSupport support) {
-                if (!canImport(support)) return false;
-                try {
-                    Object data = support.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-                    if (!(data instanceof List<?> files)) return false;
-                    boolean imported = false;
-                    for (Object candidate : files) {
-                        if (candidate instanceof File file && supported(file)) {
-                            presenter.inputChosen(file.toPath());
-                            imported = true;
-                        }
-                    }
-                    return imported;
-                } catch (Exception ignored) {
-                    return false;
-                }
-            }
-        };
-    }
-
-    private static boolean supported(File file) {
-        return file.isDirectory() || (file.isFile()
-                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".xml"));
+        return new XmlFileDropHandler(presenter::inputChosen, includeSubfolders::isSelected);
     }
 
     private static JPanel titledPanel(String title, Component content) {

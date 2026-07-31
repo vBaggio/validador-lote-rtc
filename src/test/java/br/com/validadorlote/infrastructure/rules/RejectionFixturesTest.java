@@ -34,6 +34,7 @@ class RejectionFixturesTest {
             new Case("r1021-grupo-indevido.xml", "1021"),
             new Case("r1022-grupo-obrigatorio-ausente.xml", "1022"),
             new Case("r1024-classtrib-incompativel-cst.xml", "1024"),
+            new Case("r1024-simples-grupo-invalido.xml", "1024"),
             new Case("r1025-classtrib-modelo.xml", "1025"),
             new Case("r1033-reducao-uf-ausente.xml", "1033"),
             new Case("r1074-reducao-municipio-ausente.xml", "1074"),
@@ -64,9 +65,12 @@ class RejectionFixturesTest {
             new Case("r708-dfereferenciado-nfce.xml", "708"));
     private static final List<String> CONTROL_CASES = List.of(
             "c1115-com-grupo.xml",
+            "c1115-crt3-antes-vigencia.xml",
+            "c1115-simples-sem-grupo.xml",
             "c1021-sem-grupo-interno.xml",
             "c1022-com-grupo-interno.xml",
             "c1024-classtrib-compativel-cst.xml",
+            "c1024-simples-grupo-valido.xml",
             "c1025-classtrib-permitida-modelo.xml",
             "c1033-reducao-uf-presente.xml",
             "c1074-reducao-municipio-presente.xml",
@@ -133,6 +137,17 @@ class RejectionFixturesTest {
         assertTaxGroup("r1115-sem-grupo.xml", null, null, false, false, false, false, false);
         assertTaxGroup("c1115-com-grupo.xml", "000", "000001", true, true,
                 false, false, false);
+        assertThat(parser.parse(fixture("c1115-crt3-antes-vigencia.xml")).document())
+                .satisfies(document -> {
+                    assertThat(document.crt()).isEqualTo("3");
+                    assertThat(document.issueDate()).isEqualTo(LocalDate.of(2026, 7, 26));
+                });
+        assertTaxGroup("c1115-crt3-antes-vigencia.xml",
+                null, null, false, false, false, false, false);
+        assertThat(parser.parse(fixture("c1115-simples-sem-grupo.xml")).document().crt())
+                .isEqualTo("1");
+        assertTaxGroup("c1115-simples-sem-grupo.xml",
+                null, null, false, false, false, false, false);
 
         assertTaxGroup("r1021-grupo-indevido.xml", "410", "410001", true, true,
                 false, false, false);
@@ -145,6 +160,14 @@ class RejectionFixturesTest {
         assertTaxGroup("r1024-classtrib-incompativel-cst.xml", "000", "200030", true, true,
                 false, false, false);
         assertTaxGroup("c1024-classtrib-compativel-cst.xml", "000", "000001", true, true,
+                false, false, false);
+        assertThat(parser.parse(fixture("r1024-simples-grupo-invalido.xml")).document().crt())
+                .isEqualTo("1");
+        assertTaxGroup("r1024-simples-grupo-invalido.xml", "000", "200030", true, true,
+                false, false, false);
+        assertThat(parser.parse(fixture("c1024-simples-grupo-valido.xml")).document().crt())
+                .isEqualTo("1");
+        assertTaxGroup("c1024-simples-grupo-valido.xml", "000", "000001", true, true,
                 false, false, false);
         assertTaxGroup("r1025-classtrib-modelo.xml", "000", "000003", true, true,
                 false, false, false);

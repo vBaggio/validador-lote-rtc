@@ -5,7 +5,7 @@ plugins {
 
 group = 'br.com.validadorlote'
 // A release tag supplies the version in CI; keep a usable development default locally.
-version = findProperty('appVersion') ?: '0.1.0'
+version = findProperty('appVersion') ?: '0.1.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -18,6 +18,7 @@ repositories {
 
 dependencies {
     implementation 'com.formdev:flatlaf:3.6'
+    implementation 'com.formdev:flatlaf-extras:3.6'
     implementation 'com.formdev:flatlaf-fonts-roboto:2.137'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
@@ -39,7 +40,7 @@ test {
     // A JVM de teste é forkada e não herda o locale do daemon. O repasse permite reproduzir a
     // suíte na máquina de outro idioma, que é onde a extração de campo quebrava (D-023):
     //   ./gradlew test -Duser.language=de -Duser.country=DE
-    ['user.language', 'user.country'].each { p ->
+    ['user.language', 'user.country', 'sun.java2d.uiScale'].each { p ->
         if (System.getProperty(p)) systemProperty p, System.getProperty(p)
     }
 }

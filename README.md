@@ -11,13 +11,31 @@ Aplicativo desktop gratuito para revisar, de uma vez, lotes de XMLs de **NF-e (m
 **NFC-e (modelo 65)** relacionados à Reforma Tributária do Consumo (IBS/CBS). Ele ajuda equipes
 contábeis e fiscais a localizar inconsistências antes de tratar os documentos um a um.
 
-> **Ferramenta auxiliar e independente.** O projeto não tem vínculo com Receita Federal, SEFAZ ou
-> qualquer órgão público. Ele não substitui a orientação fiscal nem a validação definitiva do
-> ambiente autorizador.
+<br>
 
-**Navegação rápida:** [Instalação](#instalação) •
-[Validação em camadas](#validação-em-camadas) • [Como usar](#como-usar) •
-[Atualizações](#atualizações) • [Desenvolvimento](#desenvolvimento)
+<p align="center">
+  <a href="#instalação"><strong>📦 Instalação</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="#como-usar"><strong>▶️ Como usar</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="#sugestões-e-problemas"><strong>💬 Sugestões e problemas</strong></a>
+</p>
+
+<br>
+
+> [!WARNING]
+> **Projeto em estágio inicial de desenvolvimento:** o aplicativo ainda pode cometer erros. Sua
+> proposta é oferecer uma forma rápida de fazer a triagem de grandes lotes de notas, com
+> processamento local e sem depender da internet. Caso um documento receba resultado negativo,
+> confirme-o no
+> [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe), que oferece
+> uma conferência mais apurada, realizada individualmente, um arquivo por vez.
+
+<p align="center">
+  <img src="docs/assets/app-overview.png"
+       alt="Tela principal do Validador de XML em Lote exibindo documentos e seus problemas"
+       width="1100">
+</p>
 
 ## O que o aplicativo faz
 
@@ -102,10 +120,15 @@ sudo dnf install ./build/jpackage/*.rpm
 
 1. Arraste uma pasta ou XMLs para a área central, ou use o botão para adicionar arquivos.
 2. Revise os documentos exibidos e remova do lote o que não deseja analisar.
-3. Clique em **Validar pendentes** e acompanhe o progresso. É possível interromper sem perder os
+3. Antes de validar, escolha se deseja **considerar a vigência das regras de validação**. A opção
+   vem marcada para permitir testar XMLs de amostra emitidos antes da virada: o aplicativo usa
+   03/08/2026 para o regime normal e 04/01/2027 para Simples Nacional/MEI, sem alterar a data
+   gravada no XML. Desmarque-a para usar estritamente a data de emissão. Quando houver XML do
+   Simples emitido antes de 2027, o aplicativo explica esse efeito antes de iniciar.
+4. Clique em **Validar pendentes** e acompanhe o progresso. É possível interromper sem perder os
    resultados já concluídos.
-4. Selecione um documento para consultar seus problemas na grade inferior.
-5. Depois da revisão, use **Remover válidos** para manter na tela apenas o que requer atenção.
+5. Selecione um documento para consultar seus problemas na grade inferior.
+6. Depois da revisão, use **Remover válidos** para manter na tela apenas o que requer atenção.
 
 Os estados e cores ajudam a navegar pelo lote, mas não substituem a leitura da mensagem e do
 detalhe de cada ocorrência.
@@ -163,7 +186,30 @@ Para gerar uma imagem da aplicação ou o instalador nativo do sistema atual:
 
 Os artefatos são criados em `build/jpackage/`.
 
+## Sugestões e problemas
+
+Encontrou um erro, algo que não ficou claro ou tem uma ideia para melhorar o aplicativo? Abra uma
+[nova issue no GitHub](https://github.com/vBaggio/validador-lote-rtc/issues/new). O mesmo canal é
+usado para relatos de problemas e sugestões.
+
+Ao reportar um problema, inclua:
+
+- versão do aplicativo e sistema operacional;
+- o que você tentou fazer e o que esperava acontecer;
+- o que aconteceu de fato e, se possível, os passos para reproduzir;
+- captura de tela ou mensagem exibida, quando ajudarem a entender o caso.
+
+Não anexe XMLs reais, chaves de acesso, CNPJ ou outros dados fiscais. Se um arquivo for essencial
+para reproduzir o problema, remova os dados sensíveis ou use um exemplo fictício.
+
+Para uma sugestão, explique brevemente a necessidade e como a mudança ajudaria no uso cotidiano.
+
 ## Licença
 
 [GPL-3.0](./LICENSE) — livre para usar, estudar, modificar e redistribuir; trabalhos derivados
 devem permanecer abertos.
+
+## Contato
+
+- [LinkedIn — Vinícius Baggio](https://www.linkedin.com/in/vbaggio/)
+- [vnc.baggio@gmail.com](mailto:vnc.baggio@gmail.com)

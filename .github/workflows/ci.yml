@@ -18,3 +18,22 @@ jobs:
           cache: 'gradle'
       - name: Build e testes
         run: ./gradlew build --console=plain
+
+  windows-ui:
+    name: Windows — arquivos e escala
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+      - name: Testar drag-and-drop e layout em escala de 125%
+        shell: bash
+        run: >-
+          ./gradlew test
+          --tests br.com.validadorlote.presentation.swing.DropZonePanelTest
+          --tests br.com.validadorlote.presentation.swing.MainFrameSizingTest
+          -Dsun.java2d.uiScale=1.25
+          --console=plain
