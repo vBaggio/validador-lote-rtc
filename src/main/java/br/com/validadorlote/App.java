@@ -57,11 +57,17 @@ public final class App {
     private static final String SCHEMA_KEY_ID = "schemas-2026-01";
     private static final String SCHEMA_PUBLIC_KEY =
             "MCowBQYDK2VwAyEA20h//V2xUUkgSm+K7WjWLjWaXmmm6i6AB71DPBooSpQ=";
-    private static final String APP_VERSION = "0.1.0";
+    private static final String DEVELOPMENT_APP_VERSION = "0.1.2";
+    private static final String PACKAGING_SMOKE_ARGUMENT = "--packaging-smoke";
 
     private App() {}
 
     public static void main(String[] args) {
+        if (List.of(args).contains(PACKAGING_SMOKE_ARGUMENT)) {
+            verifyPackagedRuntime();
+            return;
+        }
+        String appVersion = applicationVersion();
         var translator = new XsdErrorTranslator();
         var schemaStore = SchemaArtifactStore.forCurrentUser();
         var tableStore = FiscalTableArtifactStore.forCurrentUser();
@@ -84,9 +90,9 @@ public final class App {
             thread.setDaemon(true);
             return thread;
         });
-        var applicationUpdate = new ApplicationUpdateUseCase(APP_VERSION,
+        var applicationUpdate = new ApplicationUpdateUseCase(appVersion,
                 new GitHubReleaseChecker(SafeHttpsClient.forGitHubRelease()), applicationUpdateExecutor);
-        UiBootstrap.launch(APP_VERSION, initialRuntime.useCase(),
+        UiBootstrap.launch(appVersion, initialRuntime.useCase(),
                 initialRuntime.bases().schemaProvenance(), initialRuntime.bases().tableVersion(),
                 externalSources, applicationUpdate,
                 coordinator::checkAfterBoot);
@@ -153,12 +159,21 @@ public final class App {
                 new CuratedSchemaManifestParser(),
                 schemaManifestVerifier(),
                 new br.com.validadorlote.infrastructure.xml.SchemaZipExtractor(), store,
-                SCHEMA_CHANNEL_ID, SCHEMA_MANIFEST_URI, APP_VERSION));
+                SCHEMA_CHANNEL_ID, SCHEMA_MANIFEST_URI, applicationVersion()));
     }
 
     /** Verificador do único trust anchor de manifests de schemas publicado pelo aplicativo. */
     static Ed25519ManifestVerifier schemaManifestVerifier() {
         return new Ed25519ManifestVerifier(Map.of(SCHEMA_KEY_ID, SCHEMA_PUBLIC_KEY));
+    }
+
+    static String applicationVersion() {
+        return System.getProperty("jpackage.app-version", DEVELOPMENT_APP_VERSION);
+    }
+
+    /** Exercita a dependência criptográfica do bootstrap sem abrir a interface. */
+    static void verifyPackagedRuntime() {
+        schemaManifestVerifier();
     }
 
     static List<ArtifactUpdateAction> updateActions(Optional<CuratedSchemaUpdater> schemas,
