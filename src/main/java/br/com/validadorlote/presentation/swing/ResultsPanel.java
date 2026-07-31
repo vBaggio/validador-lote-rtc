@@ -82,9 +82,10 @@ public final class ResultsPanel extends JPanel {
         documentsTable.getSelectionModel().addListSelectionListener(event -> {
             if (event.getValueIsAdjusting()) return;
             int row = documentsTable.getSelectedRow();
-            problemsModel.setFindings(row < 0 ? List.of()
+            boolean hasRow = row >= 0 && row < documentsModel.getRowCount();
+            problemsModel.setFindings(!hasRow ? List.of()
                     : documentsModel.documentAt(documentsTable.convertRowIndexToModel(row)).findings());
-            remove.setEnabled(row >= 0 && !cancel.isVisible());
+            remove.setEnabled(hasRow && !cancel.isVisible());
             updateSelectionActions();
         });
 
@@ -365,7 +366,7 @@ public final class ResultsPanel extends JPanel {
 
     private String selectedAccessKey() {
         int row = documentsTable.getSelectedRow();
-        if (row < 0) return null;
+        if (row < 0 || row >= documentsModel.getRowCount()) return null;
         String key = documentsModel.documentAt(documentsTable.convertRowIndexToModel(row))
                 .document().accessKey();
         return key == null || key.isBlank() ? null : key;
