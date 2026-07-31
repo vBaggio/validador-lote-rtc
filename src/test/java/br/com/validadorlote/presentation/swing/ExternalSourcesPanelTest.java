@@ -326,9 +326,8 @@ class ExternalSourcesPanelTest {
                     .contains("Base ativa", "13 códigos", "Incluída no aplicativo", "Origem da base",
                             "Portal DF-e da SVRS");
             assertThat(allOperationalLabels(panel)).extracting(JLabel::getText)
-                    .anyMatch(text -> text.contains("Tabela atualizada")
-                            && text.contains("embarcada nesta versão do aplicativo")
-                            && text.contains("sem verificação automática"));
+                    .anyMatch(text -> text.contains("Tabela embarcada")
+                            && text.contains("sem verificação automática nesta versão do app"));
         });
     }
 

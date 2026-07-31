@@ -363,9 +363,8 @@ final class ExternalSourcesPanel extends JPanel {
             ExternalSourcesPhase aggregatePhase) {
         String detail = source.detail();
         if (source.isCreditPresumedTable()) {
-            return new Feedback("Tabela atualizada — embarcada nesta versão do aplicativo, sem"
-                    + " verificação automática (atualização exige nova versão)", SUCCESS,
-                    new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
+            return new Feedback("Tabela embarcada — sem verificação automática nesta versão do app",
+                    SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
         }
         if (aggregatePhase == ExternalSourcesPhase.RELOADING_RUNTIME
                 && source.phase() == ExternalSourcePhase.APPLIED) {
