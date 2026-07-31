@@ -15,6 +15,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TaxTotalizationRuleTest {
 
     @Test
+    void predicts1076WhenTheIbsCbsBaseTotalDiffersFromItsItems(@TempDir Path dir) throws IOException {
+        Path xml = write(dir, "0.10", "0.00", "0.90", "0.10", "0.00", "0.90");
+        Files.writeString(xml, Files.readString(xml)
+                .replaceFirst("<vBC>10.00</vBC><gIBS>", "<vBC>9.99</vBC><gIBS>"));
+
+        var outcome = new TaxTotalizationRule(TaxTotalizationRule.Sphere.BASE)
+                .evaluate(new XmlMetadataParser().parse(xml).document(), new TaxGroupExtractor().extract(xml));
+
+        assertThat(outcome).isInstanceOf(RuleOutcome.Rejeitado.class);
+        assertThat(((RuleOutcome.Rejeitado) outcome).rejectionCode()).isEqualTo("1076");
+    }
+
+    @Test
     void predicts1080WhenTheUfTotalDiffersFromItsItems(@TempDir Path dir) throws IOException {
         Path xml = write(dir, "0.00", "0.00", "0.90", "0.10", "0.00", "0.90");
         var document = new XmlMetadataParser().parse(xml).document();
@@ -66,7 +79,10 @@ class TaxTotalizationRuleTest {
         var document = new XmlMetadataParser().parse(xml).document();
         var items = new TaxGroupExtractor().extract(xml);
 
-        for (TaxTotalizationRule.Sphere sphere : TaxTotalizationRule.Sphere.values()) {
+        for (TaxTotalizationRule.Sphere sphere : java.util.List.of(
+                TaxTotalizationRule.Sphere.BASE, TaxTotalizationRule.Sphere.IBS_UF,
+                TaxTotalizationRule.Sphere.IBS_MUNICIPAL, TaxTotalizationRule.Sphere.IBS,
+                TaxTotalizationRule.Sphere.CBS)) {
             assertThat(new TaxTotalizationRule(sphere).evaluate(document, items))
                     .as(sphere.name()).isInstanceOf(RuleOutcome.Conforme.class);
         }
@@ -91,9 +107,9 @@ class TaxTotalizationRuleTest {
                   <ide><mod>55</mod><dhEmi>2026-07-31T10:00:00-03:00</dhEmi></ide>
                   <emit><CRT>3</CRT></emit>
                   <det nItem="1"><prod/><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gIBSCBS>
-                    <gIBSUF>%s</gIBSUF><gIBSMun>%s</gIBSMun><vIBS>0.10</vIBS><gCBS>%s</gCBS>
+                    <vBC>10.00</vBC><gIBSUF>%s</gIBSUF><gIBSMun>%s</gIBSMun><vIBS>0.10</vIBS><gCBS>%s</gCBS>
                   </gIBSCBS></IBSCBS></imposto></det>
-                  <total><IBSCBSTot><gIBS><gIBSUF><vIBSUF>%s</vIBSUF></gIBSUF>
+                  <total><IBSCBSTot><vBC>10.00</vBC><gIBS><gIBSUF><vIBSUF>%s</vIBSUF></gIBSUF>
                     <gIBSMun><vIBSMun>%s</vIBSMun></gIBSMun><vIBS>0.10</vIBS></gIBS>
                     <gCBS><vCBS>%s</vCBS></gCBS></IBSCBSTot></total>
                 </infNFe></NFe>

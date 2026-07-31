@@ -12,7 +12,9 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Lê o grupo IBS/CBS de cada item. Separado do {@link XmlMetadataParser} porque este extrai
@@ -68,7 +70,12 @@ public final class TaxGroupExtractor {
             boolean hasCredPresOper, boolean hasCredPresIbsZfm, boolean hasTpCredPresIbsZfm,
             boolean hasTribCompraGov,
             BigDecimal valueIbsUf, BigDecimal valueIbsMunicipal, BigDecimal valueIbs,
-            BigDecimal valueCbs, String presumedCreditCode, BigDecimal presumedIbsCredit) {
+            BigDecimal valueCbs, String presumedCreditCode, BigDecimal presumedIbsCredit,
+            Map<String, BigDecimal> declaredAmounts) {
+
+        public ItemTaxGroup {
+            declaredAmounts = declaredAmounts == null ? Map.of() : Map.copyOf(declaredAmounts);
+        }
 
         /** Compatibilidade para regras que não usam valores de totalização. */
         public ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
@@ -85,7 +92,7 @@ public final class TaxGroupExtractor {
                     percReducaoCbs, dfeReferenciado, hasDifUf, hasDifMun, hasDifCbs,
                     hasDevTribUf, hasDevTribMun, hasDevTribCbs, hasCredPresOper,
                     hasCredPresIbsZfm, hasTpCredPresIbsZfm, hasTribCompraGov, null, null, null, null,
-                    null, null);
+                    null, null, Map.of());
         }
     }
 
@@ -142,13 +149,15 @@ public final class TaxGroupExtractor {
         BigDecimal pUf = null, pMun = null, pCbs = null;
         BigDecimal vIbsUf = null, vIbsMunicipal = null, vIbs = null, vCbs = null, vCredPresIbs = null;
         String cCredPres = null;
+        Map<String, BigDecimal> declaredAmounts = new HashMap<>();
         ReferencedNote dfeReferenciado = null;
         // Escopos vivos de dentro do invólucro IBSCBS para gTribCompraGov e do produto para I05k.
         boolean emGIbsCbs = false, emProd = false;
         // DFeReferenciado é filho de det/prod, mas não tem o marcador de esfera das reduções:
         // precisa do próprio flag para chaveAcesso não ser lido fora do grupo.
         boolean emDFeReferenciado = false;
-        boolean emCredPresOper = false, emIbsCredit = false;
+        boolean emCredPresOper = false, emIbsCredit = false, emCbsCredit = false,
+                emEstornoCred = false;
         // total/IBSCBSTot/gCBS reusa o mesmo nome local que abre a esfera CBS do item (auditoria
         // docs/pesquisa/auditoria-regras-e-leitura.md §4.2): sem este flag, Esfera.of() não
         // consegue distinguir as duas ocorrências só pelo nome. Hoje a colisão é inofensiva por
@@ -190,10 +199,11 @@ public final class TaxGroupExtractor {
                         pUf = pMun = pCbs = null;
                         vIbsUf = vIbsMunicipal = vIbs = vCbs = null;
                         vCredPresIbs = null; cCredPres = null;
+                        declaredAmounts = new HashMap<>();
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
-                        emGIbsCbs = emProd = false;
+                        emGIbsCbs = emProd = emCbsCredit = emEstornoCred = false;
                         emDet = true;
                     }
                     case "prod" -> emProd = true;
@@ -203,6 +213,8 @@ public final class TaxGroupExtractor {
                     // Filhos diretos do invólucro (2º choice de TTribNFe), não de gIBSCBS.
                     case "gCredPresOper" -> { if (emIbsCbs) { credPresOper = true; emCredPresOper = true; } }
                     case "gIBSCredPres" -> { if (emCredPresOper) emIbsCredit = true; }
+                    case "gCBSCredPres" -> { if (emIbsCbs) emCbsCredit = true; }
+                    case "gEstornoCred" -> { if (emIbsCbs) emEstornoCred = true; }
                     case "gCredPresIBSZFM" -> {
                         if (emIbsCbs) credPresIbsZfm = true;
                     }
@@ -251,12 +263,44 @@ public final class TaxGroupExtractor {
                         if (esfera == Esfera.MUN) vIbsMunicipal = decimal(texto(r));
                     }
                     case "vIBS" -> {
-                        if (emGIbsCbs) vIbs = decimal(texto(r));
+                        BigDecimal value = decimal(texto(r));
+                        if (emGIbsCbs) vIbs = value;
+                        else if (emEstornoCred) declaredAmounts.put("vIBSEstCred", value);
+                    }
+                    case "vBC" -> {
+                        if (emGIbsCbs) declaredAmounts.put("vBC", decimal(texto(r)));
+                    }
+                    case "vDif" -> {
+                        BigDecimal value = decimal(texto(r));
+                        if (esfera == Esfera.UF) declaredAmounts.put("vDifIBSUF", value);
+                        else if (esfera == Esfera.MUN) declaredAmounts.put("vDifIBSMun", value);
+                        else if (esfera == Esfera.CBS) declaredAmounts.put("vDifCBS", value);
+                    }
+                    case "vDevTrib" -> {
+                        BigDecimal value = decimal(texto(r));
+                        if (esfera == Esfera.UF) declaredAmounts.put("vDevIBSUF", value);
+                        else if (esfera == Esfera.MUN) declaredAmounts.put("vDevIBSMun", value);
+                        else if (esfera == Esfera.CBS) declaredAmounts.put("vDevCBS", value);
                     }
                     case "vCBS" -> {
-                        if (esfera == Esfera.CBS) vCbs = decimal(texto(r));
+                        BigDecimal value = decimal(texto(r));
+                        if (esfera == Esfera.CBS) vCbs = value;
+                        else if (emEstornoCred) declaredAmounts.put("vCBSEstCred", value);
                     }
-                    case "vCredPres" -> { if (emIbsCredit) vCredPresIbs = decimal(texto(r)); }
+                    case "vCredPres" -> {
+                        if (emIbsCredit) {
+                            vCredPresIbs = decimal(texto(r));
+                            declaredAmounts.put("vCredPresIBS", vCredPresIbs);
+                        } else if (emCbsCredit) {
+                            declaredAmounts.put("vCredPresCBS", decimal(texto(r)));
+                        }
+                    }
+                    case "vIBSMono" -> { if (emDet) declaredAmounts.put("vIBSMono", decimal(texto(r))); }
+                    case "vCBSMono" -> { if (emDet) declaredAmounts.put("vCBSMono", decimal(texto(r))); }
+                    case "vIBSMonoReten" -> { if (emDet) declaredAmounts.put("vIBSMonoReten", decimal(texto(r))); }
+                    case "vCBSMonoReten" -> { if (emDet) declaredAmounts.put("vCBSMonoReten", decimal(texto(r))); }
+                    case "vIBSMonoRet" -> { if (emDet) declaredAmounts.put("vIBSMonoRet", decimal(texto(r))); }
+                    case "vCBSMonoRet" -> { if (emDet) declaredAmounts.put("vCBSMonoRet", decimal(texto(r))); }
                     default -> { /* demais elementos não alimentam nenhuma regra */ }
                 }
             } else if (ev == XMLStreamConstants.END_ELEMENT) {
@@ -266,6 +310,8 @@ public final class TaxGroupExtractor {
                 if ("gIBSCBS".equals(nome)) emGIbsCbs = false;
                 if ("gCredPresOper".equals(nome)) emCredPresOper = false;
                 if ("gIBSCredPres".equals(nome)) emIbsCredit = false;
+                if ("gCBSCredPres".equals(nome)) emCbsCredit = false;
+                if ("gEstornoCred".equals(nome)) emEstornoCred = false;
                 if ("prod".equals(nome)) emProd = false;
                 if ("DFeReferenciado".equals(nome)) {
                     if (dfeReferenciado == null) {
@@ -284,7 +330,8 @@ public final class TaxGroupExtractor {
                             prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado,
                             difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
                             credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov,
-                            vIbsUf, vIbsMunicipal, vIbs, vCbs, cCredPres, vCredPresIbs));
+                            vIbsUf, vIbsMunicipal, vIbs, vCbs, cCredPres, vCredPresIbs,
+                            declaredAmounts));
                     nItem = null;
                     emDet = false;
                 }

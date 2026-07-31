@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,7 +49,7 @@ class ItemIbsCompositionRuleTest {
                 false, false, false, false, false, false,
                 true, false, false, false,
                 new BigDecimal("0.50"), new BigDecimal("0.60"), new BigDecimal(ibs),
-                null, code, new BigDecimal("0.20"));
+                null, code, new BigDecimal("0.20"), Map.of());
         return new RuleContext(null, item, null, date);
     }
 }

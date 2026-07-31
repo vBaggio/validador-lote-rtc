@@ -87,9 +87,26 @@ public final class RuleEngine {
     private static final List<DocumentRejectionRule> DOCUMENT_RULES = List.of(
             new TotalGroupForbiddenRule(), new TotalGroupRequiredRule(),
             new CompraGovForbiddenInNfceRule(),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.BASE),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_UF_DIF),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_UF_DEV),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_UF),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MUNICIPAL_DIF),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MUNICIPAL_DEV),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MUNICIPAL),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_CREDIT),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_DIF),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_DEV),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_CREDIT),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MONO),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_MONO),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MONO_RETEN),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_MONO_RETEN),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MONO_RET),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_MONO_RET),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_ESTORNO),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS_ESTORNO),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS));
 
     /**

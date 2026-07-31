@@ -17,7 +17,9 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -87,6 +89,7 @@ public final class XmlMetadataParser {
         // TaxGroupExtractor, que só existe para o conteúdo tributário por item.
         boolean hasIbsCbsTot = false;
         String totalIbsUf = null, totalIbsMunicipal = null, totalIbs = null, totalCbs = null;
+        Map<String, BigDecimal> ibsCbsTotals = new HashMap<>();
         int infNFeCount = 0;
         List<ReferencedNote> references = new ArrayList<>();
         // refNF/refNFP aberto cujo AAMM ainda não apareceu. Se ele fechar sem o campo, a
@@ -186,6 +189,15 @@ public final class XmlMetadataParser {
                             }
                             case "total/vIBS" -> { if (totalIbs == null) totalIbs = value; }
                             case "total/vCBS" -> { if (totalCbs == null) totalCbs = value; }
+                            case "total/vBC" -> ibsCbsTotals.put("vBC", decimal(value));
+                            case "total/vDifIBSUF", "total/vDevIBSUF", "total/vDifIBSMun",
+                                    "total/vDevIBSMun", "total/vCredPresIBS", "total/vDifCBS",
+                                    "total/vDevCBS", "total/vCredPresCBS" ->
+                                    ibsCbsTotals.put(capturing.substring("total/".length()), decimal(value));
+                            case "total/vIBSMono", "total/vCBSMono", "total/vIBSMonoReten",
+                                    "total/vCBSMonoReten", "total/vIBSMonoRet", "total/vCBSMonoRet",
+                                    "total/vIBSEstCred", "total/vCBSEstCred" ->
+                                    ibsCbsTotals.put(capturing.substring("total/".length()), decimal(value));
                             // NFref aceita até 999 ocorrências: todas contam, nada de "primeira".
                             case "refNFe", "refNFeSig" -> references.add(
                                     new ReferencedNote(capturing, AccessKeyMonth.ofAccessKey(value)));
@@ -230,7 +242,7 @@ public final class XmlMetadataParser {
                         emitterMunicipalityCode, nNF, parseIssueDate(dhEmi), mod, serie, root,
                         crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
                         decimal(totalIbsUf), decimal(totalIbsMunicipal), decimal(totalIbs),
-                        decimal(totalCbs), references),
+                        decimal(totalCbs), references, ibsCbsTotals),
                 ItemLineIndex.of(ranges));
     }
 
@@ -270,6 +282,23 @@ public final class XmlMetadataParser {
         }
         if (isPath(stack, "vIBS", "gIBS", "IBSCBSTot", "total")) return "total/vIBS";
         if (isPath(stack, "vCBS", "gCBS", "IBSCBSTot", "total")) return "total/vCBS";
+        if (isPath(stack, "vBC", "IBSCBSTot", "total")) return "total/vBC";
+        if (isPath(stack, "vDif", "gIBSUF", "gIBS", "IBSCBSTot", "total")) return "total/vDifIBSUF";
+        if (isPath(stack, "vDevTrib", "gIBSUF", "gIBS", "IBSCBSTot", "total")) return "total/vDevIBSUF";
+        if (isPath(stack, "vDif", "gIBSMun", "gIBS", "IBSCBSTot", "total")) return "total/vDifIBSMun";
+        if (isPath(stack, "vDevTrib", "gIBSMun", "gIBS", "IBSCBSTot", "total")) return "total/vDevIBSMun";
+        if (isPath(stack, "vCredPres", "gIBS", "IBSCBSTot", "total")) return "total/vCredPresIBS";
+        if (isPath(stack, "vDif", "gCBS", "IBSCBSTot", "total")) return "total/vDifCBS";
+        if (isPath(stack, "vDevTrib", "gCBS", "IBSCBSTot", "total")) return "total/vDevCBS";
+        if (isPath(stack, "vCredPres", "gCBS", "IBSCBSTot", "total")) return "total/vCredPresCBS";
+        if (isPath(stack, "vIBSMono", "gMono", "IBSCBSTot", "total")) return "total/vIBSMono";
+        if (isPath(stack, "vCBSMono", "gMono", "IBSCBSTot", "total")) return "total/vCBSMono";
+        if (isPath(stack, "vIBSMonoReten", "gMono", "IBSCBSTot", "total")) return "total/vIBSMonoReten";
+        if (isPath(stack, "vCBSMonoReten", "gMono", "IBSCBSTot", "total")) return "total/vCBSMonoReten";
+        if (isPath(stack, "vIBSMonoRet", "gMono", "IBSCBSTot", "total")) return "total/vIBSMonoRet";
+        if (isPath(stack, "vCBSMonoRet", "gMono", "IBSCBSTot", "total")) return "total/vCBSMonoRet";
+        if (isPath(stack, "vIBSEstCred", "gEstornoCred", "IBSCBSTot", "total")) return "total/vIBSEstCred";
+        if (isPath(stack, "vCBSEstCred", "gEstornoCred", "IBSCBSTot", "total")) return "total/vCBSEstCred";
         // refNF e refNFP trazem AAMM próprio e explícito no XSD (linhas 341 e 393).
         if (isFirst(stack, "AAMM", "refNF")) return "refNF/AAMM";
         if (isFirst(stack, "AAMM", "refNFP")) return "refNFP/AAMM";
