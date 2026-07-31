@@ -284,7 +284,7 @@ final class ExternalSourcesPanel extends JPanel {
         details.setOpaque(false);
         details.setAlignmentX(LEFT_ALIGNMENT);
         details.add(activeBase(source));
-        if (!source.embedded()) {
+        if (!source.embedded() || source.isCreditPresumedTable()) {
             details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
         }
         details.add(detail("Última verificação", format(source.checkedAt())));
@@ -353,6 +353,11 @@ final class ExternalSourcesPanel extends JPanel {
     private static Feedback feedbackFor(ExternalSourceState source,
             ExternalSourcesPhase aggregatePhase) {
         String detail = source.detail();
+        if (source.isCreditPresumedTable()) {
+            return new Feedback("Embarcada nesta versão do aplicativo, sem verificação automática"
+                    + " — atualização exige nova versão.", MUTED,
+                    new OutlineIcon(OutlineIcon.Kind.DATABASE, 18, MUTED));
+        }
         if (aggregatePhase == ExternalSourcesPhase.RELOADING_RUNTIME
                 && source.phase() == ExternalSourcePhase.APPLIED) {
             return new Feedback("Carregando a base atualizada…", WARNING, null);
@@ -408,6 +413,8 @@ final class ExternalSourcesPanel extends JPanel {
         return switch (sourceName) {
             case "Schemas NF-e/NFC-e" -> "Estrutura de XMLs NF-e e NFC-e";
             case "Tabela CST/cClassTrib" -> "CST e classificação tributária das previsões";
+            case "Tabela de crédito presumido (cCredPres)" ->
+                    "Indicador de dedução do crédito presumido do IBS/CBS";
             default -> "Base externa";
         };
     }

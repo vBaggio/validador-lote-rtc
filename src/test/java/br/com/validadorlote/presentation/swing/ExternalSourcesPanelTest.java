@@ -299,6 +299,36 @@ class ExternalSourcesPanelTest {
         });
     }
 
+    @Test
+    void creditPresumedCardIsVisibleWithoutAnyUpdateAffordance() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            ExternalSourceState creditPresumed = new ExternalSourceState(
+                    ArtifactId.CREDIT_PRESUMED_TABLE, "Tabela de crédito presumido (cCredPres)",
+                    "13 códigos", true,
+                    "https://dfe-portal.svrs.rs.gov.br/DFE/TabelaCreditoPresumido",
+                    null, null, null, null,
+                    ExternalSourcePhase.NOT_CHECKED, null, null, null);
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.IDLE,
+                    List.of(ExternalSourcesStatusBarTest.source(ArtifactId.NFE_SCHEMAS,
+                            ExternalSourcePhase.NOT_CHECKED), creditPresumed),
+                    0, 0, false, 1));
+
+            assertThat(panel.sourceCardCount()).isEqualTo(2);
+            assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
+                    .contains("Tabela de crédito presumido (cCredPres)");
+
+            expand(panel, "Tabela de crédito presumido (cCredPres)");
+
+            assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
+                    .contains("Base ativa", "13 códigos", "Incluída no aplicativo", "Origem da base",
+                            "Portal DF-e da SVRS");
+            assertThat(allOperationalLabels(panel)).extracting(JLabel::getText)
+                    .anyMatch(text -> text.contains("Embarcada nesta versão do aplicativo")
+                            && text.contains("sem verificação automática"));
+        });
+    }
+
     private static ExternalSourcesPanel panel() {
         return new ExternalSourcesPanel(() -> { }, () -> { }, () -> { }, () -> { });
     }
