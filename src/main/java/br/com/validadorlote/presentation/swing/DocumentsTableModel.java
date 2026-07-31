@@ -15,7 +15,7 @@ import java.util.List;
 final class DocumentsTableModel extends AbstractTableModel {
 
     private static final String[] COLUMNS = {"Status", "Chave de acesso", "Emitente",
-            "Modelo", "Série", "Num.", "Mensagem / explicação"};
+            "Mod.", "Série", "Num.", "Mensagem / explicação"};
 
     private List<WorkspaceDocument> documents = List.of();
 

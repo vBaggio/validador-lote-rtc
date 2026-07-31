@@ -13,6 +13,8 @@ import java.awt.CardLayout;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -59,10 +61,12 @@ public final class MainFrame extends JFrame implements MainView {
         content.add(root, BorderLayout.CENTER);
         content.add(externalSourcesStatusBar, BorderLayout.SOUTH);
         setContentPane(content);
-        setMinimumSize(new Dimension(1000, 720));
-        setSize(1200, 800);
+        setMinimumSize(new Dimension(1000, 660));
+        Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int width = Math.min(1180, Math.max(1000, screen.width - 40));
+        int height = Math.min(700, Math.max(660, screen.height - 28));
+        setSize(width, height);
         setLocationRelativeTo(null);
-        setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
     }
 
     @Override

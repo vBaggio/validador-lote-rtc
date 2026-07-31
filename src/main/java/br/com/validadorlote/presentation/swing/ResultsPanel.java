@@ -183,9 +183,9 @@ public final class ResultsPanel extends JPanel {
         documentsTable.getColumnModel().getColumn(0).setMinWidth(62);
         documentsTable.getColumnModel().getColumn(0).setPreferredWidth(68);
         documentsTable.getColumnModel().getColumn(0).setMaxWidth(78);
-        documentsTable.getColumnModel().getColumn(1).setMinWidth(390);
-        documentsTable.getColumnModel().getColumn(1).setPreferredWidth(400);
-        documentsTable.getColumnModel().getColumn(1).setMaxWidth(410);
+        documentsTable.getColumnModel().getColumn(1).setMinWidth(360);
+        documentsTable.getColumnModel().getColumn(1).setPreferredWidth(375);
+        documentsTable.getColumnModel().getColumn(1).setMaxWidth(390);
         documentsTable.getColumnModel().getColumn(2).setMinWidth(290);
         documentsTable.getColumnModel().getColumn(2).setPreferredWidth(440);
         documentsTable.getColumnModel().getColumn(3).setMinWidth(52);
