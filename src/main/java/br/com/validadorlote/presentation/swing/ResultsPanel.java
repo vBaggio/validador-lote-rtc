@@ -177,6 +177,7 @@ public final class ResultsPanel extends JPanel {
 
     private void configureDocumentsTable() {
         documentsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        documentsTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         documentsTable.setRowHeight(34);
         documentsTable.setIntercellSpacing(new Dimension(0, 0));
         documentsTable.setShowVerticalLines(false);
@@ -229,6 +230,7 @@ public final class ResultsPanel extends JPanel {
 
     private JTable configuredProblemsTable() {
         JTable table = new ZebraTable(problemsModel);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.setRowHeight(28);
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setShowVerticalLines(false);
