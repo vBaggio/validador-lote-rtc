@@ -20,7 +20,6 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -281,11 +280,9 @@ final class ExternalSourcesPanel extends JPanel {
         purpose.setAlignmentX(LEFT_ALIGNMENT);
         content.add(purpose);
         content.add(Box.createVerticalStrut(8));
-        JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 3 : 4, 24, 0));
+        JPanel details = new JPanel(new FlowLayout(FlowLayout.LEFT, 24, 0));
         details.setOpaque(false);
         details.setAlignmentX(LEFT_ALIGNMENT);
-        details.setPreferredSize(new Dimension(0, 40));
-        details.setMinimumSize(new Dimension(0, 40));
         details.add(activeBase(source));
         if (!source.embedded()) {
             details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
