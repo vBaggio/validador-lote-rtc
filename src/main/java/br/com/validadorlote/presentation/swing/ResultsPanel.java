@@ -17,6 +17,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.TransferHandler;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -38,7 +39,7 @@ public final class ResultsPanel extends JPanel {
     private final JProgressBar progress = new JProgressBar();
     private final DocumentsTableModel documentsModel = new DocumentsTableModel();
     private final DocumentProblemsTableModel problemsModel = new DocumentProblemsTableModel();
-    private final JTable documentsTable = new JTable(documentsModel);
+    private final JTable documentsTable = new ZebraTable(documentsModel);
     private final JButton add = new JButton("Adicionar XMLs...");
     private final JButton remove = new JButton("Excluir selecionado");
     private final JButton clear = new JButton("Limpar");
@@ -77,7 +78,14 @@ public final class ResultsPanel extends JPanel {
             remove.setEnabled(row >= 0 && !cancel.isVisible());
         });
 
-        JPanel documents = titledPanel("Documentos Fiscais", new JScrollPane(documentsTable));
+        JPanel documentActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        documentActions.add(remove);
+        documentActions.add(removeValid);
+        documentActions.add(clear);
+        JPanel documentContent = new JPanel(new BorderLayout(0, 8));
+        documentContent.add(new JScrollPane(documentsTable), BorderLayout.CENTER);
+        documentContent.add(documentActions, BorderLayout.SOUTH);
+        JPanel documents = titledPanel("Documentos Fiscais", documentContent);
         JTable problemsTable = configuredProblemsTable();
         JPanel problems = titledPanel("Problemas do documento selecionado", new JScrollPane(problemsTable));
         JPanel grids = new JPanel(new GridBagLayout());
@@ -91,14 +99,16 @@ public final class ResultsPanel extends JPanel {
         add.addActionListener(event -> chooseInput(presenter));
         remove.setIcon(new OutlineIcon(OutlineIcon.Kind.DELETE));
         remove.addActionListener(event -> removeSelected(presenter));
-        clear.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
+        clear.setIcon(new OutlineIcon(OutlineIcon.Kind.DELETE));
         clear.addActionListener(event -> presenter.clearRequested());
         removeValid.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
         removeValid.addActionListener(event -> presenter.removeValidRequested());
         validate.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
         validate.addActionListener(event -> presenter.validateRequested());
+        stylePrimaryAction(validate);
         cancel.setIcon(new OutlineIcon(OutlineIcon.Kind.CANCEL));
         cancel.addActionListener(event -> presenter.cancelRequested());
+        stylePrimaryAction(cancel);
         cancel.setVisible(false);
 
         JPanel titleBlock = new JPanel();
@@ -109,15 +119,12 @@ public final class ResultsPanel extends JPanel {
         header.add(titleBlock, BorderLayout.WEST);
         header.add(progress, BorderLayout.EAST);
 
-        JPanel secondaryActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        secondaryActions.add(remove);
-        secondaryActions.add(removeValid);
-        secondaryActions.add(clear);
-        secondaryActions.add(validate);
-        secondaryActions.add(cancel);
         JPanel toolbar = new JPanel(new BorderLayout());
         toolbar.add(add, BorderLayout.WEST);
-        toolbar.add(secondaryActions, BorderLayout.EAST);
+        JPanel primaryAction = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        primaryAction.add(validate);
+        primaryAction.add(cancel);
+        toolbar.add(primaryAction, BorderLayout.EAST);
 
         JPanel north = new JPanel();
         north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
@@ -149,13 +156,23 @@ public final class ResultsPanel extends JPanel {
         progress.setString(processed + " / " + total);
 
         add.setEnabled(!validating);
-        clear.setEnabled(!validating);
+        clear.setEnabled(!validating && !documents.isEmpty());
         removeValid.setEnabled(!validating && valid > 0);
         validate.setVisible(!validating);
         validate.setEnabled(!validating && pending > 0);
         cancel.setVisible(validating);
         remove.setEnabled(!validating && documentsTable.getSelectedRow() >= 0);
         documentsTable.setTransferHandler(validating ? null : dropHandler);
+    }
+
+    private static void stylePrimaryAction(JButton button) {
+        button.setFont(button.getFont().deriveFont(java.awt.Font.BOLD, button.getFont().getSize2D() + 1f));
+        button.setPreferredSize(new Dimension(176, 38));
+        button.setFocusPainted(false);
+        button.putClientProperty("JButton.buttonType", "roundRect");
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(135, 135, 135), 1, true),
+                BorderFactory.createEmptyBorder(8, 16, 8, 16)));
     }
 
     private void configureDocumentsTable() {
@@ -211,7 +228,7 @@ public final class ResultsPanel extends JPanel {
     }
 
     private JTable configuredProblemsTable() {
-        JTable table = new JTable(problemsModel);
+        JTable table = new ZebraTable(problemsModel);
         table.setRowHeight(28);
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setShowVerticalLines(false);
@@ -245,6 +262,34 @@ public final class ResultsPanel extends JPanel {
             }
         } finally {
             modalClosed.run();
+        }
+    }
+
+    /** JTable com listras quase imperceptíveis, mantendo a seleção intacta. */
+    static final class ZebraTable extends JTable {
+
+        ZebraTable(javax.swing.table.TableModel model) {
+            super(model);
+        }
+
+        @Override
+        public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+            Component component = super.prepareRenderer(renderer, row, column);
+            if (!isRowSelected(row)) {
+                component.setBackground(row % 2 == 0 ? getBackground() : alternateRowColor());
+            }
+            return component;
+        }
+
+        private Color alternateRowColor() {
+            Color base = getBackground();
+            int shift = base.getRed() < 128 ? 5 : -5;
+            return new Color(adjust(base.getRed(), shift), adjust(base.getGreen(), shift),
+                    adjust(base.getBlue(), shift));
+        }
+
+        private static int adjust(int value, int shift) {
+            return Math.max(0, Math.min(255, value + shift));
         }
     }
 
