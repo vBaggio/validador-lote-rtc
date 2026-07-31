@@ -76,6 +76,7 @@ class MainPresenterTest {
 
         private boolean acceptUpdate;
         private boolean confirmOnUiThread;
+        private boolean externalSourcesDialogOpen;
         private boolean errorOnUiThread;
         private boolean failIfDialogOpensBeforeTerminalSnapshot;
 
@@ -115,6 +116,11 @@ class MainPresenterTest {
                 throw new IllegalStateException(
                         "A abertura modal bloqueou a entrega do snapshot terminal");
             }
+        }
+
+        @Override
+        public boolean isExternalSourcesDialogOpen() {
+            return externalSourcesDialogOpen;
         }
 
         @Override
@@ -408,17 +414,29 @@ class MainPresenterTest {
     }
 
     @Test
-    void acceptedUpdateOpensTheSharedDialogAndStartsApplication(@TempDir Path dir) {
+    void acceptedUpdateStartsApplicationWithoutOpeningTheSharedDialog(@TempDir Path dir) {
         configureExternalSources(dir, false);
         fakeView.acceptUpdate = true;
 
         sourcesPublishUpdateAvailable();
         recordingUiThread.runDeferredActions();
 
-        assertThat(calls).containsSubsequence("confirm-update", "open-sources");
+        assertThat(calls).doesNotContain("open-sources");
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
         assertThat(schemasAction.applyCalls).isOne();
         assertThat(calls).filteredOn("restart-required"::equals).hasSize(1);
+    }
+
+    @Test
+    void openSourcesDialogUsesItsOwnFeedbackInsteadOfAnotherConfirmation(
+            @TempDir Path dir) {
+        configureExternalSources(dir, false);
+        fakeView.externalSourcesDialogOpen = true;
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).doesNotContain("confirm-update");
+        assertThat(calls).contains("sources 2 UPDATES_AVAILABLE");
     }
 
     @Test
@@ -502,7 +520,7 @@ class MainPresenterTest {
     }
 
     @Test
-    void multipleCandidatesOpenSharedDialogOnlyOnceWhileApplying(@TempDir Path dir) {
+    void multipleCandidatesApplyWithoutOpeningTheSharedDialog(@TempDir Path dir) {
         configureExternalSources(dir, false);
         fakeView.acceptUpdate = true;
         tablesAction.checkResult = ArtifactCheckResult.available(
@@ -515,27 +533,21 @@ class MainPresenterTest {
         sourcesPublishUpdateAvailable();
         recordingUiThread.runDeferredActions();
 
-        assertThat(calls).filteredOn("open-sources"::equals).hasSize(1);
+        assertThat(calls).doesNotContain("open-sources");
         assertThat(schemasAction.applyCalls).isOne();
         assertThat(tablesAction.applyCalls).isOne();
     }
 
     @Test
-    void modalDialogOpeningWaitsForTheSynchronousSnapshotDrainToReturn(@TempDir Path dir) {
+    void applyingDoesNotOpenAClosedModal(@TempDir Path dir) {
         configureExternalSources(dir, false);
         fakeView.acceptUpdate = true;
-        fakeView.failIfDialogOpensBeforeTerminalSnapshot = true;
-
         sourcesPublishUpdateAvailable();
 
         assertThat(calls).containsSubsequence(
                 "sources 2 APPLYING",
                 "sources 2 RESTART_REQUIRED");
         assertThat(calls).doesNotContain("open-sources");
-
-        recordingUiThread.runDeferredActions();
-
-        assertThat(calls).endsWith("open-sources");
     }
 
     @Test

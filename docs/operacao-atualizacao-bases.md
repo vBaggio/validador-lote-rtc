@@ -56,7 +56,7 @@ um ciclo posterior da EDT, para que nunca bloqueie a entrega de `APPLIED` ou `FA
 | Falha de consulta | uma ou todas as fontes falharam, sem candidata predominante | tentar novamente |
 | Aplicando | ativação em andamento | nenhuma; fechamento bloqueado |
 | Carregando bases atualizadas | `current` já mudou e R2 está sendo montado fora da EDT | aguardar; validações novas permanecem bloqueadas |
-| Bases atualizadas e já em uso | R2 íntegro foi publicado uma única vez | validar normalmente com a nova geração |
+| Bases atualizadas | R2 íntegro foi publicado uma única vez | validar normalmente com a nova geração |
 | Reinício necessário | fallback excepcional: `current` mudou, mas R2 não pôde ser montado | continuar com R1 ou encerrar e reabrir depois |
 
 Em sucesso parcial, uma candidata válida continua visível mesmo se a outra fonte falhar. Em
@@ -98,7 +98,7 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
    deve aguardar; ao fim/cancelamento, deve ser oferecido uma única vez.
 6. Confirme a atualização. Durante **Aplicando**, teste X, Esc e Alt+F4: nenhum fecha o diálogo;
    todos os botões ficam indisponíveis, e o terminal não fica preso em spinner.
-7. Ao concluir, confira literalmente **Bases atualizadas e já em uso**, sem pedido de reinício.
+7. Ao concluir, confira literalmente **Bases atualizadas**, sem pedido de reinício.
    Valide um novo XML sem reiniciar e confira a geração R2; o resultado anterior permanece com R1,
    sem ser recalculado. Induza também uma falha de montagem após ativação: `current` novo deve
    existir, a sessão ainda valida com R1 e a tela deve explicar que a base será usada no próximo boot.
@@ -120,9 +120,11 @@ Faça o roteiro em uma instalação/imagem limpa, sem XMLs carregados.
   após a publicação, usa R2;
 - [ ] falha de montagem preserva R1 e `current` novo, informa o fallback de próximo boot e não
   deixa gate ou spinner presos;
-- [ ] rodapé e diálogo mostram a mesma evolução de estado;
+- [ ] quando o diálogo está aberto, seus cards e o rodapé mostram o mesmo snapshot; se estiver
+      fechado, a atualização não o reabre automaticamente e o sucesso aparece em aviso próprio;
 - [ ] retry não provoca reaplicação cega ou prompts repetidos;
-- [ ] escala Windows 100%, 125% e 150% não corta conteúdo; há rolagem, ícones e ações acessíveis;
+- [ ] **PENDENTE — aceite visual Windows:** escala 100%, 125% e 150% não corta conteúdo; há
+      rolagem, ícones e ações acessíveis;
 - [ ] nenhum XML do lote participa das requisições;
 - [ ] schemas não usam SVRS ou ACBr como transporte/fallback runtime; a tabela fiscal permanece
   independente no SVRS;

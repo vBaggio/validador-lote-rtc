@@ -42,17 +42,21 @@ final class ExternalSourcesPanel extends JPanel {
     private final JPanel sourceCards = new JPanel();
     private final JLabel summary = new JLabel();
     private final JButton primaryAction = new JButton();
+    private final JButton closeAction = new JButton("Fechar");
     private final Runnable checkNow;
     private final Runnable applyAvailable;
     private final Runnable retry;
+    private Runnable closeDialog = () -> { };
     private int sourceCardCount;
     private PrimaryAction primaryActionKind = PrimaryAction.CHECK_NOW;
 
-    ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry) {
+    ExternalSourcesPanel(Runnable checkNow, Runnable applyAvailable, Runnable retry,
+            Runnable closeDialog) {
         super(new BorderLayout(0, 16));
         this.checkNow = checkNow;
         this.applyAvailable = applyAvailable;
         this.retry = retry;
+        this.closeDialog = closeDialog;
         setBorder(BorderFactory.createEmptyBorder(22, 24, 20, 24));
 
         JLabel title = new JLabel("Bases de validação");
@@ -82,7 +86,9 @@ final class ExternalSourcesPanel extends JPanel {
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         primaryAction.addActionListener(event -> runPrimaryAction());
+        closeAction.addActionListener(event -> this.closeDialog.run());
         actions.add(primaryAction);
+        actions.add(closeAction);
         add(actions, BorderLayout.SOUTH);
     }
 
@@ -92,6 +98,10 @@ final class ExternalSourcesPanel extends JPanel {
         configureActions(snapshot.phase());
     }
 
+    void setCloseDialog(Runnable closeDialog) {
+        this.closeDialog = closeDialog;
+    }
+
     int sourceCardCount() {
         return sourceCardCount;
     }
@@ -99,12 +109,14 @@ final class ExternalSourcesPanel extends JPanel {
     int enabledActionCount() {
         int count = 0;
         if (primaryAction.isVisible() && primaryAction.isEnabled()) count++;
+        if (closeAction.isVisible() && closeAction.isEnabled()) count++;
         return count;
     }
 
     List<String> visibleActions() {
         List<String> actions = new ArrayList<>();
         if (primaryAction.isVisible()) actions.add(primaryAction.getText());
+        if (closeAction.isVisible()) actions.add(closeAction.getText());
         return actions;
     }
 
@@ -114,7 +126,7 @@ final class ExternalSourcesPanel extends JPanel {
 
     private void configureSummary(ExternalSourcesSnapshot snapshot) {
         if (snapshot.phase() == ExternalSourcesPhase.UPDATED_AND_IN_USE) {
-            summary.setText("Bases atualizadas e já em uso.");
+            summary.setText("Bases atualizadas.");
             summary.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             summary.setForeground(SUCCESS);
             summary.setVisible(true);
@@ -157,7 +169,9 @@ final class ExternalSourcesPanel extends JPanel {
 
     private void configureActions(ExternalSourcesPhase phase) {
         primaryAction.setVisible(true);
+        closeAction.setVisible(true);
         primaryAction.setEnabled(true);
+        closeAction.setEnabled(true);
         switch (phase) {
             case UPDATES_AVAILABLE -> {
                 primaryActionKind = PrimaryAction.APPLY;
@@ -174,6 +188,7 @@ final class ExternalSourcesPanel extends JPanel {
                 primaryAction.setText("Atualizando…");
                 primaryAction.setIcon(new OutlineIcon(OutlineIcon.Kind.REFRESH));
                 primaryAction.setEnabled(false);
+                closeAction.setEnabled(false);
             }
             case RESTART_REQUIRED -> {
                 primaryActionKind = PrimaryAction.CHECK_NOW;
@@ -189,6 +204,7 @@ final class ExternalSourcesPanel extends JPanel {
             }
         }
         primaryAction.getAccessibleContext().setAccessibleName(primaryAction.getText());
+        closeAction.getAccessibleContext().setAccessibleName(closeAction.getText());
     }
 
     private void runPrimaryAction() {
@@ -307,6 +323,8 @@ final class ExternalSourcesPanel extends JPanel {
 
     private static String origin(String origin) {
         if (origin.contains("dfe-portal.svrs.rs.gov.br")) return "Portal da SVRS";
+        if (origin.contains("github.io")) return "GitHub Pages (canal oficial)";
+        if (origin.contains("github.com")) return "GitHub (canal oficial)";
         if (origin.contains("acbr")) return "Espelho técnico ACBr";
         return origin;
     }

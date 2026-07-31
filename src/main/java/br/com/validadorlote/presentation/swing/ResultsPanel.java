@@ -46,9 +46,17 @@ public final class ResultsPanel extends JPanel {
     private final JButton validate = new JButton("Validar pendentes");
     private final JButton cancel = new JButton("Interromper");
     private final TransferHandler dropHandler;
+    private final Runnable modalOpened;
+    private final Runnable modalClosed;
 
     public ResultsPanel(MainPresenter presenter) {
+        this(presenter, () -> { }, () -> { });
+    }
+
+    public ResultsPanel(MainPresenter presenter, Runnable modalOpened, Runnable modalClosed) {
         setLayout(new BorderLayout(0, 18));
+        this.modalOpened = modalOpened;
+        this.modalClosed = modalClosed;
         setBorder(BorderFactory.createEmptyBorder(26, 32, 22, 32));
 
         summary.setFont(summary.getFont().deriveFont(java.awt.Font.BOLD, 18f));
@@ -230,8 +238,13 @@ public final class ResultsPanel extends JPanel {
         chooser.setDialogTitle("Adicionar pasta ou XML ao lote");
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            presenter.inputChosen(chooser.getSelectedFile().toPath());
+        modalOpened.run();
+        try {
+            if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                presenter.inputChosen(chooser.getSelectedFile().toPath());
+            }
+        } finally {
+            modalClosed.run();
         }
     }
 

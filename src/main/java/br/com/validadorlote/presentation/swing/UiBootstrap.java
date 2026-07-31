@@ -36,6 +36,13 @@ public final class UiBootstrap {
     public static void launch(String applicationVersion, ValidateBatchUseCase useCase, String schemasVersion,
             ExternalSourcesUseCase externalSources, ApplicationUpdateUseCase applicationUpdate,
             Runnable afterVisible) {
+        launch(applicationVersion, useCase, schemasVersion, "", externalSources, applicationUpdate,
+                afterVisible);
+    }
+
+    public static void launch(String applicationVersion, ValidateBatchUseCase useCase, String schemasVersion,
+            String tableVersion, ExternalSourcesUseCase externalSources,
+            ApplicationUpdateUseCase applicationUpdate, Runnable afterVisible) {
         SwingUtilities.invokeLater(() -> {
             FlatRobotoFont.install();
             FlatDarkLaf.setup();
@@ -49,7 +56,7 @@ public final class UiBootstrap {
                         thread.setDaemon(true);
                         return thread;
                     }), externalSources);
-            MainFrame frame = new MainFrame(presenter, applicationVersion, schemasVersion);
+            MainFrame frame = new MainFrame(presenter, applicationVersion, schemasVersion, tableVersion);
             presenter.attach(frame);
             frame.setVisible(true);
             if (applicationUpdate != null) {

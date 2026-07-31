@@ -28,7 +28,7 @@ final class ExternalSourcesDialog extends JDialog {
         SwingDialogSupport.hideMinimizeButton(this);
         setDefaultCloseOperation(HIDE_ON_CLOSE);
         setResizable(false);
-        panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry);
+        panel = new ExternalSourcesPanel(checkNow, applyAvailable, retry, () -> setVisible(false));
         setContentPane(panel);
         getRootPane().getActionMap().put(ESCAPE_CLOSE, new AbstractAction() {
             @Override public void actionPerformed(ActionEvent event) {

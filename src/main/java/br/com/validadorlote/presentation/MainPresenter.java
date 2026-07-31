@@ -37,11 +37,11 @@ public final class MainPresenter {
     private long workspaceGeneration;
     private long lastOfferedExternalSourcesRevision = -1;
     private long latestExternalSourcesRevision = -1;
-    private boolean applyingDialogRequested;
-    private boolean externalSourcesDialogOpenPending;
     private boolean externalSourcesApplicationRequested;
     private boolean inUseFeedbackShown;
     private boolean restartRequiredFeedbackShown;
+    private int pendingImports;
+    private boolean modalClosedWaitingForImport;
 
     private static final String ACTIVATION_IN_PROGRESS =
             "Aguarde a atualização das bases terminar antes de validar o lote.";
@@ -96,8 +96,16 @@ public final class MainPresenter {
         final long generation;
         synchronized (workspaceLock) {
             generation = workspaceGeneration;
+            pendingImports++;
         }
-        background.execute(() -> importInput(input, generation));
+        try {
+            background.execute(() -> importInput(input, generation));
+        } catch (RuntimeException failure) {
+            synchronized (workspaceLock) {
+                pendingImports--;
+            }
+            uiThread.execute(() -> requireView().showError(messageFor(failure)));
+        }
     }
 
     /** Valida somente os documentos que ainda aguardam validação. */
@@ -205,6 +213,19 @@ public final class MainPresenter {
         uiThread.execute(() -> publishExternalSources(snapshot));
     }
 
+    /** Reavalia uma atualização que chegou enquanto um seletor modal estava aberto. */
+    public void modalDialogClosed() {
+        synchronized (workspaceLock) {
+            if (pendingImports > 0) {
+                modalClosedWaitingForImport = true;
+                return;
+            }
+        }
+        if (externalSources != null && view != null) {
+            publishExternalSources(externalSources.snapshot(), true);
+        }
+    }
+
     /** Aplica apenas candidatas já confirmadas e deixa o coordenador publicar o progresso. */
     public void applyExternalSourcesRequested() {
         if (externalSources == null) return;
@@ -216,9 +237,33 @@ public final class MainPresenter {
     private void importInput(Path input, long generation) {
         try {
             ImportedBatch imported = runtime.useCase().importDocuments(input);
-            uiThread.execute(() -> mergeImport(imported, generation));
+            uiThread.execute(() -> {
+                try {
+                    mergeImport(imported, generation);
+                } finally {
+                    importFinished();
+                }
+            });
         } catch (RuntimeException e) {
-            uiThread.execute(() -> requireView().showError(messageFor(e)));
+            uiThread.execute(() -> {
+                try {
+                    requireView().showError(messageFor(e));
+                } finally {
+                    importFinished();
+                }
+            });
+        }
+    }
+
+    private void importFinished() {
+        boolean publishPending;
+        synchronized (workspaceLock) {
+            pendingImports = Math.max(0, pendingImports - 1);
+            publishPending = pendingImports == 0 && modalClosedWaitingForImport;
+            if (publishPending) modalClosedWaitingForImport = false;
+        }
+        if (publishPending && externalSources != null) {
+            uiThread.executeLater(() -> publishExternalSources(externalSources.snapshot(), true));
         }
     }
 
@@ -327,10 +372,14 @@ public final class MainPresenter {
     }
 
     private void publishExternalSources(ExternalSourcesSnapshot snapshot) {
+        publishExternalSources(snapshot, false);
+    }
+
+    private void publishExternalSources(ExternalSourcesSnapshot snapshot, boolean forced) {
         if (view == null || externalSources == null) {
             return;
         }
-        if (snapshot.revision() <= latestExternalSourcesRevision) {
+        if (!forced && snapshot.revision() <= latestExternalSourcesRevision) {
             return;
         }
         latestExternalSourcesRevision = snapshot.revision();
@@ -339,15 +388,11 @@ public final class MainPresenter {
         if (snapshot.phase() == ExternalSourcesPhase.APPLYING) {
             inUseFeedbackShown = false;
             restartRequiredFeedbackShown = false;
-            if (!applyingDialogRequested) {
-                applyingDialogRequested = true;
-                deferExternalSourcesDialog();
-            }
             return;
         }
-        applyingDialogRequested = false;
         if (snapshot.phase() == ExternalSourcesPhase.UPDATES_AVAILABLE
                 && !externalSourcesApplicationRequested
+                && !attachedView.isModalDialogOpen()
                 && snapshot.revision() != lastOfferedExternalSourcesRevision) {
             lastOfferedExternalSourcesRevision = snapshot.revision();
             if (attachedView.confirmExternalSourcesUpdate(snapshot)) {
@@ -382,20 +427,7 @@ public final class MainPresenter {
     }
 
     private void openExternalSourcesDialog() {
-        externalSourcesDialogOpenPending = false;
         requireView().openExternalSourcesDialog();
-    }
-
-    private void deferExternalSourcesDialog() {
-        if (externalSourcesDialogOpenPending) {
-            return;
-        }
-        externalSourcesDialogOpenPending = true;
-        uiThread.executeLater(() -> {
-            if (externalSourcesDialogOpenPending) {
-                openExternalSourcesDialog();
-            }
-        });
     }
 
     private MainView requireView() {

@@ -33,18 +33,27 @@ public final class MainFrame extends JFrame implements MainView {
     private final ExternalSourcesDialog externalSourcesDialog;
     private final ExternalSourcesStatusBar externalSourcesStatusBar;
     private final String applicationVersion;
+    private int modalDialogDepth;
 
     public MainFrame(MainPresenter presenter, String applicationVersion, String schemasVersion) {
+        this(presenter, applicationVersion, schemasVersion, "");
+    }
+
+    public MainFrame(MainPresenter presenter, String applicationVersion, String schemasVersion,
+            String tableVersion) {
         super("Validador de XML em Lote - Reforma Tributária");
         this.applicationVersion = applicationVersion;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setIconImage(AppIcon.image());
-        resultsPanel = new ResultsPanel(presenter);
+        resultsPanel = new ResultsPanel(presenter, this::modalDialogOpened,
+                () -> modalDialogClosed(presenter));
         externalSourcesDialog = new ExternalSourcesDialog(this, presenter::checkExternalSourcesRequested,
                 presenter::applyExternalSourcesRequested, presenter::checkExternalSourcesRequested);
         externalSourcesStatusBar = new ExternalSourcesStatusBar(applicationVersion, schemasVersion,
-                presenter::externalSourcesRequested, presenter::checkExternalSourcesRequested);
-        root.add(new DropZonePanel(presenter::inputChosen), "drop");
+                tableVersion, presenter::externalSourcesRequested,
+                presenter::checkExternalSourcesRequested);
+        root.add(new DropZonePanel(presenter::inputChosen, this::modalDialogOpened,
+                () -> modalDialogClosed(presenter)), "drop");
         root.add(resultsPanel, "results");
         JPanel content = new JPanel(new BorderLayout());
         content.add(root, BorderLayout.CENTER);
@@ -97,14 +106,37 @@ public final class MainFrame extends JFrame implements MainView {
     }
 
     @Override
+    public boolean isExternalSourcesDialogOpen() {
+        return externalSourcesDialog.isOpen();
+    }
+
+    @Override
+    public boolean isModalDialogOpen() {
+        return modalDialogDepth > 0 || externalSourcesDialog.isOpen();
+    }
+
+    private void modalDialogOpened() {
+        modalDialogDepth++;
+    }
+
+    private void modalDialogClosed(MainPresenter presenter) {
+        modalDialogDepth = Math.max(0, modalDialogDepth - 1);
+        if (modalDialogDepth == 0) presenter.modalDialogClosed();
+    }
+
+    @Override
     public boolean confirmExternalSourcesUpdate(ExternalSourcesSnapshot snapshot) {
         String message = snapshot.failedCount() > 0
                 ? """
-                  Há atualização disponível. Uma das fontes não respondeu e continuará usando a base atual.
-                  Deseja atualizar o que foi verificado?
+                  Há atualizações disponíveis para as bases de validação. Uma das fontes não respondeu e continuará usando a base atual.
+
+                  Continuar sem atualizar pode deixar as validações defasadas ou menos precisas para as regras mais recentes.
+                  Deseja atualizar o que foi verificado agora?
                   """
                 : """
                   Há atualizações disponíveis para as bases de validação.
+
+                  Continuar sem atualizar pode deixar as validações defasadas ou menos precisas para as regras mais recentes.
                   Deseja atualizar agora?
                   """;
         return SwingDialogSupport.showConfirm(this, message.strip(),
@@ -115,13 +147,25 @@ public final class MainFrame extends JFrame implements MainView {
     @Override
     public void showBasesUpdatedAndInUse(ExternalSourcesSnapshot snapshot) {
         externalSourcesDialog.showSnapshot(snapshot);
-        externalSourcesDialog.toFront();
+        if (externalSourcesDialog.isOpen()) {
+            externalSourcesDialog.toFront();
+            return;
+        }
+        SwingDialogSupport.showMessage(this,
+                "As bases foram atualizadas e já estão em uso nesta sessão.",
+                "Atualização concluída", JOptionPane.INFORMATION_MESSAGE);
     }
 
     @Override
     public void showRestartRequired(ExternalSourcesSnapshot snapshot) {
         externalSourcesDialog.showSnapshot(snapshot);
-        externalSourcesDialog.toFront();
+        if (externalSourcesDialog.isOpen()) {
+            externalSourcesDialog.toFront();
+            return;
+        }
+        SwingDialogSupport.showMessage(this,
+                "A base foi atualizada em disco, mas será usada após reiniciar o aplicativo.",
+                "Atualização concluída", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /** Oferece a página oficial da release sem baixar, instalar ou reiniciar o aplicativo. */
