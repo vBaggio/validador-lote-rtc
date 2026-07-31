@@ -322,14 +322,22 @@ public final class ResultsPanel extends JPanel {
     private void chooseInput(MainPresenter presenter) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        chooser.setMultiSelectionEnabled(true);
         chooser.setDialogTitle("Adicionar pasta ou XML ao lote");
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
         modalOpened.run();
         try {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                presenter.inputChosen(chooser.getSelectedFile().toPath(),
-                        includeSubfolders.isSelected());
+                File[] selected = chooser.getSelectedFiles();
+                if (selected.length == 0 && chooser.getSelectedFile() != null) {
+                    selected = new File[] {chooser.getSelectedFile()};
+                }
+                for (File file : selected) {
+                    if (supported(file)) {
+                        presenter.inputChosen(file.toPath(), includeSubfolders.isSelected());
+                    }
+                }
             }
         } finally {
             modalClosed.run();
@@ -458,8 +466,7 @@ public final class ResultsPanel extends JPanel {
     private TransferHandler fileDropHandler(MainPresenter presenter) {
         return new TransferHandler() {
             @Override public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
-                        && (!support.isDrop() || (support.getDropAction() & COPY) == COPY);
+                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
             }
 
             @Override public boolean importData(TransferSupport support) {

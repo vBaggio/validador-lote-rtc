@@ -13,7 +13,7 @@ import java.awt.geom.Path2D;
 final class OutlineIcon implements Icon {
 
     enum Kind {
-        IMPORT, DRAG_DROP, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
+        IMPORT, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
         DATABASE, WARNING, COPY, FOLDER
     }
 
@@ -53,7 +53,6 @@ final class OutlineIcon implements Icon {
             g.scale(scale, scale);
             switch (kind) {
                 case IMPORT -> importIcon(g);
-                case DRAG_DROP -> dragDropIcon(g);
                 case EXPORT -> exportIcon(g);
                 case REFRESH -> refreshIcon(g);
                 case CANCEL -> cancelIcon(g);
@@ -77,30 +76,6 @@ final class OutlineIcon implements Icon {
         g.drawLine(12, 3, 12, 15);
         g.drawLine(8, 11, 12, 15);
         g.drawLine(16, 11, 12, 15);
-    }
-
-    private static void dragDropIcon(Graphics2D g) {
-        g.drawLine(4, 3, 8, 3);
-        g.drawLine(11, 3, 15, 3);
-        g.drawLine(18, 3, 20, 3);
-        g.drawLine(21, 4, 21, 8);
-        g.drawLine(21, 11, 21, 13);
-        g.drawLine(3, 4, 3, 8);
-        g.drawLine(3, 11, 3, 15);
-        g.drawLine(3, 18, 3, 20);
-        g.drawLine(4, 21, 8, 21);
-        g.drawLine(11, 21, 13, 21);
-
-        Path2D cursor = new Path2D.Double();
-        cursor.moveTo(10, 7);
-        cursor.lineTo(21, 14);
-        cursor.lineTo(16.5, 15.5);
-        cursor.lineTo(19.5, 20.5);
-        cursor.lineTo(16.5, 22);
-        cursor.lineTo(13.5, 17);
-        cursor.lineTo(10, 20);
-        cursor.closePath();
-        g.draw(cursor);
     }
 
     private static void exportIcon(Graphics2D g) {

@@ -1,5 +1,7 @@
 package br.com.validadorlote.presentation.swing;
 
+import com.formdev.flatlaf.extras.FlatSVGIcon;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -52,7 +54,7 @@ public final class DropZonePanel extends JPanel {
                 BorderFactory.createDashedBorder(new Color(115, 115, 115), 1f, 7f, 4f, true),
                 BorderFactory.createEmptyBorder(48, 48, 42, 48)));
 
-        JLabel icon = new JLabel(new OutlineIcon(OutlineIcon.Kind.DRAG_DROP, 48));
+        JLabel icon = new JLabel(new FlatSVGIcon("images/drag-drop.svg", 48, 48));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
         JLabel title = new JLabel("Adicione seus XMLs");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 26f));
@@ -96,9 +98,7 @@ public final class DropZonePanel extends JPanel {
         TransferHandler handler = new TransferHandler() {
             @Override
             public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
-                        && (!support.isDrop()
-                        || (support.getDropAction() & COPY) == COPY);
+                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
             }
 
             @Override
@@ -112,13 +112,14 @@ public final class DropZonePanel extends JPanel {
                     if (!(transferData instanceof List<?> files)) {
                         return false;
                     }
+                    boolean imported = false;
                     for (Object candidate : files) {
                         if (candidate instanceof File file && isSupported(file)) {
                             onInputChosen.accept(file.toPath(), includeSubfolders.isSelected());
-                            return true;
+                            imported = true;
                         }
                     }
-                    return false;
+                    return imported;
                 } catch (Exception ignored) {
                     return false;
                 }
@@ -137,15 +138,21 @@ public final class DropZonePanel extends JPanel {
             Runnable modalOpened, Runnable modalClosed) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        chooser.setMultiSelectionEnabled(true);
         chooser.setDialogTitle("Escolha uma pasta ou um XML");
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(new FileNameExtensionFilter("Arquivos XML (*.xml)", "xml"));
         modalOpened.run();
         try {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-                File selected = chooser.getSelectedFile();
-                if (isSupported(selected)) {
-                    onInputChosen.accept(selected.toPath(), includeSubfolders.isSelected());
+                File[] selected = chooser.getSelectedFiles();
+                if (selected.length == 0 && chooser.getSelectedFile() != null) {
+                    selected = new File[] {chooser.getSelectedFile()};
+                }
+                for (File file : selected) {
+                    if (isSupported(file)) {
+                        onInputChosen.accept(file.toPath(), includeSubfolders.isSelected());
+                    }
                 }
             }
         } finally {
