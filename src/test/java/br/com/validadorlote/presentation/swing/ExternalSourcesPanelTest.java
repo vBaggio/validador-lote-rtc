@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.swing.JLabel;
 import javax.swing.JButton;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.Scrollable;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.ArrayList;
@@ -327,6 +329,40 @@ class ExternalSourcesPanelTest {
                     .anyMatch(text -> text.contains("Tabela atualizada")
                             && text.contains("embarcada nesta versão do aplicativo")
                             && text.contains("sem verificação automática"));
+        });
+    }
+
+    @Test
+    void longStatusTextNeverPushesTheCardBeyondTheViewportNorClipsItsHeight() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            // O cCredPres tem o texto de status mais longo do diálogo; é ele que estourava a
+            // largura da coluna de cards, jogando borda direita e botão de expandir para fora da
+            // área visível, e cortava a segunda linha contra uma altura fixa.
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.IDLE,
+                    List.of(ExternalSourcesStatusBarTest.source(ArtifactId.NFE_SCHEMAS,
+                                    ExternalSourcePhase.NOT_CHECKED),
+                            new ExternalSourceState(ArtifactId.CREDIT_PRESUMED_TABLE,
+                                    "Tabela de crédito presumido (cCredPres)", "13 códigos", true,
+                                    "https://dfe-portal.svrs.rs.gov.br/DFE/TabelaCreditoPresumido",
+                                    null, null, null, null,
+                                    ExternalSourcePhase.NOT_CHECKED, null, null, null)),
+                    0, 0, false, 1));
+
+            JScrollPane scroll = findComponents(panel, JScrollPane.class).getFirst();
+            Component view = scroll.getViewport().getView();
+
+            // Sem isto a coluna fica mais larga que o viewport e, como não há barra horizontal,
+            // o que passa da borda é irrecuperável.
+            assertThat(view).isInstanceOf(Scrollable.class);
+            assertThat(((Scrollable) view).getScrollableTracksViewportWidth()).isTrue();
+
+            // Altura fixa cortaria o texto que quebra em duas linhas.
+            for (Component card : ((Container) view).getComponents()) {
+                if (!(card instanceof JPanel bordered) || bordered.getBorder() == null) continue;
+                assertThat(bordered.getMaximumSize().height)
+                        .isEqualTo(bordered.getPreferredSize().height);
+            }
         });
     }
 

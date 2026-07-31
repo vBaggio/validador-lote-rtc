@@ -12,6 +12,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.Scrollable;
 import javax.swing.ScrollPaneConstants;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -20,6 +21,7 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Rectangle;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -39,7 +41,7 @@ final class ExternalSourcesPanel extends JPanel {
     private static final Color ERROR = new Color(225, 96, 96);
     private static final ResourceBundle MESSAGES = ResourceBundle.getBundle("messages");
 
-    private final JPanel sourceCards = new JPanel();
+    private final JPanel sourceCards = new CardsPanel();
     private final JLabel summary = new JLabel();
     private final JButton primaryAction = new JButton();
     private final JButton closeAction = new JButton("Fechar");
@@ -235,9 +237,14 @@ final class ExternalSourcesPanel extends JPanel {
 
     private JPanel sourceCard(ExternalSourceState source, ExternalSourcesPhase aggregatePhase) {
         boolean expanded = source.name().equals(expandedSourceName);
-        JPanel card = new JPanel(new BorderLayout(14, expanded ? 12 : 0));
+        // A altura máxima acompanha o conteúdo real: texto que quebra em duas linhas precisa de mais
+        // que a altura de uma, e altura fixa cortaria a segunda linha.
+        JPanel card = new JPanel(new BorderLayout(14, expanded ? 12 : 0)) {
+            @Override public Dimension getMaximumSize() {
+                return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+            }
+        };
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, expanded ? 150 : 58));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(78, 78, 78)),
                 BorderFactory.createEmptyBorder(10, 16, 10, 16)));
@@ -451,6 +458,23 @@ final class ExternalSourcesPanel extends JPanel {
 
     private static String escape(String text) {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    /**
+     * Mantém os cards na largura exata do viewport. Sem isso, um texto longo faz a coluna de cards
+     * ficar mais larga que a janela; como não há barra horizontal, a borda direita e o botão de
+     * expandir ficam fora da área visível e clicável.
+     */
+    private static final class CardsPanel extends JPanel implements Scrollable {
+        @Override public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
+        @Override public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) {
+            return 16;
+        }
+        @Override public int getScrollableBlockIncrement(Rectangle visible, int orientation, int direction) {
+            return Math.max(16, visible.height - 16);
+        }
+        @Override public boolean getScrollableTracksViewportWidth() { return true; }
+        @Override public boolean getScrollableTracksViewportHeight() { return false; }
     }
 
     private record Feedback(String text, Color color, OutlineIcon icon) { }
