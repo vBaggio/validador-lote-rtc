@@ -35,6 +35,11 @@ public record ExternalSourceState(
         return artifact == ArtifactId.CALCULATOR;
     }
 
+    /** Base embarcada e permanentemente sem canal de checagem (D-061) — só transparência. */
+    public boolean isCreditPresumedTable() {
+        return artifact == ArtifactId.CREDIT_PRESUMED_TABLE;
+    }
+
     /** Evita que a apresentação dependa diretamente do vocabulário de infraestrutura. */
     public boolean hasUnsupportedSchemaStructure() {
         return failureKind == ArtifactFailureKind.UNSUPPORTED_SCHEMA_STRUCTURE;

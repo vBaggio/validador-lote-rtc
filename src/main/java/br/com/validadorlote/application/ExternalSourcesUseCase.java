@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.EnumMap;
 import java.util.List;
@@ -314,7 +315,7 @@ public final class ExternalSourcesUseCase {
     }
 
     private ExternalSourcesSnapshot createSnapshot() {
-        List<ExternalSourceState> states = List.of(
+        List<ExternalSourceState> checkableStates = List.of(
                 sourceState(ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
                         schemas.activeManifestOrNull(), embeddedSchemas.sourceUrl(),
                         embeddedSchemas.profile(),
@@ -325,17 +326,33 @@ public final class ExternalSourcesUseCase {
                         "IT " + embeddedTables.referenceVersion(),
                         null,
                         at(embeddedTables.extractedAt()), at(embeddedTables.lastCheckedAt())));
-        int available = (int) states.stream()
+        // cCredPres é só transparência: nunca passa pelo coordinator nem entra nos totais
+        // available/failed (D-061 — sem canal de atualização automática).
+        List<ExternalSourceState> states = new ArrayList<>(checkableStates);
+        states.add(creditPresumedState());
+        states = List.copyOf(states);
+        int available = (int) checkableStates.stream()
                 .filter(source -> source.phase() == ExternalSourcePhase.UPDATE_AVAILABLE)
                 .count();
-        int failed = (int) states.stream()
+        int failed = (int) checkableStates.stream()
                 .filter(source -> source.phase() == ExternalSourcePhase.FAILED)
                 .count();
         boolean validationActive = validationLease != null;
-        return new ExternalSourcesSnapshot(aggregate(states, validationActive,
+        return new ExternalSourcesSnapshot(aggregate(checkableStates, validationActive,
                 coordinator.isRunning(), activationReserved, runtimeReloading, restartRequired,
                 updatedAndInUse), states,
                 available, failed, validationActive, revision, runtimeReloadDetail);
+    }
+
+    private ExternalSourceState creditPresumedState() {
+        return new ExternalSourceState(ArtifactId.CREDIT_PRESUMED_TABLE,
+                "Tabela de crédito presumido (cCredPres)",
+                embeddedTables.creditPresumedCount() + " códigos",
+                true,
+                embeddedTables.creditPresumedSource(),
+                null, null,
+                at(embeddedTables.creditPresumedExtractedAt()), null,
+                ExternalSourcePhase.NOT_CHECKED, null, null, null);
     }
 
     private ExternalSourceState sourceState(ArtifactId artifact, String name,

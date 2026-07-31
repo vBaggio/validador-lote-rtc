@@ -42,6 +42,18 @@ public final class TablesManifest {
 
     public String reference() { return props.getProperty("tables.reference"); }
 
+    /** Origem do snapshot embarcado de cCredPres — sem canal de atualização (D-061). */
+    public String creditPresumedSource() { return props.getProperty("ccredpres.source", "desconhecida"); }
+
+    public LocalDate creditPresumedExtractedAt() {
+        String v = props.getProperty("ccredpres.extractedAt");
+        return v == null ? null : LocalDate.parse(v);
+    }
+
+    public int creditPresumedCount() {
+        return Integer.parseInt(props.getProperty("ccredpres.count", "0"));
+    }
+
     public String referenceVersion() { return props.getProperty("tables.referenceVersion"); }
 
     public LocalDate referencePublishedAt() {

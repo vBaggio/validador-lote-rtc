@@ -47,6 +47,23 @@ class AppTest {
     }
 
     @Test
+    void readsTheBuildVersionFromTheCompiledResourceWhenNotPackaged() {
+        assertThat(System.getProperty("jpackage.app-version")).isNull();
+
+        assertThat(App.applicationVersion()).matches("\\d+\\.\\d+\\.\\d+(-.+)?");
+    }
+
+    @Test
+    void packagedVersionOverridesTheBuildResource() {
+        System.setProperty("jpackage.app-version", "9.9.9");
+        try {
+            assertThat(App.applicationVersion()).isEqualTo("9.9.9");
+        } finally {
+            System.clearProperty("jpackage.app-version");
+        }
+    }
+
+    @Test
     void verifiesThePublishedManifestWithTheProductionTrustAnchor() throws IOException {
         CuratedSchemaManifestParser parser = new CuratedSchemaManifestParser();
         CuratedSchemaChannelManifest manifest = parser.parse(publishedManifest());

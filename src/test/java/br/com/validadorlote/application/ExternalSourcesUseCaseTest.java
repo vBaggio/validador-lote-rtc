@@ -260,10 +260,40 @@ class ExternalSourcesUseCaseTest {
     }
 
     @Test
-    void initialSnapshotContainsOnlyTheTwoActiveV0Sources() {
+    void initialSnapshotContainsTheTwoCheckableSourcesPlusTheEmbeddedCreditPresumedTable() {
         assertThat(sources.snapshot().sources())
                 .extracting(ExternalSourceState::artifact)
-                .containsExactly(ArtifactId.NFE_SCHEMAS, ArtifactId.FISCAL_TABLES);
+                .containsExactly(ArtifactId.NFE_SCHEMAS, ArtifactId.FISCAL_TABLES,
+                        ArtifactId.CREDIT_PRESUMED_TABLE);
+    }
+
+    @Test
+    void creditPresumedTableIsAlwaysEmbeddedAndNeverParticipatesInChecksOrAggregates() {
+        ExternalSourceState creditPresumed = source(ArtifactId.CREDIT_PRESUMED_TABLE);
+        assertThat(creditPresumed.embedded()).isTrue();
+        assertThat(creditPresumed.origin())
+                .isEqualTo("https://dfe-portal.svrs.rs.gov.br/DFE/TabelaCreditoPresumido");
+        assertThat(creditPresumed.activeVersion()).isEqualTo("13 códigos");
+        assertThat(creditPresumed.updatedAt()).isEqualTo(Instant.parse("2026-07-31T00:00:00Z"));
+        assertThat(creditPresumed.checkedAt()).isNull();
+        assertThat(creditPresumed.phase()).isEqualTo(ExternalSourcePhase.NOT_CHECKED);
+        assertThat(creditPresumed.candidateVersion()).isNull();
+
+        // checkNow() só consulta os artefatos registrados no coordinator (schemas e tabelas);
+        // cCredPres nunca é anunciado, então nunca conta em available/failed nem muda de fase.
+        schemasAction.checkReturns(available(ArtifactId.NFE_SCHEMAS, "010e_v1.03"));
+        tablesAction.checkFails(ArtifactUpdateException.connection("falha", null));
+        coordinator.checkNow();
+        ExternalSourcesSnapshot snapshot = sources.snapshot();
+        assertThat(snapshot.availableCount()).isOne();
+        assertThat(snapshot.failedCount()).isOne();
+        assertThat(source(ArtifactId.CREDIT_PRESUMED_TABLE).phase())
+                .isEqualTo(ExternalSourcePhase.NOT_CHECKED);
+
+        // applyAvailable() também não a afeta.
+        assertThat(sources.applyAvailable()).isTrue();
+        assertThat(source(ArtifactId.CREDIT_PRESUMED_TABLE).phase())
+                .isEqualTo(ExternalSourcePhase.NOT_CHECKED);
     }
 
     @Test

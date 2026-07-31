@@ -3,80 +3,93 @@
 > Ponteiro rápido de sessão. Leia isto antes do ledger inteiro. Se este arquivo e o `git log`
 > discordarem, o `git log` manda — atualize aqui.
 
-- **Bloco:** B9 — Aviso de nova versão do aplicativo — concluído na branch
-  `bloco/9-aviso-nova-versao`, commit final do B9, revisão independente PASS/PASS após fix loop.
-  Depois de `setVisible`, um worker daemon consulta somente a última release estável do repositório
-  oficial via `api.github.com`, sob orçamento total de 3 segundos e resposta limitada. JSON, HTTP,
-  rate limit, offline, timeout e navegador falham silenciosamente. Versão semântica maior abre um
-  modal com versões e ações para continuar ou abrir a página oficial; o browser fica fora da EDT e
-  a mesma versão não reaparece na sessão. Não há download/instalação/reinício, nem integração com
-  atualização de bases. `clean test`, `jpackageImage` e `git diff --check` passaram; não fazer
-  push/PR/merge sem autorização do dono.
+Este arquivo estava desatualizado (B6–B9 registrados como "em execução"/aguardando aceite do dono
+havia dias, quando já estavam mergeados em `main` — confirmado por `git log --merges`). Reescrito
+em 31/07/2026 a partir do `git log`, não do texto anterior; os parágrafos de blocos fechados foram
+podados para uma linha cada, conforme §8 de `workflow.md`.
 
-- **Bloco:** B8 — Troca atômica do runtime de bases — está em execução na branch
-  `bloco/8-troca-runtime-bases`; plano em
-  `docs/superpowers/plans/2026-07-30-troca-atomica-runtime-bases.md`. **Task 46** concluída no
-  commit `f949b89`, revisão independente PASS/PASS após dois fix loops: `ValidationRuntime` e
-  `RuntimeBases` imutáveis, factory de geração thread-safe e associação persistida no resultado.
-  Estados pendentes/em validação não retêm identidade; cancelamento e falha reais retornam a
-  pendente sem geração residual. **Task 47** concluída em `1d98ec9`, revisão PASS/PASS após fix
-  loop: lease é capturada no mesmo gate da ativação, observers não prendem o gate e ticket impede
-  completion atrasado de liberar uma reserva nova. **Task 48** concluída em `1b1f5db`, revisão
-  PASS/PASS após dois fix loops: factory do composition root monta R2 fora da EDT/lock e o publica
-  atomicamente; falha preserva R1, mantém `current` em disco e expõe fallback sanitizado. **Task
-  49** concluída em `f4316b7`, revisão PASS/PASS: sucesso normal informa “Bases atualizadas e já
-  em uso”; recarga e fallback comunicam estados coerentes em rodapé, diálogo e cards. **Task 50**
-  concluída em `9f46867`: operação, arquitetura, contexto, decisão D-053, estratégia de testes,
-  README e roteiro manual agora registram `activate → build → atomic publish`, R1 preservado e
-  fallback excepcional de próximo boot. O fix loop documental corrigiu Javadoc stale do
-  `ArtifactUpdateCoordinator` e marcou D-048 como histórica/substituída por D-053 no boot-only.
-  `clean test`, `jpackageImage` e `git diff --check` passaram novamente. A re-revisão final foi
-  PASS/PASS; B8 está pronto para o aceite runtime do dono, sem push/PR/merge antes dele.
+## Sessão de 31/07/2026 (mais recente)
 
-- **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
-  `bloco/7-canal-proprio-schemas`; plano em
-  `docs/superpowers/plans/2026-07-30-canal-proprio-schemas-curados.md`. Tasks 1–5 e a correção
-  integrada (`12f5821`) passaram em revisão ampla PASS/PASS. O bootstrap externo foi publicado em
-  `vBaggio/validador-lote-rtc-bases`: GitHub Pages, canal `nfe-schemas`, release `010e_v1.02-r2`, `keyId`
-  `schemas-2026-01` e chave pública Ed25519 agora são configuração embarcada do app. Não há
-  fallback SVRS/ACBr para schemas; indisponibilidade preserva `current` ou a base embarcada. O
-  smoke runtime foi validado pelo dono (registro em `tmp/runtime-smoke-canal-curado-2026-07-30.md`).
-  O dono autorizou push, PR e merge após a documentação das pendências pós-entrega; consultar
-  `docs/operacao-canal-schemas-curados.md` antes de publicar a branch.
+- **Revisão fiscal — totalizações IBS/CBS e crédito presumido.** PR #18 mergeado (`0b3622c`).
+  Revisão independente encontrou e corrigiu dois bugs reais de leitura StAX (nome de tag divergente
+  do XSD: `vBC`→`vBCIBSCBS` no total; `vIBS`/`vCBS`→`vIBSEstCred`/`vCBSEstCred` em `gEstornoCred`).
+  Detalhe completo já registrado no ledger principal (linhas ~900–990).
+- **UI do diálogo "Bases de validação" + harness de release.** PR #19 mergeado (`5b57954`).
+  Corrigido desalinhamento (componentes em `BoxLayout.Y_AXIS` sem `alignmentX`), botão
+  "Detalhes"/"Ocultar" virou flat/só-ícone, "Base ativa" integrado ao grid de detalhes com largura
+  proporcional (não mais `GridLayout` de colunas iguais, que truncava "Origem da base").
+- **D-062 — fonte única de versão.** `DEVELOPMENT_APP_VERSION` hardcoded (dessincronizava de
+  `build.gradle`, prendendo o rótulo/checagem de atualização em `0.1.2` por dois releases) trocado
+  por `app-version.properties` gerado por `processResources` a partir de `build.gradle`. Commit
+  `e63802c` na branch `chore/release-harness` (ainda sem PR).
+- **D-063 — macOS DMG documentado como quebrado em `0.x.x`.** Causa raiz do `jpackage` (rejeita
+  `--app-version` iniciando em `0`) diagnosticada e registrada; **não corrigida** — qualquer
+  workaround faria a versão exibida no mac divergir da de Windows/Linux. Reavaliar perto de
+  `v1.0.0`. Commit `dfdbb1d` na mesma branch, com `docs/operacao-release.md` novo.
+- **Releases publicadas:** `v0.1.0` → `v0.1.1` → `v0.1.2` → `v0.2.0` (retagueada uma vez, ver
+  `docs/operacao-release.md#5`, sobre o fix de UI que só foi percebido depois do primeiro publish).
+  Windows/MSI e Linux/DEB no ar em todas; macOS/DMG falha em todas por D-063.
+- **Pré-plano da Calculadora** (`docs/pesquisa/2026-07-31-pre-plano-calculadora.md`, pesquisa de
+  outra sessão/ferramenta, ainda **não é decisão aprovada**): recomenda não incorporar a Calculadora
+  como camada obrigatória; propõe spike isolado (Fase A) antes de qualquer bloco de produto. Ver
+  "Próximos passos" abaixo.
 
-- **Bloco:** B6 — Canal confiável de artefatos externos — está implementado em
-  `bloco/6-canal-schemas`; o plano-base é
-  `docs/superpowers/plans/2026-07-29-canal-confiavel-schemas.md` e o refinamento entregue está em
-  `docs/superpowers/plans/2026-07-30-fluxo-observavel-atualizacao-bases.md`. As Tasks 30–36 seguem
-  registradas no ledger. **Task 37** (`6c007e0`, revisão PASS/PASS) separou `prepare` e `activate`;
-  **Task 38** (`e3997d1`, PASS/PASS) trouxe falhas tipadas, duas tentativas transitórias e
-  coordenação parcial; **Task 39** (`774c117`, PASS/PASS) criou snapshot único, entrega monotônica,
-  gate e latch; **Task 40** (`0d7ed20`, PASS/PASS) entregou rodapé, spinner e diálogo adaptável;
-  e a **Task 42** adicional (`0ada78b`, PASS/PASS após fix loop) fechou a admissão atômica entre
-  validação e ativação, a recuperação depois de falha terminal e o isolamento de listener com
-  falha. A **Task 43** (`7fa9a73`) desacoplou a abertura modal do dreno de snapshots na EDT; a
-  **Task 44** (`0d5750c`) fechou listener defeituoso em `CHECKING`, falha parcial visível, prazo e
-  cancelamento de corpo HTTP e feedback de executor rejeitado; e a **Task 41** (`944e932`) mais a
-  **Task 45** registram o fechamento documental. `d399af9` não faz parte do histórico
-  consolidado. A Task 45 aguarda revisão independente; `clean test`, `jpackageImage` e
-  `git diff --check` são as verificações locais exigidas. O smoke visual manual no Windows (DPI,
-  diálogo e reinício) permanece pendente e é gate do dono antes de publicação/PR; não fazer push,
-  PR ou merge sem autorização explícita.
-- **B4 fechado:** merge local `0dff1b2` inclui Tasks 21–23 e o refinamento final `1fb7132`.
-  D-045 substituiu deliberadamente o fluxo de validação imediata: área de trabalho de documentos,
-  validação explícita e incremental, tema escuro/Roboto e CSV fora da interface. Suíte final
-  `./gradlew clean test --console=plain`: 342 testes, 0 falhas; `git diff --check` limpo.
-- **Task 25 concluída:** `983ed90`, revisão independente PASS após fix loop. `clean test` (342)
-  e `jpackageImage` passaram; runtime Java 21 e launcher sem falta de classes. Linux escolhe RPM
-  ou DEB conforme a distribuição e explica pré-requisito ausente; ícones `.ico`/`.png`/`.icns`
-  cobrem Windows/Linux/macOS. O Fedora atual não tem `rpmbuild`, portanto não gera instalador local.
-- **Task 26 concluída:** `d45ed3a`, revisão independente PASS. Workflow de tag `v*`, Windows/MSI
-  como gate e Linux/macOS best-effort, com pré-requisitos DEB do Ubuntu. A execução real depende da
-  primeira tag publicada no GitHub; YAML e suíte local foram validados.
-- **Task 27 concluída:** `8e06e66`, revisão independente PASS. README descreve a área de trabalho
-  atual, privacidade, limites e instalação condicional sem prometer CSV ou release publicada.
-- **Task 28 concluída:** PR #7 passou no check `build` e foi mesclado em
-  `96f501f`. A Task 29 (tag/release pública) permanece gate humano separado e não foi iniciada.
-- **Débitos herdados:** CSV continua no backend sem rota na UI até task explícita; custo de I/O
-  (leitura até 3× por documento) permanece sem risco fiscal; pendência de ícone `.ico`/equivalente
-  já foi resolvida na Task 25.
+## Blocos fechados (podados)
+
+- **B10 — Upgrade MSI** (`2716b5f`, PR #13): `UpgradeCode` fixo no WiX para que um MSI novo
+  substitua o antigo em vez de instalar lado a lado.
+- **B9 — Aviso de nova versão do app** (`102840c`, PR #11): worker daemon consulta a última release
+  estável via `api.github.com` (orçamento 3s, falha silenciosa), abre modal em versão semântica
+  maior; sem download/instalação automática.
+- **B8 — Troca atômica do runtime de bases** (`5874dae`, PR #10): `activate → build → atomic
+  publish`; R1 nunca é destruído até R2 estar pronto e publicado; fallback de próximo boot
+  documentado (D-053, substitui D-048).
+- **B7 — Canal próprio de schemas curados** (`c90dd48`, PR #9): bootstrap externo publicado em
+  `vBaggio/validador-lote-rtc-bases` (GitHub Pages, canal `nfe-schemas`, chave Ed25519
+  `schemas-2026-01`); sem fallback SVRS/ACBr para schemas.
+- **B6 — Canal confiável de artefatos externos** (`4468af4`, PR #4, com refinamentos posteriores
+  integrados em B7/B8): snapshot único, entrega monotônica, rodapé/spinner/diálogo adaptável.
+- **B4 e anteriores** (B0–B5): estrutura local, motor XSD, camada de rejeição, área de trabalho de
+  documentos — histórico completo em `git log -p -- .superpowers/sdd/progress.md`.
+
+Planos correspondentes em `docs/superpowers/plans/*.md` (B6, canal-confiavel-schemas;
+B7, canal-proprio-schemas-curados; B8, troca-atomica-runtime-bases; B6-refinamento,
+fluxo-observavel-atualizacao-bases) **ainda não foram movidos para `done/`** apesar dos blocos
+estarem mergeados — débito de arquivamento (§8), não urgente, mas verdadeiro. Antes de mover,
+conferir tarefa a tarefa se cada plano fechou por inteiro ou só em parte.
+
+## Débitos abertos conhecidos (não exaustivo — ver `progress.md` para o histórico completo)
+
+- Arquivar os 4 planos de B6–B8 para `docs/superpowers/plans/done/` (checagem tarefa a tarefa antes
+  de mover).
+- ~~`docs/pesquisa/candidatas-rejeicao-pos-b6.md` tem duas versões a reconciliar~~ — **falso,
+  herdado sem checar de uma versão anterior deste arquivo.** `git log --follow` mostra reconciliação
+  única em `f91e27a` (28/07/2026); só existe um arquivo. Real: esse documento é a matriz canônica
+  das 157 regras UB da NT (32 entregues até o bloco 7) e **está desatualizado em dois pontos**: (1)
+  `1150 / UB54a-10` segue listado como "Não recomendar localmente" (linha ~218), mas
+  `ItemIbsCompositionRule`/D-061 (31/07/2026) entregou exatamente essa regra como identidade
+  aritmética, não recomposição; (2) não cobre a família `W` (totalizações declaradas W35–W60,
+  D-060/D-061), que é escopo fora do que o documento declarou ("regras do grupo UB"). Precisa de
+  atualização antes de servir de base pra priorizar o próximo bloco.
+- 1141/1144 sem fixture de corpus isolado (débito do B6).
+- `grupo.xsd` duplicado pode ser removido do repositório (débito de limpeza, sem risco).
+- Código 8 do `cCredPres`: `ibsInicio=null` conflaciona "não aplicável" com "vigência não
+  informada" — sem efeito hoje (`deduzTotal=false`), mas documentar antes de qualquer atualização
+  futura da tabela (ver ledger, linha ~989).
+- README não documenta instalação em macOS (o instalador nunca saiu por D-063) — hoje README só
+  fala de Windows/Linux, silêncio sobre mac; considerar nota explícita em vez de omissão.
+- `ExternalSourcesUseCaseTest.blockedFactoryKeepsTheGateClosedWithoutBlockingPublicationDrain` é
+  flaky **pré-existente**: falha 4/4 isolado, passa na suíte completa; confirmado em `origin/main`
+  (`5b57954`), não é regressão da sessão de 31/07. Teste de concorrência dependente de ordem.
+
+## Próximos passos propostos (para priorização do dono, nenhum iniciado)
+
+1. **Fechar o harness**: ~~abrir PR~~ feito em `chore/consolida-sessao` (release `v0.2.1`). Resta
+   arquivar os planos de B6–B8 em `plans/done/` e atualizar `docs/context.md` (índice + a frase de
+   "v1" que hoje promete "conferência de valores via motor oficial" sem qualificar o pré-plano da
+   Calculadora).
+2. **Calculadora — Fase A (spike)**, só depois do item 1, condicionada às respostas da seção 8 do
+   pré-plano (público-alvo, corpus anonimizado, mensagem para dados simulados, setup do usuário,
+   limiar de cobertura). Gate A: só segue para Fase B se houver subconjunto real de XMLs
+   anonimizados calculável sem inferência de campo.
+3. **macOS DMG**: decisão adiada para perto de `v1.0.0` (D-063).
