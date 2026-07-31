@@ -282,7 +282,13 @@ public final class XmlMetadataParser {
         }
         if (isPath(stack, "vIBS", "gIBS", "IBSCBSTot", "total")) return "total/vIBS";
         if (isPath(stack, "vCBS", "gCBS", "IBSCBSTot", "total")) return "total/vCBS";
-        if (isPath(stack, "vBC", "IBSCBSTot", "total")) return "total/vBC";
+        // O total é "vBCIBSCBS" (TIBSCBSMonoTot, DFeTiposBasicos_v1.00.xsd:563), não "vBC" —
+        // esse nome só existe no item (gIBSCBS/vBC, TCIBS/TCIBS_NFe). A chave interna continua
+        // "total/vBC" para casar com Sphere.BASE em TaxTotalizationRule.
+        // O total é "vBCIBSCBS" (TIBSCBSMonoTot, DFeTiposBasicos_v1.00.xsd:563), não "vBC" —
+        // esse nome só existe no item (gIBSCBS/vBC, TCIBS/TCIBS_NFe). A chave interna continua
+        // "total/vBC" para casar com Sphere.BASE em TaxTotalizationRule.
+        if (isPath(stack, "vBCIBSCBS", "IBSCBSTot", "total")) return "total/vBC";
         if (isPath(stack, "vDif", "gIBSUF", "gIBS", "IBSCBSTot", "total")) return "total/vDifIBSUF";
         if (isPath(stack, "vDevTrib", "gIBSUF", "gIBS", "IBSCBSTot", "total")) return "total/vDevIBSUF";
         if (isPath(stack, "vDif", "gIBSMun", "gIBS", "IBSCBSTot", "total")) return "total/vDifIBSMun";

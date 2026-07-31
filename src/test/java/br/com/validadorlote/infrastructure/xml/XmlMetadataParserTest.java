@@ -77,6 +77,18 @@ class XmlMetadataParserTest {
     }
 
     @Test
+    void readsTheIbsCbsBaseTotalByItsRealTagName(@TempDir Path dir) throws IOException {
+        // W35-10/1076: total/IBSCBSTot/vBCIBSCBS (DFeTiposBasicos_v1.00.xsd:563, TIBSCBSMonoTot),
+        // não "vBC" — esse é o nome do campo homônimo por item (gIBSCBS/vBC, linha 894/1034).
+        var doc = parser.parse(write(dir, "totalbase.xml", NFE.replace(
+                "<IBSCBSTot><vIBS>0.00</vIBS></IBSCBSTot>",
+                "<IBSCBSTot><vBCIBSCBS>123.45</vBCIBSCBS><vIBS>0.00</vIBS></IBSCBSTot>")))
+                .document();
+
+        assertThat(doc.ibsCbsTotals()).containsEntry("vBC", new BigDecimal("123.45"));
+    }
+
+    @Test
     void mapsLinesToItemRanges(@TempDir Path dir) throws IOException {
         var index = parser.parse(write(dir, "doc.xml", NFE)).itemIndex();
 

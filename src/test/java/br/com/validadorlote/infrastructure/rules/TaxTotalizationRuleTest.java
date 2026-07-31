@@ -18,7 +18,7 @@ class TaxTotalizationRuleTest {
     void predicts1076WhenTheIbsCbsBaseTotalDiffersFromItsItems(@TempDir Path dir) throws IOException {
         Path xml = write(dir, "0.10", "0.00", "0.90", "0.10", "0.00", "0.90");
         Files.writeString(xml, Files.readString(xml)
-                .replaceFirst("<vBC>10.00</vBC><gIBS>", "<vBC>9.99</vBC><gIBS>"));
+                .replaceFirst("<vBCIBSCBS>10.00</vBCIBSCBS><gIBS>", "<vBCIBSCBS>9.99</vBCIBSCBS><gIBS>"));
 
         var outcome = new TaxTotalizationRule(TaxTotalizationRule.Sphere.BASE)
                 .evaluate(new XmlMetadataParser().parse(xml).document(), new TaxGroupExtractor().extract(xml));
@@ -109,7 +109,7 @@ class TaxTotalizationRuleTest {
                   <det nItem="1"><prod/><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gIBSCBS>
                     <vBC>10.00</vBC><gIBSUF>%s</gIBSUF><gIBSMun>%s</gIBSMun><vIBS>0.10</vIBS><gCBS>%s</gCBS>
                   </gIBSCBS></IBSCBS></imposto></det>
-                  <total><IBSCBSTot><vBC>10.00</vBC><gIBS><gIBSUF><vIBSUF>%s</vIBSUF></gIBSUF>
+                  <total><IBSCBSTot><vBCIBSCBS>10.00</vBCIBSCBS><gIBS><gIBSUF><vIBSUF>%s</vIBSUF></gIBSUF>
                     <gIBSMun><vIBSMun>%s</vIBSMun></gIBSMun><vIBS>0.10</vIBS></gIBS>
                     <gCBS><vCBS>%s</vCBS></gCBS></IBSCBSTot></total>
                 </infNFe></NFe>
