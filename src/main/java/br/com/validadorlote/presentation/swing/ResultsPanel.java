@@ -46,7 +46,7 @@ public final class ResultsPanel extends JPanel {
     private final JProgressBar progress = new JProgressBar();
     private final DocumentsTableModel documentsModel = new DocumentsTableModel();
     private final DocumentProblemsTableModel problemsModel = new DocumentProblemsTableModel();
-    private final JTable documentsTable = new ZebraTable(documentsModel);
+    private final ZebraTable documentsTable = new ZebraTable(documentsModel);
     private final JButton add = new JButton("Adicionar XMLs...");
     private final JButton remove = new JButton("Excluir selecionado");
     private final JButton clear = new JButton("Limpar");
@@ -99,7 +99,7 @@ public final class ResultsPanel extends JPanel {
         documentContent.add(flexibleColumnScroll(documentsTable, 6, 260), BorderLayout.CENTER);
         documentContent.add(documentActions, BorderLayout.SOUTH);
         JPanel documents = titledPanel("Documentos Fiscais", documentContent);
-        JTable problemsTable = configuredProblemsTable();
+        ZebraTable problemsTable = configuredProblemsTable();
         JPanel problems = titledPanel("Problemas do documento selecionado",
                 flexibleColumnScroll(problemsTable, 1, 520));
         JPanel grids = new JPanel(new GridBagLayout());
@@ -246,8 +246,8 @@ public final class ResultsPanel extends JPanel {
         documentsTable.getColumnModel().getColumn(6).setCellRenderer(message);
     }
 
-    private JTable configuredProblemsTable() {
-        JTable table = new ZebraTable(problemsModel);
+    private ZebraTable configuredProblemsTable() {
+        ZebraTable table = new ZebraTable(problemsModel);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.setRowHeight(28);
         table.setIntercellSpacing(new Dimension(0, 0));
@@ -264,7 +264,8 @@ public final class ResultsPanel extends JPanel {
      * Mantém a coluna de texto legível e usa o espaço livre do viewport sem
      * sacrificar a rolagem horizontal em janelas menores.
      */
-    private static JScrollPane flexibleColumnScroll(JTable table, int flexibleColumn, int minimumWidth) {
+    private static JScrollPane flexibleColumnScroll(ZebraTable table, int flexibleColumn,
+            int minimumWidth) {
         JScrollPane scroll = new JScrollPane(table);
         scroll.getViewport().addComponentListener(new ComponentAdapter() {
             @Override public void componentResized(ComponentEvent event) {
@@ -275,7 +276,7 @@ public final class ResultsPanel extends JPanel {
         return scroll;
     }
 
-    private static void resizeFlexibleColumn(JTable table, int viewportWidth,
+    private static void resizeFlexibleColumn(ZebraTable table, int viewportWidth,
             int flexibleColumn, int minimumWidth) {
         int fixedWidth = 0;
         for (int index = 0; index < table.getColumnModel().getColumnCount(); index++) {
@@ -290,10 +291,7 @@ public final class ResultsPanel extends JPanel {
             column.setWidth(targetWidth);
         }
         int tableWidth = fixedWidth + targetWidth;
-        Dimension preferred = table.getPreferredSize();
-        if (preferred.width != tableWidth) {
-            table.setPreferredSize(new Dimension(tableWidth, preferred.height));
-        }
+        table.setPreferredContentWidth(tableWidth);
     }
 
     private GridBagConstraints constraints(double weightY, Insets insets) {
@@ -375,8 +373,23 @@ public final class ResultsPanel extends JPanel {
     /** JTable com listras quase imperceptíveis, mantendo a seleção intacta. */
     static final class ZebraTable extends JTable {
 
+        private int preferredContentWidth = -1;
+
         ZebraTable(javax.swing.table.TableModel model) {
             super(model);
+        }
+
+        void setPreferredContentWidth(int width) {
+            if (preferredContentWidth == width) return;
+            preferredContentWidth = width;
+            revalidate();
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferred = super.getPreferredSize();
+            if (preferredContentWidth >= 0) preferred.width = preferredContentWidth;
+            return preferred;
         }
 
         @Override

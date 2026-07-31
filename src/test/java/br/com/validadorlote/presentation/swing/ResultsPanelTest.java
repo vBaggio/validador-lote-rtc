@@ -33,4 +33,19 @@ class ResultsPanelTest {
             assertThat(selected).isEqualTo(new Color(30, 90, 160));
         });
     }
+
+    @Test
+    void preferredContentWidthDoesNotFreezeHeightBeforeRowsAreImported() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            DefaultTableModel model = new DefaultTableModel(new Object[] {"Valor"}, 0);
+            ResultsPanel.ZebraTable table = new ResultsPanel.ZebraTable(model);
+            table.setPreferredContentWidth(640);
+            int emptyHeight = table.getPreferredSize().height;
+
+            model.addRow(new Object[] {"XML importado"});
+
+            assertThat(table.getPreferredSize().width).isEqualTo(640);
+            assertThat(table.getPreferredSize().height).isGreaterThan(emptyHeight);
+        });
+    }
 }
