@@ -340,9 +340,12 @@ public final class ExternalSourcesUseCase {
             ArtifactManifest manifest, String fallbackOrigin, String embeddedVersion,
             String embeddedHash, Instant embeddedUpdatedAt, Instant embeddedCheckedAt) {
         OperationalState operation = operationalState(artifact);
+        boolean embedded = manifest == null;
         return new ExternalSourceState(artifact, name,
-                manifest == null ? embeddedVersion + " (embarcada)" : manifest.version(),
+                embedded ? embeddedVersion : manifest.version(),
+                embedded,
                 manifest == null ? fallbackOrigin : manifest.sourceUrl(),
+                operation.candidateOrigin(),
                 manifest == null ? abbreviate(embeddedHash) : abbreviate(manifest.sha256()),
                 manifest == null ? embeddedUpdatedAt : manifest.updatedAt(),
                 operation.checkedAt() == null ? embeddedCheckedAt : operation.checkedAt(),
@@ -355,7 +358,8 @@ public final class ExternalSourcesUseCase {
         if (event != null) {
             return new OperationalState(phase(event.status()), event.at(), event.detail(),
                     event.failureKind(), event.candidate() == null
-                    ? null : event.candidate().version());
+                    ? null : event.candidate().version(),
+                    event.candidate() == null ? null : event.candidate().sourceUrl());
         }
 
         ArtifactUpdateStateStore.State saved = coordinator.state(artifact);
@@ -364,12 +368,12 @@ public final class ExternalSourcesUseCase {
         }
         return switch (saved.result()) {
             case UP_TO_DATE -> new OperationalState(ExternalSourcePhase.UP_TO_DATE,
-                    saved.lastCheckedAt(), saved.detail(), saved.failureKind(), null);
+                    saved.lastCheckedAt(), saved.detail(), saved.failureKind(), null, null);
             case APPLIED -> new OperationalState(ExternalSourcePhase.UP_TO_DATE,
-                    saved.lastCheckedAt(), saved.detail(), null, null);
+                    saved.lastCheckedAt(), saved.detail(), null, null, null);
             case FAILED -> new OperationalState(ExternalSourcePhase.FAILED,
                     saved.lastCheckedAt(), saved.detail(), saved.failureKind(),
-                    saved.candidateVersion());
+                    saved.candidateVersion(), null);
             case CHECKING, UPDATE_AVAILABLE, APPLYING -> OperationalState.notChecked();
         };
     }
@@ -468,11 +472,12 @@ public final class ExternalSourcesUseCase {
     }
 
     private record OperationalState(ExternalSourcePhase phase, Instant checkedAt,
-            String detail, ArtifactFailureKind failureKind, String candidateVersion) {
+            String detail, ArtifactFailureKind failureKind, String candidateVersion,
+            String candidateOrigin) {
 
         private static OperationalState notChecked() {
             return new OperationalState(ExternalSourcePhase.NOT_CHECKED,
-                    null, null, null, null);
+                    null, null, null, null, null);
         }
     }
 }

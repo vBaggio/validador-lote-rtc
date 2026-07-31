@@ -96,7 +96,8 @@ class ExternalSourcesStatusBarTest {
     static ExternalSourceState source(ArtifactId artifact, ExternalSourcePhase phase) {
         return new ExternalSourceState(artifact,
                 artifact == ArtifactId.NFE_SCHEMAS ? "Schemas NF-e/NFC-e" : "Tabela CST/cClassTrib",
-                "010e", "https://dfe-portal.svrs.rs.gov.br/", "123456", null, null,
+                "010e", false, "https://dfe-portal.svrs.rs.gov.br/", null,
+                "123456", null, null,
                 phase, null, null, phase == ExternalSourcePhase.UPDATE_AVAILABLE ? "010f" : null);
     }
 
