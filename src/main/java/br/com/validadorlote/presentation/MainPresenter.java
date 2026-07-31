@@ -121,6 +121,7 @@ public final class MainPresenter {
         synchronized (workspaceLock) {
             if (validating) return;
             pending = workspace.stream().filter(document -> document.status() == DocumentStatus.PENDING)
+                    .sorted(WorkspaceDocumentOrder.DISPLAY)
                     .map(document -> document.document().source()).toList();
             if (pending.isEmpty()) {
                 publishWorkspace();
