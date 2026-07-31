@@ -31,6 +31,12 @@ contábeis e fiscais a localizar inconsistências antes de tratar os documentos 
 > [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe), que oferece
 > uma conferência mais apurada, realizada individualmente, um arquivo por vez.
 
+<p align="center">
+  <img src="docs/assets/app-overview.png"
+       alt="Tela principal do Validador de XML em Lote exibindo documentos e seus problemas"
+       width="1100">
+</p>
+
 ## O que o aplicativo faz
 
 - Reúne uma pasta ou vários XMLs em um único lote de trabalho.
