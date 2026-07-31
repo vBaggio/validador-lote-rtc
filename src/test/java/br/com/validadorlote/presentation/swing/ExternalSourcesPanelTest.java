@@ -52,6 +52,8 @@ class ExternalSourcesPanelTest {
                             ExternalSourcePhase.NOT_CHECKED, null, null, null)),
                     0, 0, false, 1));
 
+            expand(panel, "Schemas NF-e/NFC-e");
+
             List<JLabel> labels = findComponents(panel, JLabel.class);
             assertThat(labels).extracting(JLabel::getText)
                     .contains("Base ativa", "010e_v1.02-r2", "Origem da base",
@@ -73,6 +75,8 @@ class ExternalSourcesPanelTest {
                             null, null, null, null, ExternalSourcePhase.NOT_CHECKED,
                             null, null, null)),
                     0, 0, false, 1));
+
+            expand(panel, "Schemas NF-e/NFC-e");
 
             assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
                     .contains("Base ativa", "010e_v1.02", "Incluída no aplicativo")
@@ -100,6 +104,28 @@ class ExternalSourcesPanelTest {
                     .contains("Atualização disponível: 010e_v1.02-r2"
                             + " · vBaggio/validador-lote-rtc-bases")
                     .noneMatch(text -> text.contains("github.io"));
+        });
+    }
+
+    @Test
+    void sourcesStartCollapsedAndRevealDetailsOnlyWhenRequested() throws Exception {
+        ExternalSourcesStatusBarTest.runOnEdt(() -> {
+            ExternalSourcesPanel panel = panel();
+            panel.showSnapshot(new ExternalSourcesSnapshot(ExternalSourcesPhase.IDLE,
+                    List.of(new ExternalSourceState(ArtifactId.NFE_SCHEMAS,
+                            "Schemas NF-e/NFC-e", "010e_v1.02", true,
+                            "Canal curado", null, null, null, null,
+                            ExternalSourcePhase.NOT_CHECKED, null, null, null)),
+                    0, 0, false, 1));
+
+            assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
+                    .contains("Schemas NF-e/NFC-e", "Ainda não verificada")
+                    .doesNotContain("Base ativa", "010e_v1.02");
+
+            expand(panel, "Schemas NF-e/NFC-e");
+
+            assertThat(findComponents(panel, JLabel.class)).extracting(JLabel::getText)
+                    .contains("Base ativa", "010e_v1.02", "Incluída no aplicativo");
         });
     }
 
@@ -275,6 +301,13 @@ class ExternalSourcesPanelTest {
 
     private static ExternalSourcesPanel panel() {
         return new ExternalSourcesPanel(() -> { }, () -> { }, () -> { }, () -> { });
+    }
+
+    private static void expand(ExternalSourcesPanel panel, String sourceName) {
+        findComponents(panel, JButton.class).stream()
+                .filter(button -> ("Ver detalhes de " + sourceName).equals(
+                        button.getAccessibleContext().getAccessibleName()))
+                .findFirst().orElseThrow().doClick();
     }
 
     private static ExternalSourcesSnapshot activitySnapshot(ExternalSourcesPhase phase,

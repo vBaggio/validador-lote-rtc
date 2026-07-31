@@ -14,7 +14,7 @@ final class OutlineIcon implements Icon {
 
     enum Kind {
         IMPORT, EXPORT, REFRESH, CANCEL, DELETE, CORRECT, ERROR, NEUTRAL, PROGRESS,
-        DATABASE, WARNING, COPY, FOLDER
+        DATABASE, WARNING, COPY, FOLDER, EXPAND, COLLAPSE
     }
 
     private final Kind kind;
@@ -65,6 +65,8 @@ final class OutlineIcon implements Icon {
                 case WARNING -> warningIcon(g);
                 case COPY -> copyIcon(g);
                 case FOLDER -> folderIcon(g);
+                case EXPAND -> expandIcon(g);
+                case COLLAPSE -> collapseIcon(g);
             }
         } finally {
             g.dispose();
@@ -173,5 +175,15 @@ final class OutlineIcon implements Icon {
         path.lineTo(3, 20);
         path.closePath();
         g.draw(path);
+    }
+
+    private static void expandIcon(Graphics2D g) {
+        g.drawLine(7, 9, 12, 14);
+        g.drawLine(12, 14, 17, 9);
+    }
+
+    private static void collapseIcon(Graphics2D g) {
+        g.drawLine(7, 14, 12, 9);
+        g.drawLine(12, 9, 17, 14);
     }
 }
