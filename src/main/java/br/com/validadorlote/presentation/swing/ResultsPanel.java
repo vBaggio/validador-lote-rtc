@@ -22,6 +22,8 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Desktop;
+import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.Dimension;
@@ -30,7 +32,9 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -47,6 +51,8 @@ public final class ResultsPanel extends JPanel {
     private final JButton remove = new JButton("Excluir selecionado");
     private final JButton clear = new JButton("Limpar");
     private final JButton removeValid = new JButton("Remover válidos");
+    private final JButton openSelected = new JButton("Abrir arquivo");
+    private final JButton copyAccessKey = new JButton("Copiar chave");
     private final JButton validate = new JButton("Validar pendentes");
     private final JButton cancel = new JButton("Abortar validação");
     private final TransferHandler dropHandler;
@@ -79,9 +85,12 @@ public final class ResultsPanel extends JPanel {
             problemsModel.setFindings(row < 0 ? List.of()
                     : documentsModel.documentAt(documentsTable.convertRowIndexToModel(row)).findings());
             remove.setEnabled(row >= 0 && !cancel.isVisible());
+            updateSelectionActions();
         });
 
         JPanel documentActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        documentActions.add(openSelected);
+        documentActions.add(copyAccessKey);
         documentActions.add(remove);
         documentActions.add(removeValid);
         documentActions.add(clear);
@@ -107,6 +116,12 @@ public final class ResultsPanel extends JPanel {
         clear.addActionListener(event -> confirmClear(presenter));
         removeValid.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
         removeValid.addActionListener(event -> presenter.removeValidRequested());
+        openSelected.setIcon(new OutlineIcon(OutlineIcon.Kind.EXPORT));
+        openSelected.addActionListener(event -> openSelectedFile());
+        copyAccessKey.setIcon(new OutlineIcon(OutlineIcon.Kind.COPY));
+        copyAccessKey.addActionListener(event -> copySelectedAccessKey());
+        openSelected.setEnabled(false);
+        copyAccessKey.setEnabled(false);
         validate.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
         validate.addActionListener(event -> presenter.validateRequested());
         stylePrimaryAction(validate);
@@ -166,6 +181,7 @@ public final class ResultsPanel extends JPanel {
         validate.setEnabled(!validating && pending > 0);
         cancel.setVisible(validating);
         remove.setEnabled(!validating && documentsTable.getSelectedRow() >= 0);
+        updateSelectionActions();
         documentsTable.setTransferHandler(validating ? null : dropHandler);
     }
 
@@ -308,12 +324,51 @@ public final class ResultsPanel extends JPanel {
 
     private void confirmClear(MainPresenter presenter) {
         if (!clear.isEnabled()) return;
-        int choice = JOptionPane.showConfirmDialog(this,
-                "Limpar todos os documentos do lote?",
-                "Limpar lote",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
-        if (choice == JOptionPane.YES_OPTION) presenter.clearRequested();
+        if (SwingDialogSupport.showConfirm(this, "Limpar todos os documentos do lote?", "Limpar lote",
+                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE)) {
+            presenter.clearRequested();
+        }
+    }
+
+    private void updateSelectionActions() {
+        boolean selected = documentsTable.getSelectedRow() >= 0;
+        openSelected.setEnabled(selected);
+        copyAccessKey.setEnabled(selected && selectedAccessKey() != null);
+    }
+
+    private void openSelectedFile() {
+        Path source = selectedSource();
+        if (source == null) return;
+        if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+            SwingDialogSupport.showMessage(this, "Não foi possível abrir arquivos neste ambiente.",
+                    "Abrir arquivo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            Desktop.getDesktop().open(source.toFile());
+        } catch (IOException | RuntimeException failure) {
+            SwingDialogSupport.showMessage(this, "Não foi possível abrir o arquivo selecionado.",
+                    "Abrir arquivo", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void copySelectedAccessKey() {
+        String key = selectedAccessKey();
+        if (key == null) return;
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(key), null);
+        } catch (RuntimeException failure) {
+            SwingDialogSupport.showMessage(this, "Não foi possível copiar a chave de acesso.",
+                    "Copiar chave", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private String selectedAccessKey() {
+        int row = documentsTable.getSelectedRow();
+        if (row < 0) return null;
+        String key = documentsModel.documentAt(documentsTable.convertRowIndexToModel(row))
+                .document().accessKey();
+        return key == null || key.isBlank() ? null : key;
     }
 
     /** JTable com listras quase imperceptíveis, mantendo a seleção intacta. */

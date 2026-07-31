@@ -290,6 +290,11 @@ public final class MainPresenter {
                 DocumentValidationResult result = validationRunner.validate(validationRuntime, source,
                         token);
                 uiThread.execute(() -> applyValidation(source, result, token, validationRuntime.bases()));
+                // TODO: remover após os testes manuais do fluxo de abortar validação.
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
             } catch (RuntimeException e) {
                 uiThread.execute(() -> validationFailed(source, token, e));
             }
