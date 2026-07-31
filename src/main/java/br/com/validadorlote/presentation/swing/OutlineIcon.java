@@ -97,7 +97,7 @@ final class OutlineIcon implements Icon {
     }
 
     private static void cancelIcon(Graphics2D g) {
-        g.drawRoundRect(3, 3, 18, 18, 5, 5);
+        g.drawOval(3, 3, 18, 18);
         g.drawLine(8, 8, 16, 16);
         g.drawLine(16, 8, 8, 16);
     }

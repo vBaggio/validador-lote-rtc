@@ -16,7 +16,8 @@ class OutlineIconTest {
     void operationalIconsPaintAsVectors() throws Exception {
         ExternalSourcesStatusBarTest.runOnEdt(() -> {
             for (OutlineIcon.Kind kind : List.of(OutlineIcon.Kind.DATABASE, OutlineIcon.Kind.CORRECT,
-                    OutlineIcon.Kind.WARNING, OutlineIcon.Kind.ERROR, OutlineIcon.Kind.REFRESH)) {
+                    OutlineIcon.Kind.WARNING, OutlineIcon.Kind.ERROR, OutlineIcon.Kind.REFRESH,
+                    OutlineIcon.Kind.CANCEL)) {
                 BufferedImage image = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
                 Graphics2D graphics = image.createGraphics();
                 try {
