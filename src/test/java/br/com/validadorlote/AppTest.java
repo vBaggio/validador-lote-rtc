@@ -42,6 +42,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AppTest {
 
     @Test
+    void packagedRuntimeSmokeInitializesTheTrustedEd25519Key() {
+        App.verifyPackagedRuntime();
+    }
+
+    @Test
     void verifiesThePublishedManifestWithTheProductionTrustAnchor() throws IOException {
         CuratedSchemaManifestParser parser = new CuratedSchemaManifestParser();
         CuratedSchemaChannelManifest manifest = parser.parse(publishedManifest());

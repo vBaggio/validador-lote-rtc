@@ -24,6 +24,19 @@ jobs:
       - name: Testes
         shell: bash
         run: ./gradlew clean test --console=plain
+      - name: Smoke do launcher Windows empacotado
+        shell: pwsh
+        run: |
+          $appVersion = $env:GITHUB_REF_NAME -replace '^v', ''
+          ./gradlew jpackageImage -PappVersion="$appVersion" --console=plain
+          $launcher = Join-Path $PWD 'build\jpackage\ValidadorLoteRTC\ValidadorLoteRTC.exe'
+          if (-not (Test-Path $launcher)) {
+            throw "Launcher empacotado não encontrado: $launcher"
+          }
+          & $launcher '--packaging-smoke'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Smoke do launcher falhou com código $LASTEXITCODE"
+          }
       - name: Gerar instalador MSI
         shell: bash
         run: |

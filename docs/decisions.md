@@ -4,6 +4,18 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-057 — Runtime empacotado inclui Ed25519 e o launcher é exercitado no Windows (31/07/2026)
+
+O canal curado de schemas inicializa uma chave pública Ed25519 durante o bootstrap. O módulo
+`jdk.crypto.ec` é, portanto, dependência obrigatória do runtime `jlink`, embora o núcleo do
+aplicativo compile sem ele. Sua ausência no MSI 0.1.1 fez o bootstrap falhar antes da janela e o
+launcher nativo mostrar apenas a mensagem genérica “Failed to launch JVM”.
+
+O conjunto de módulos do `jpackage` passa a incluí-lo. O workflow de release também gera um
+app-image Windows e executa seu próprio launcher com `--packaging-smoke`; esse caminho inicializa
+o trust anchor Ed25519 e encerra antes da interface, verificando launcher, runtime e dependência
+que a suíte Java comum não consegue cobrir.
+
 ## D-056 — Simulação explícita usa a vigência própria de cada regime (31/07/2026)
 
 A validação preserva a data extraída do XML, mas pode receber uma data operacional somente para
