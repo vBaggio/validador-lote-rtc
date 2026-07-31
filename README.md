@@ -11,11 +11,11 @@ Aplicativo desktop gratuito para revisar, de uma vez, lotes de XMLs de **NF-e (m
 **NFC-e (modelo 65)** relacionados à Reforma Tributária do Consumo (IBS/CBS). Ele ajuda equipes
 contábeis e fiscais a localizar inconsistências antes de tratar os documentos um a um.
 
-> **Projeto em desenvolvimento:** o aplicativo ainda pode conter erros e resultados incorretos.
-> A proposta é oferecer uma **triagem rápida, em lote e local/offline** — não uma conclusão fiscal
-> definitiva. Se o aplicativo apontar que um documento está errado, não aceite o resultado
-> cegamente: confirme a situação no [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe),
-> que faz uma validação mais precisa, documento a documento.
+> **Projeto em desenvolvimento:** o aplicativo foi criado para agilizar a triagem de muitos XMLs,
+> processando o lote localmente e sem depender da internet. Como ainda pode conter erros, seus
+> apontamentos devem ser tratados como indicativos. Para uma conferência mais apurada, valide o
+> documento também no [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe),
+> que atualmente realiza a análise individual, um arquivo por vez.
 
 **Navegação rápida:** [Instalação](#instalação) •
 [Validação em camadas](#validação-em-camadas) • [Como usar](#como-usar) •
