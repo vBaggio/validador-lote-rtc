@@ -46,4 +46,8 @@ public final class CreditPresumedTable {
         if (code == null || issueDate == null) return Optional.empty();
         return Optional.ofNullable(entries.get(code.trim())).filter(e -> e.applicableToIbs(issueDate));
     }
+
+    int size() {
+        return entries.size();
+    }
 }

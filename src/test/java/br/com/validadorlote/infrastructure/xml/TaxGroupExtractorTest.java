@@ -152,6 +152,28 @@ class TaxGroupExtractorTest {
     }
 
     @Test
+    void readsPresumedCreditCodeAndIbsValueWithinItsOwnGroup(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("credito-presumido.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <gCredPresOper><cCredPres>4</cCredPres><gIBSCredPres>
+                      <vCredPres>0.20</vCredPres>
+                    </gIBSCredPres></gCredPresOper>
+                    <gIBSCBS><gIBSUF><vIBSUF>0.50</vIBSUF></gIBSUF>
+                      <gIBSMun><vIBSMun>0.60</vIBSMun></gIBSMun><vIBS>0.90</vIBS></gIBSCBS>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement().satisfies(group -> {
+            assertThat(group.presumedCreditCode()).isEqualTo("4");
+            assertThat(group.presumedIbsCredit()).isEqualByComparingTo("0.20");
+            assertThat(group.valueIbs()).isEqualByComparingTo("0.90");
+        });
+    }
+
+    @Test
     void nItemInvalidoNaoDerrubaALeitura(@TempDir Path dir) throws IOException {
         Path xml = dir.resolve("nitem-invalido.xml");
         Files.writeString(xml, """
