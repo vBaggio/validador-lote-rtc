@@ -898,3 +898,17 @@ superada. `clean test`, `jpackageImage` e `git diff --check` passaram novamente;
 
 HEAD `aa3fdf5` na branch `bloco/8-troca-runtime-bases`. Tasks 46–50 estão commitadas e revisadas.
 B8 aguarda o aceite runtime do dono; não há push/PR/merge antes dele.
+
+Task 51 (b9): complete (commit final do B9, revisão independente PASS/PASS após 1 fix loop) —
+consulta consultiva da última release estável do repositório oficial ocorre somente depois da janela
+visível, em worker daemon e sem compartilhar estado com atualização de bases. O modal informa
+versões e oferece continuar ou abrir a página oficial, sem download, instalação ou reinício; a
+versão disponível é deduplicada na sessão. ACHADOS IMPORTANTES corrigidos: o timeout de 3 segundos
+passou a ser orçamento monotônico único mesmo em redirects (com teste), e `Desktop.browse` saiu da
+EDT para executor daemon; URL de release foi restringida à rota HTTPS oficial. `clean test`,
+`jpackageImage` e `git diff --check` passaram. D-054 registra a separação das bases; sem débitos.
+
+### PARADA — 30/07/2026, Task 51 B9 concluída
+
+HEAD final do B9 na branch `bloco/9-aviso-nova-versao`. Task 51 está commitada, revisada e árvore
+limpa. B9 aguarda aceite do dono; não houve push, PR ou merge.

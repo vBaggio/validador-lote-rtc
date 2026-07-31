@@ -1,6 +1,7 @@
 package br.com.validadorlote;
 
 import br.com.validadorlote.application.ValidateBatchUseCase;
+import br.com.validadorlote.application.ApplicationUpdateUseCase;
 import br.com.validadorlote.application.ExternalSourcesUseCase;
 import br.com.validadorlote.application.ValidationRuntime;
 import br.com.validadorlote.application.ValidationRuntimeFactory;
@@ -21,6 +22,7 @@ import br.com.validadorlote.infrastructure.update.ArtifactRetryPolicy;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCandidate;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateCoordinator;
 import br.com.validadorlote.infrastructure.update.ArtifactUpdateStateStore;
+import br.com.validadorlote.infrastructure.update.GitHubReleaseChecker;
 import br.com.validadorlote.infrastructure.xml.ArtifactId;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import br.com.validadorlote.infrastructure.xml.CuratedSchemaManifestParser;
@@ -77,7 +79,15 @@ public final class App {
                 schemaRuntime(translator, schemaStore).activeManifest(), updaterExecutor);
         var externalSources = new ExternalSourcesUseCase(coordinator, schemaStore, tableStore,
                 initialRuntime, runtimeBuilder, updaterExecutor);
-        UiBootstrap.launch(initialRuntime.useCase(), initialRuntime.bases().schemaProvenance(), externalSources,
+        Executor applicationUpdateExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "application-update-checker");
+            thread.setDaemon(true);
+            return thread;
+        });
+        var applicationUpdate = new ApplicationUpdateUseCase(APP_VERSION,
+                new GitHubReleaseChecker(SafeHttpsClient.forGitHubRelease()), applicationUpdateExecutor);
+        UiBootstrap.launch(APP_VERSION, initialRuntime.useCase(),
+                initialRuntime.bases().schemaProvenance(), externalSources, applicationUpdate,
                 coordinator::checkAfterBoot);
     }
 

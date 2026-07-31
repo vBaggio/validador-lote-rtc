@@ -67,7 +67,34 @@ class SafeHttpsClientTest {
         });
 
         assertThat(client.getUtf8(SVRS)).isEqualTo("tabela ç");
-        assertThat(receivedTimeout).hasValue(Duration.ofSeconds(3));
+        assertThat(receivedTimeout).hasValueSatisfying(value -> {
+            assertThat(value).isPositive();
+            assertThat(value).isLessThanOrEqualTo(Duration.ofSeconds(3));
+        });
+    }
+
+    @Test
+    void appliesOneTimeoutBudgetAcrossRedirects() {
+        AtomicReference<Duration> secondRequestTimeout = new AtomicReference<>();
+        SafeHttpsClient client = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
+                Duration.ofMillis(100), 32, new HttpsTransport() {
+                    private int calls;
+
+                    @Override
+                    public Response get(URI uri, Duration timeout) throws InterruptedException {
+                        calls++;
+                        Thread.sleep(60);
+                        if (calls == 2) secondRequestTimeout.set(timeout);
+                        return calls == 1 ? response(302, uri, Map.of("Location", List.of("/next")), "")
+                                : response(200, uri, Map.of(), "ok");
+                    }
+                });
+
+        assertThatThrownBy(() -> client.getUtf8(SVRS))
+                .isInstanceOf(ArtifactUpdateException.class)
+                .hasMessageContaining("tempo limite");
+        assertThat(secondRequestTimeout).hasValueSatisfying(value ->
+                assertThat(value).isLessThan(Duration.ofMillis(100)));
     }
 
     @Test

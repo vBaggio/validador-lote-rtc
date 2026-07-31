@@ -14,8 +14,9 @@ centenas, coletando TODOS os erros de cada arquivo (o endpoint oficial para no p
 
 ## Princípios
 
-1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após o
-   boot, o agendamento automático pode consultar a tabela fiscal no canal SVRS e o manifesto e ZIP
+1. **Nenhum dado fiscal sai da máquina** — sem telemetria nem envio de XML, chave ou CNPJ. Após a
+   janela ficar visível, o aplicativo pode consultar a última release estável do seu repositório
+   oficial no GitHub; após o boot, o agendamento automático pode consultar a tabela fiscal no canal SVRS e o manifesto e ZIP
    assinados do canal próprio de schemas curados, no máximo uma vez a cada 4 horas; a ação manual
    **Verificar agora** não se submete a essa janela. A validação do lote continua local. A consulta
    só prepara candidatas:

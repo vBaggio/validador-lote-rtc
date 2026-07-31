@@ -97,3 +97,9 @@ presenter; não recebe XMLs, chaves ou CNPJ. O bootstrap monta R1 e uma atualiza
 publica R2 atomicamente; nenhum engine mutável é alterado em uma validação em curso. O catálogo
 também inventaria a Calculadora para v1, sem
 download/execução no v0.
+
+O aviso de versão do aplicativo é um fluxo consultivo separado: depois que a janela fica visível,
+ele consulta em background apenas a última release estável do repositório oficial no GitHub. A
+resposta é limitada, tem prazo curto e falhas de rede, HTTP, JSON ou navegador são silenciosas.
+Ele não compartilha estado, agendamento, confirmação ou ativação com as bases; somente oferece a
+página oficial da release quando a versão semântica disponível é superior à instalada.
