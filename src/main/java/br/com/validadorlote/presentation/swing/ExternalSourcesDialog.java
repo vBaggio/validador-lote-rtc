@@ -60,7 +60,8 @@ final class ExternalSourcesDialog extends JDialog {
     }
 
     static boolean canClose(ExternalSourcesPhase phase) {
-        return phase != ExternalSourcesPhase.APPLYING;
+        return phase != ExternalSourcesPhase.APPLYING
+                && phase != ExternalSourcesPhase.RELOADING_RUNTIME;
     }
 
     private boolean canCloseCurrentPhase() {

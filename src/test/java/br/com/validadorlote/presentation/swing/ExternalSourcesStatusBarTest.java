@@ -49,6 +49,23 @@ class ExternalSourcesStatusBarTest {
         });
     }
 
+    @Test
+    void footerDistinguishesRuntimeReloadFromBasesAlreadyInUse() throws Exception {
+        runOnEdt(() -> {
+            ExternalSourcesStatusBar statusBar = statusBar(() -> { });
+
+            statusBar.showSnapshot(snapshot(ExternalSourcesPhase.RELOADING_RUNTIME, 0, 0));
+            assertThat(statusBar.statusText()).isEqualTo("Carregando as bases atualizadas…");
+            assertThat(statusBar.isSpinnerRunning()).isTrue();
+            assertThat(statusBar.statusIcon()).isNull();
+
+            statusBar.showSnapshot(snapshot(ExternalSourcesPhase.UPDATED_AND_IN_USE, 0, 0));
+            assertThat(statusBar.statusText()).isEqualTo("Bases atualizadas e já em uso");
+            assertThat(statusBar.isSpinnerRunning()).isFalse();
+            assertThat(statusBar.statusIcon()).isNotNull();
+        });
+    }
+
     private static ExternalSourcesStatusBar statusBar(Runnable retry) {
         return new ExternalSourcesStatusBar("0.1.0", "010e", () -> { }, retry);
     }

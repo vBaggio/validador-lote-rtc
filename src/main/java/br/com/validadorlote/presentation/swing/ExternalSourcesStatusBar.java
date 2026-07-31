@@ -56,7 +56,8 @@ final class ExternalSourcesStatusBar extends JPanel {
     void showSnapshot(ExternalSourcesSnapshot snapshot) {
         StatusPresentation presentation = presentation(snapshot);
         spinner.setRunning(snapshot.phase() == ExternalSourcesPhase.CHECKING
-                || snapshot.phase() == ExternalSourcesPhase.APPLYING);
+                || snapshot.phase() == ExternalSourcesPhase.APPLYING
+                || snapshot.phase() == ExternalSourcesPhase.RELOADING_RUNTIME);
         status.setText(presentation.text());
         status.setForeground(presentation.color());
         status.setIcon(presentation.icon());
@@ -120,8 +121,10 @@ final class ExternalSourcesStatusBar extends JPanel {
                     WARNING, new OutlineIcon(OutlineIcon.Kind.WARNING, 18, WARNING));
             case APPLYING -> new StatusPresentation("Atualizando as bases verificadas…" + partial,
                     WARNING, null);
-            case RELOADING_RUNTIME, UPDATED_AND_IN_USE -> new StatusPresentation(
-                    "Atualização de bases em andamento" + partial, WARNING, null);
+            case RELOADING_RUNTIME -> new StatusPresentation("Carregando as bases atualizadas…" + partial,
+                    WARNING, null);
+            case UPDATED_AND_IN_USE -> new StatusPresentation("Bases atualizadas e já em uso" + partial,
+                    SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
             case RESTART_REQUIRED -> new StatusPresentation(
                     "Bases atualizadas · reinicie para usar as novas versões" + partial,
                     SUCCESS, new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));

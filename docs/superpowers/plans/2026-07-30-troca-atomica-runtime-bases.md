@@ -252,6 +252,8 @@ R1 nem converte conteúdo fiscal em decisão nova.
 
 ## Task 49 — Transição de UI e mensagens sem reinício normal
 
+**Status:** concluída em `f4316b7`; revisão independente PASS/PASS após um fix loop.
+
 **Propósito:** refletir o runtime realmente publicado, sem regressão do modal, spinner, acessibilidade
 ou feedback de falha.
 

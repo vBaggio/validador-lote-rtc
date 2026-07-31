@@ -103,6 +103,12 @@ public final class MainFrame extends JFrame implements MainView {
     }
 
     @Override
+    public void showBasesUpdatedAndInUse(ExternalSourcesSnapshot snapshot) {
+        externalSourcesDialog.showSnapshot(snapshot);
+        externalSourcesDialog.toFront();
+    }
+
+    @Override
     public void showRestartRequired(ExternalSourcesSnapshot snapshot) {
         externalSourcesDialog.showSnapshot(snapshot);
         externalSourcesDialog.toFront();

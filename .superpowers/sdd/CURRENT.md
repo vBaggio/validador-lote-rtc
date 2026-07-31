@@ -13,8 +13,10 @@
   loop: lease é capturada no mesmo gate da ativação, observers não prendem o gate e ticket impede
   completion atrasado de liberar uma reserva nova. **Task 48** concluída em `1b1f5db`, revisão
   PASS/PASS após dois fix loops: factory do composition root monta R2 fora da EDT/lock e o publica
-  atomicamente; falha preserva R1, mantém `current` em disco e expõe fallback sanitizado. Próxima:
-  Task 49, feedback/UI do sucesso em uso. Não fazer push, PR ou merge antes do aceite runtime.
+  atomicamente; falha preserva R1, mantém `current` em disco e expõe fallback sanitizado. **Task
+  49** concluída em `f4316b7`, revisão PASS/PASS: sucesso normal informa “Bases atualizadas e já
+  em uso”; recarga e fallback comunicam estados coerentes em rodapé, diálogo e cards. Próxima:
+  Task 50, documentação e regressão/aceite runtime. Sem push/PR/merge antes do aceite.
 
 - **Bloco:** B7 — Canal próprio de schemas curados — está tecnicamente completo em
   `bloco/7-canal-proprio-schemas`; plano em

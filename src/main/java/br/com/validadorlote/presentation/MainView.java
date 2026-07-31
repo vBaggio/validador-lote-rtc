@@ -21,5 +21,7 @@ public interface MainView {
 
     boolean confirmExternalSourcesUpdate(ExternalSourcesSnapshot snapshot);
 
+    void showBasesUpdatedAndInUse(ExternalSourcesSnapshot snapshot);
+
     void showRestartRequired(ExternalSourcesSnapshot snapshot);
 }

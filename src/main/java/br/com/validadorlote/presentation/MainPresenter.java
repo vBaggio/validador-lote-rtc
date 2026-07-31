@@ -40,7 +40,8 @@ public final class MainPresenter {
     private boolean applyingDialogRequested;
     private boolean externalSourcesDialogOpenPending;
     private boolean externalSourcesApplicationRequested;
-    private boolean restartRequiredShown;
+    private boolean inUseFeedbackShown;
+    private boolean restartRequiredFeedbackShown;
 
     private static final String ACTIVATION_IN_PROGRESS =
             "Aguarde a atualização das bases terminar antes de validar o lote.";
@@ -336,6 +337,8 @@ public final class MainPresenter {
         MainView attachedView = requireView();
         attachedView.showExternalSources(snapshot);
         if (snapshot.phase() == ExternalSourcesPhase.APPLYING) {
+            inUseFeedbackShown = false;
+            restartRequiredFeedbackShown = false;
             if (!applyingDialogRequested) {
                 applyingDialogRequested = true;
                 deferExternalSourcesDialog();
@@ -350,9 +353,13 @@ public final class MainPresenter {
             if (attachedView.confirmExternalSourcesUpdate(snapshot)) {
                 requestExternalSourcesApplication();
             }
+        } else if (snapshot.phase() == ExternalSourcesPhase.UPDATED_AND_IN_USE
+                && !inUseFeedbackShown) {
+            inUseFeedbackShown = true;
+            attachedView.showBasesUpdatedAndInUse(snapshot);
         } else if (snapshot.phase() == ExternalSourcesPhase.RESTART_REQUIRED
-                && !restartRequiredShown) {
-            restartRequiredShown = true;
+                && !restartRequiredFeedbackShown) {
+            restartRequiredFeedbackShown = true;
             attachedView.showRestartRequired(snapshot);
         }
     }

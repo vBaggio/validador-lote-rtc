@@ -868,3 +868,14 @@ falha. Mutação, suíte completa, `jpackageImage` e `git diff --check` passaram
 
 HEAD `1b1f5db` na branch `bloco/8-troca-runtime-bases`. Tasks 46–48 revisadas e árvore limpa.
 Próxima: Task 49 — transição de UI para `UPDATED_AND_IN_USE` e fallback de reinício excepcional.
+
+Task 49 (b8): complete (commit `f4316b7`, revisão independente PASS/PASS após 1 fix loop) —
+sucesso normal agora informa bases já em uso, sem pedir reinício; fallback conserva detalhe
+sanitizado e reinício excepcional. ACHADO IMPORTANTE corrigido: em `RELOADING_RUNTIME`, cards
+APPLIED exibem carregamento neutro/spinner, nunca “próximo boot”; o texto fica exclusivo de
+`RESTART_REQUIRED`. Mutação, suíte e `git diff --check` passaram.
+
+### PARADA — 30/07/2026, Task 49 B8 concluída
+
+HEAD `f4316b7` na branch `bloco/8-troca-runtime-bases`. Tasks 46–49 revisadas e árvore limpa.
+Próxima: Task 50 — documentação operacional, regressão integrada e roteiro de aceite runtime.

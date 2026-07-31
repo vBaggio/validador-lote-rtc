@@ -125,6 +125,11 @@ class MainPresenterTest {
         }
 
         @Override
+        public void showBasesUpdatedAndInUse(ExternalSourcesSnapshot snapshot) {
+            calls.add("bases-updated-in-use");
+        }
+
+        @Override
         public void showRestartRequired(ExternalSourcesSnapshot snapshot) {
             calls.add("restart-required");
         }
@@ -414,6 +419,32 @@ class MainPresenterTest {
         assertThat(calls).filteredOn("confirm-update"::equals).hasSize(1);
         assertThat(schemasAction.applyCalls).isOne();
         assertThat(calls).filteredOn("restart-required"::equals).hasSize(1);
+    }
+
+    @Test
+    void updatedRuntimeShowsOneInUseFeedbackWithoutRestartPrompt(@TempDir Path dir) {
+        schemasAction = new TestUpdateAction(ArtifactId.NFE_SCHEMAS, "test-schemas-v1");
+        tablesAction = new TestUpdateAction(ArtifactId.FISCAL_TABLES, "test-tables-v1");
+        updateCoordinator = new ArtifactUpdateCoordinator(List.of(schemasAction, tablesAction),
+                java.time.Duration.ofHours(24), java.time.Clock.systemUTC(), Runnable::run,
+                event -> { }, new ArtifactUpdateStateStore(dir));
+        ValidationRuntime r1 = runtime("r1");
+        observedSources = new ExternalSourcesUseCase(updateCoordinator,
+                new SchemaArtifactStore(dir), new FiscalTableArtifactStore(dir), r1,
+                () -> runtime("r2"), Runnable::run);
+        recordingUiThread = new RecordingUiThread();
+        presenter = new MainPresenter(r1, recordingUiThread, Runnable::run, observedSources);
+        presenter.attach(fakeView);
+        fakeView.acceptUpdate = true;
+        calls.clear();
+
+        sourcesPublishUpdateAvailable();
+
+        assertThat(calls).containsSubsequence("sources 2 APPLYING",
+                "sources 2 RELOADING_RUNTIME", "sources 2 UPDATED_AND_IN_USE",
+                "bases-updated-in-use");
+        assertThat(calls).filteredOn("bases-updated-in-use"::equals).hasSize(1);
+        assertThat(calls).doesNotContain("restart-required");
     }
 
     @Test
