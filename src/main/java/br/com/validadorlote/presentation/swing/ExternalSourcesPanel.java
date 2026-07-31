@@ -339,7 +339,9 @@ final class ExternalSourcesPanel extends JPanel {
             spinner.setRunning(true);
             status.add(spinner);
         }
-        boolean wrap = source.hasUnsupportedSchemaStructure();
+        // Texto sem quebra estoura a largura do card e empurra o botão de expandir para fora da
+        // área visível do JScrollPane (HORIZONTAL_SCROLLBAR_NEVER não deixa recuperá-lo).
+        boolean wrap = source.hasUnsupportedSchemaStructure() || source.isCreditPresumedTable();
         String visibleText = wrap
                 ? "<html><div style='width:520px'>" + escape(presentation.text()) + "</div></html>"
                 : presentation.text();
@@ -354,9 +356,9 @@ final class ExternalSourcesPanel extends JPanel {
             ExternalSourcesPhase aggregatePhase) {
         String detail = source.detail();
         if (source.isCreditPresumedTable()) {
-            return new Feedback("Embarcada nesta versão do aplicativo, sem verificação automática"
-                    + " — atualização exige nova versão.", MUTED,
-                    new OutlineIcon(OutlineIcon.Kind.DATABASE, 18, MUTED));
+            return new Feedback("Tabela atualizada — embarcada nesta versão do aplicativo, sem"
+                    + " verificação automática (atualização exige nova versão)", SUCCESS,
+                    new OutlineIcon(OutlineIcon.Kind.CORRECT, 18, SUCCESS));
         }
         if (aggregatePhase == ExternalSourcesPhase.RELOADING_RUNTIME
                 && source.phase() == ExternalSourcePhase.APPLIED) {
