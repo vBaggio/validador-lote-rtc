@@ -23,6 +23,8 @@ public final class TaxTotalizationRule implements DocumentRejectionRule {
         IBS_MUNICIPAL("1084", "W46-10",
                 "Rejeição: Total de IBS Municipal difere da soma dos itens",
                 FiscalDocument::totalIbsMunicipal, ItemTaxGroup::valueIbsMunicipal),
+        IBS("1085", "W47-10", "Rejeição: Total do IBS difere da soma do vIBS dos itens",
+                FiscalDocument::totalIbs, ItemTaxGroup::valueIbs),
         CBS("1091", "W56-10", "Rejeição: Total de CBS difere da soma dos itens",
                 FiscalDocument::totalCbs, ItemTaxGroup::valueCbs);
 

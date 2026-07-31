@@ -46,6 +46,21 @@ class TaxTotalizationRuleTest {
     }
 
     @Test
+    void predicts1085WhenTheGeneralIbsTotalDiffersFromItsItems(@TempDir Path dir) throws IOException {
+        Path xml = write(dir, "0.10", "0.00", "0.90", "0.10", "0.00", "0.90");
+        Files.writeString(xml, Files.readString(xml)
+                .replace("<vIBS>0.10</vIBS></gIBS>", "<vIBS>0.00</vIBS></gIBS>"));
+        var document = new XmlMetadataParser().parse(xml).document();
+        var items = new TaxGroupExtractor().extract(xml);
+
+        assertThat(new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS)
+                .evaluate(document, items))
+                .extracting(outcome -> (RuleOutcome.Rejeitado) outcome)
+                .extracting(RuleOutcome.Rejeitado::rejectionCode)
+                .isEqualTo("1085");
+    }
+
+    @Test
     void verifiesTheThreeDeclaredTotalsIndependently(@TempDir Path dir) throws IOException {
         Path xml = write(dir, "0.10", "0.00", "0.90", "0.10", "0.00", "0.90");
         var document = new XmlMetadataParser().parse(xml).document();
@@ -76,10 +91,10 @@ class TaxTotalizationRuleTest {
                   <ide><mod>55</mod><dhEmi>2026-07-31T10:00:00-03:00</dhEmi></ide>
                   <emit><CRT>3</CRT></emit>
                   <det nItem="1"><prod/><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gIBSCBS>
-                    <gIBSUF>%s</gIBSUF><gIBSMun>%s</gIBSMun><gCBS>%s</gCBS>
+                    <gIBSUF>%s</gIBSUF><gIBSMun>%s</gIBSMun><vIBS>0.10</vIBS><gCBS>%s</gCBS>
                   </gIBSCBS></IBSCBS></imposto></det>
                   <total><IBSCBSTot><gIBS><gIBSUF><vIBSUF>%s</vIBSUF></gIBSUF>
-                    <gIBSMun><vIBSMun>%s</vIBSMun></gIBSMun></gIBS>
+                    <gIBSMun><vIBSMun>%s</vIBSMun></gIBSMun><vIBS>0.10</vIBS></gIBS>
                     <gCBS><vCBS>%s</vCBS></gCBS></IBSCBSTot></total>
                 </infNFe></NFe>
                 """.formatted(valueTag("vIBSUF", itemUf), valueTag("vIBSMun", itemMun),

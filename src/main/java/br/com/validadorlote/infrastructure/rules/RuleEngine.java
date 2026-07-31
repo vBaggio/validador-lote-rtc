@@ -88,6 +88,7 @@ public final class RuleEngine {
             new CompraGovForbiddenInNfceRule(),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_UF),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS_MUNICIPAL),
+            new TaxTotalizationRule(TaxTotalizationRule.Sphere.IBS),
             new TaxTotalizationRule(TaxTotalizationRule.Sphere.CBS));
 
     /**

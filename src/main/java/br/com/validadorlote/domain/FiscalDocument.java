@@ -35,7 +35,7 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
         String model, String series, String rootElement,
         String crt, String finNFe, String tpNFDebito, boolean hasCompraGov,
         BigDecimal pRedutorCompraGov, boolean hasIbsCbsTot,
-        BigDecimal totalIbsUf, BigDecimal totalIbsMunicipal, BigDecimal totalCbs,
+        BigDecimal totalIbsUf, BigDecimal totalIbsMunicipal, BigDecimal totalIbs, BigDecimal totalCbs,
         List<ReferencedNote> references) {
 
     public FiscalDocument {
@@ -50,7 +50,7 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             BigDecimal pRedutorCompraGov, boolean hasIbsCbsTot, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, emitterName, null, null, documentNumber, issueDate,
                 model, series, rootElement, crt, finNFe, tpNFDebito, hasCompraGov,
-                pRedutorCompraGov, hasIbsCbsTot, null, null, null, references);
+                pRedutorCompraGov, hasIbsCbsTot, null, null, null, null, references);
     }
 
     /** Compatibilidade para leitores que ainda não extraem os valores de totalização IBS/CBS. */
@@ -61,7 +61,7 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             boolean hasIbsCbsTot, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, emitterName, emitterState, emitterMunicipalityCode,
                 documentNumber, issueDate, model, series, rootElement, crt, finNFe, tpNFDebito,
-                hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, null, null, null, references);
+                hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, null, null, null, null, references);
     }
 
     /** Construtor de compatibilidade para regras que não precisam dos campos de apresentação. */
@@ -71,6 +71,6 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             boolean hasIbsCbsTot, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, null, null, null, documentNumber, issueDate, model,
                 null, rootElement, crt, finNFe, tpNFDebito, hasCompraGov, pRedutorCompraGov,
-                hasIbsCbsTot, null, null, null, references);
+                hasIbsCbsTot, null, null, null, null, references);
     }
 }

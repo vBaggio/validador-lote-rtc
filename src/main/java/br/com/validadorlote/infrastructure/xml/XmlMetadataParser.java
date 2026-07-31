@@ -86,7 +86,7 @@ public final class XmlMetadataParser {
         // item, e sustenta as rejeições 1118/1119 (docs/decisions.md D-039). Não cabe no
         // TaxGroupExtractor, que só existe para o conteúdo tributário por item.
         boolean hasIbsCbsTot = false;
-        String totalIbsUf = null, totalIbsMunicipal = null, totalCbs = null;
+        String totalIbsUf = null, totalIbsMunicipal = null, totalIbs = null, totalCbs = null;
         int infNFeCount = 0;
         List<ReferencedNote> references = new ArrayList<>();
         // refNF/refNFP aberto cujo AAMM ainda não apareceu. Se ele fechar sem o campo, a
@@ -184,6 +184,7 @@ public final class XmlMetadataParser {
                             case "total/vIBSMun" -> {
                                 if (totalIbsMunicipal == null) totalIbsMunicipal = value;
                             }
+                            case "total/vIBS" -> { if (totalIbs == null) totalIbs = value; }
                             case "total/vCBS" -> { if (totalCbs == null) totalCbs = value; }
                             // NFref aceita até 999 ocorrências: todas contam, nada de "primeira".
                             case "refNFe", "refNFeSig" -> references.add(
@@ -228,7 +229,8 @@ public final class XmlMetadataParser {
                 new FiscalDocument(source, accessKey, cnpj, emitterName, emitterState,
                         emitterMunicipalityCode, nNF, parseIssueDate(dhEmi), mod, serie, root,
                         crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
-                        decimal(totalIbsUf), decimal(totalIbsMunicipal), decimal(totalCbs), references),
+                        decimal(totalIbsUf), decimal(totalIbsMunicipal), decimal(totalIbs),
+                        decimal(totalCbs), references),
                 ItemLineIndex.of(ranges));
     }
 
@@ -266,6 +268,7 @@ public final class XmlMetadataParser {
         if (isPath(stack, "vIBSMun", "gIBSMun", "gIBS", "IBSCBSTot", "total")) {
             return "total/vIBSMun";
         }
+        if (isPath(stack, "vIBS", "gIBS", "IBSCBSTot", "total")) return "total/vIBS";
         if (isPath(stack, "vCBS", "gCBS", "IBSCBSTot", "total")) return "total/vCBS";
         // refNF e refNFP trazem AAMM próprio e explícito no XSD (linhas 341 e 393).
         if (isFirst(stack, "AAMM", "refNF")) return "refNF/AAMM";

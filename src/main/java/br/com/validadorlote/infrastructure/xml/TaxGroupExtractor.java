@@ -67,7 +67,8 @@ public final class TaxGroupExtractor {
             boolean hasDevTribUf, boolean hasDevTribMun, boolean hasDevTribCbs,
             boolean hasCredPresOper, boolean hasCredPresIbsZfm, boolean hasTpCredPresIbsZfm,
             boolean hasTribCompraGov,
-            BigDecimal valueIbsUf, BigDecimal valueIbsMunicipal, BigDecimal valueCbs) {
+            BigDecimal valueIbsUf, BigDecimal valueIbsMunicipal, BigDecimal valueIbs,
+            BigDecimal valueCbs) {
 
         /** Compatibilidade para regras que não usam valores de totalização. */
         public ItemTaxGroup(Integer itemNumber, boolean hasIbsCbsGroup, boolean hasGIbsCbsGroup,
@@ -83,7 +84,7 @@ public final class TaxGroupExtractor {
                     hasReducaoUf, hasReducaoMun, hasReducaoCbs, percReducaoUf, percReducaoMun,
                     percReducaoCbs, dfeReferenciado, hasDifUf, hasDifMun, hasDifCbs,
                     hasDevTribUf, hasDevTribMun, hasDevTribCbs, hasCredPresOper,
-                    hasCredPresIbsZfm, hasTpCredPresIbsZfm, hasTribCompraGov, null, null, null);
+                    hasCredPresIbsZfm, hasTpCredPresIbsZfm, hasTribCompraGov, null, null, null, null);
         }
     }
 
@@ -138,7 +139,7 @@ public final class TaxGroupExtractor {
         boolean tribCompraGov = false;
         String cst = null, classTrib = null, prodANP = null;
         BigDecimal pUf = null, pMun = null, pCbs = null;
-        BigDecimal vIbsUf = null, vIbsMunicipal = null, vCbs = null;
+        BigDecimal vIbsUf = null, vIbsMunicipal = null, vIbs = null, vCbs = null;
         ReferencedNote dfeReferenciado = null;
         // Escopos vivos de dentro do invólucro IBSCBS para gTribCompraGov e do produto para I05k.
         boolean emGIbsCbs = false, emProd = false;
@@ -184,7 +185,7 @@ public final class TaxGroupExtractor {
                         tribCompraGov = false;
                         cst = classTrib = prodANP = null;
                         pUf = pMun = pCbs = null;
-                        vIbsUf = vIbsMunicipal = vCbs = null;
+                        vIbsUf = vIbsMunicipal = vIbs = vCbs = null;
                         dfeReferenciado = null;
                         emDFeReferenciado = false;
                         esfera = null;
@@ -243,6 +244,9 @@ public final class TaxGroupExtractor {
                     case "vIBSMun" -> {
                         if (esfera == Esfera.MUN) vIbsMunicipal = decimal(texto(r));
                     }
+                    case "vIBS" -> {
+                        if (emGIbsCbs) vIbs = decimal(texto(r));
+                    }
                     case "vCBS" -> {
                         if (esfera == Esfera.CBS) vCbs = decimal(texto(r));
                     }
@@ -271,7 +275,7 @@ public final class TaxGroupExtractor {
                             prodANP, redUf, redMun, redCbs, pUf, pMun, pCbs, dfeReferenciado,
                             difUf, difMun, difCbs, devTribUf, devTribMun, devTribCbs,
                             credPresOper, credPresIbsZfm, tpCredPresIbsZfm, tribCompraGov,
-                            vIbsUf, vIbsMunicipal, vCbs));
+                            vIbsUf, vIbsMunicipal, vIbs, vCbs));
                     nItem = null;
                     emDet = false;
                 }
