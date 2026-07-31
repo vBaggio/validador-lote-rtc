@@ -19,8 +19,14 @@ contábeis e fiscais a localizar inconsistências antes de tratar os documentos 
 > [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe), que oferece
 > uma conferência mais apurada, realizada individualmente, um arquivo por vez.
 
-**Navegação rápida:** [Instalação](#instalação) • [Como usar](#como-usar) •
-[Sugestões e problemas](#sugestões-e-problemas)
+<p align="center">
+  <strong>Acesso rápido</strong><br>
+  <a href="#instalação"><strong>📦 Instalação</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="#como-usar"><strong>▶️ Como usar</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="#sugestões-e-problemas"><strong>💬 Sugestões e problemas</strong></a>
+</p>
 
 ## O que o aplicativo faz
 
