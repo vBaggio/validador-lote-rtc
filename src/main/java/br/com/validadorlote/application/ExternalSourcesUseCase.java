@@ -317,11 +317,13 @@ public final class ExternalSourcesUseCase {
         List<ExternalSourceState> states = List.of(
                 sourceState(ArtifactId.NFE_SCHEMAS, "Schemas NF-e/NFC-e",
                         schemas.activeManifestOrNull(), embeddedSchemas.sourceUrl(),
-                        embeddedSchemas.profile(), embeddedSchemas.closureSha256(),
+                        embeddedSchemas.profile(),
+                        embeddedSchemas.closureSha256(),
                         at(embeddedSchemas.incorporatedAt()), null),
                 sourceState(ArtifactId.FISCAL_TABLES, "Tabela CST/cClassTrib",
                         tables.activeManifestOrNull(), embeddedTables.source(),
-                        "IT " + embeddedTables.referenceVersion(), null,
+                        "IT " + embeddedTables.referenceVersion(),
+                        null,
                         at(embeddedTables.extractedAt()), at(embeddedTables.lastCheckedAt())));
         int available = (int) states.stream()
                 .filter(source -> source.phase() == ExternalSourcePhase.UPDATE_AVAILABLE)
@@ -344,7 +346,7 @@ public final class ExternalSourcesUseCase {
         return new ExternalSourceState(artifact, name,
                 embedded ? embeddedVersion : manifest.version(),
                 embedded,
-                manifest == null ? fallbackOrigin : manifest.sourceUrl(),
+                embedded ? fallbackOrigin : manifest.sourceUrl(),
                 operation.candidateOrigin(),
                 manifest == null ? abbreviate(embeddedHash) : abbreviate(manifest.sha256()),
                 manifest == null ? embeddedUpdatedAt : manifest.updatedAt(),
