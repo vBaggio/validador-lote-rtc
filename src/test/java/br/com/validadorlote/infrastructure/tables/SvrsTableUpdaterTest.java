@@ -27,7 +27,7 @@ class SvrsTableUpdaterTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @Test
-    void checkStagesTheCurrentSvrsRouteWithoutChangingTheActiveTable() throws Exception {
+    void checkTreatsTheSemanticallyEquivalentEmbeddedTableAsUpToDate() throws Exception {
         String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
         SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
                 Duration.ofSeconds(1), 6 * 1024 * 1024,
@@ -40,15 +40,14 @@ class SvrsTableUpdaterTest {
 
         ArtifactCheckResult result = updater.check();
 
-        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UPDATE_AVAILABLE);
-        assertThat(result.candidate().sourceUrl()).isEqualTo(SvrsTableUpdater.SOURCE.toString());
-        assertThat(result.candidate().version()).startsWith("svrs-");
+        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UP_TO_DATE);
+        assertThat(result.candidate()).isNull();
         assertThat(store.activeOrNull()).isNull();
     }
 
     @Test
     void repeatedCheckReusesAnIdenticalPreparedCandidateBeforeActivation() throws Exception {
-        String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
+        String html = "<script>const dadosOriginais = " + rawWithChangedName() + ";</script>";
         SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
                 Duration.ofSeconds(1), 6 * 1024 * 1024,
                 (uri, timeout) -> new HttpsTransport.Response(200, uri, Map.of(),
@@ -68,7 +67,7 @@ class SvrsTableUpdaterTest {
 
     @Test
     void applyActivatesExactlyTheCandidateReturnedByCheck() throws Exception {
-        String html = "<script>const dadosOriginais = " + rawFromEmbedded() + ";</script>";
+        String html = "<script>const dadosOriginais = " + rawWithChangedName() + ";</script>";
         SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
                 Duration.ofSeconds(1), 6 * 1024 * 1024,
                 (uri, timeout) -> new HttpsTransport.Response(200, uri, Map.of(),
@@ -131,6 +130,12 @@ class SvrsTableUpdaterTest {
                 classification.set("DthFimVig", sourceClassification.get("fimVig"));
             }
         }
+        return JSON.writeValueAsString(raw);
+    }
+
+    private String rawWithChangedName() throws Exception {
+        ArrayNode raw = (ArrayNode) JSON.readTree(rawFromEmbedded());
+        ((ObjectNode) raw.get(0)).put("NomeCst", "Nome revisado para teste");
         return JSON.writeValueAsString(raw);
     }
 }

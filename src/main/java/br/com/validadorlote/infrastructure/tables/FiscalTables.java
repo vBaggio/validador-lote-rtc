@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
@@ -193,5 +196,44 @@ public final class FiscalTables {
 
     Set<String> classTribCodes() {
         return Set.copyOf(classificacoes.keySet());
+    }
+
+    /**
+     * Identidade do conteúdo consumido pelo motor, independente de espaços, ordem dos objetos
+     * JSON ou escala decimal. Evita baixar de novo uma tabela embarcada equivalente.
+     */
+    public String semanticFingerprint() {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            csts.values().stream().sorted(java.util.Comparator.comparing(CstEntry::cst))
+                    .forEach(entry -> digest(digest, entry.cst(), entry.nome(),
+                            Boolean.toString(entry.exigeGrupo()),
+                            Boolean.toString(entry.exigeReducao()),
+                            Boolean.toString(entry.exigeDiferimento()), date(entry.iniVig()),
+                            date(entry.fimVig())));
+            classificacoes.values().stream()
+                    .sorted(java.util.Comparator.comparing(ClassTribEntry::codigo))
+                    .forEach(entry -> digest(digest, entry.codigo(), entry.nome(), entry.cst(),
+                            Boolean.toString(entry.nfe()), Boolean.toString(entry.nfce()),
+                            decimal(entry.percRedIbs()), decimal(entry.percRedCbs()),
+                            date(entry.iniVig()), date(entry.fimVig())));
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 indisponível", e);
+        }
+    }
+
+    private static void digest(MessageDigest digest, String... values) {
+        for (String value : values) {
+            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+            digest.update(java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+            digest.update(bytes);
+        }
+    }
+
+    private static String date(LocalDate value) { return value == null ? "" : value.toString(); }
+
+    private static String decimal(BigDecimal value) {
+        return value == null ? "" : value.stripTrailingZeros().toPlainString();
     }
 }
