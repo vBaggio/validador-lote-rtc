@@ -11,6 +11,18 @@ Aplicativo desktop gratuito para revisar, de uma vez, lotes de XMLs de **NF-e (m
 **NFC-e (modelo 65)** relacionados à Reforma Tributária do Consumo (IBS/CBS). Ele ajuda equipes
 contábeis e fiscais a localizar inconsistências antes de tratar os documentos um a um.
 
+<br>
+
+<p align="center">
+  <a href="#instalação"><strong>📦 Instalação</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="#como-usar"><strong>▶️ Como usar</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="#sugestões-e-problemas"><strong>💬 Sugestões e problemas</strong></a>
+</p>
+
+<br>
+
 > [!WARNING]
 > **Projeto em estágio inicial de desenvolvimento:** o aplicativo ainda pode cometer erros. Sua
 > proposta é oferecer uma forma rápida de fazer a triagem de grandes lotes de notas, com
@@ -18,15 +30,6 @@ contábeis e fiscais a localizar inconsistências antes de tratar os documentos 
 > confirme-o no
 > [Validador NFe oficial da SVRS](https://dfe-portal.svrs.rs.gov.br/NFE/ValidadorNfe), que oferece
 > uma conferência mais apurada, realizada individualmente, um arquivo por vez.
-
-<p align="center">
-  <strong>Acesso rápido</strong><br>
-  <a href="#instalação"><strong>📦 Instalação</strong></a>
-  &nbsp;&nbsp;•&nbsp;&nbsp;
-  <a href="#como-usar"><strong>▶️ Como usar</strong></a>
-  &nbsp;&nbsp;•&nbsp;&nbsp;
-  <a href="#sugestões-e-problemas"><strong>💬 Sugestões e problemas</strong></a>
-</p>
 
 ## O que o aplicativo faz
 
