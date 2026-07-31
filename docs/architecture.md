@@ -29,8 +29,12 @@ adapter da v1. Views atrás de interface + `ProgressListener` neutro = frontend 
 
 1. `FolderScanner` recebe pasta ou XML individual; `XmlMetadataParser` lê os metadados seguros que
    formam a área de trabalho. XML ilegível não entra na grade e é informado ao usuário.
-2. O usuário compõe o lote e pede a validação. `MainPresenter` processa somente as pendências,
-   sequencialmente e fora da EDT, publicando o estado de cada linha e o progresso na view.
+2. O usuário compõe o lote e pede a validação. Pode optar por simular a vigência das regras: para
+   documentos anteriores, o caso de uso usa como data operacional 03/08/2026 no CRT=3 e
+   04/01/2027 nos CRTs 1, 2 e 4, sem mudar a data original do XML. `MainPresenter` alerta quando
+   essa simulação alcança documento do Simples emitido antes de 2027; então processa somente as
+   pendências, sequencialmente e fora da EDT, publicando o estado de cada linha e o progresso na
+   view.
 3. Por arquivo: `XmlMetadataParser` (StAX seguro, índice linha→item),
    `SchemaValidatorEngine` (Schema único compilado no boot; `Validator` por documento;
    `ErrorHandler` coletor) e `RuleEngine`. Cancelamento cooperativo conserva o que já terminou e

@@ -56,6 +56,9 @@ public final class ResultsPanel extends JPanel {
     private final JButton openSelected = new JButton("Abrir arquivo");
     private final JButton copyAccessKey = new JButton("Copiar chave");
     private final JCheckBox includeSubfolders = new JCheckBox("Incluir subpastas");
+    private final JCheckBox considerRulesEffectiveDate = rulesEffectiveDateCheckBox();
+    private final JButton rulesEffectiveDateInfo = new JButton(new OutlineIcon(
+            OutlineIcon.Kind.NEUTRAL, 18));
     private final JButton validate = new JButton("Validar pendentes");
     private final JButton cancel = new JButton("Abortar validação");
     private final TransferHandler dropHandler;
@@ -133,8 +136,16 @@ public final class ResultsPanel extends JPanel {
         openSelected.setEnabled(false);
         copyAccessKey.setEnabled(false);
         validate.setIcon(new OutlineIcon(OutlineIcon.Kind.CORRECT));
-        validate.addActionListener(event -> presenter.validateRequested());
+        validate.addActionListener(event ->
+                presenter.validateRequested(considerRulesEffectiveDate.isSelected()));
         stylePrimaryAction(validate);
+        rulesEffectiveDateInfo.setToolTipText("Entenda como a vigência é considerada");
+        rulesEffectiveDateInfo.getAccessibleContext().setAccessibleName(
+                "Informações sobre a vigência das regras");
+        rulesEffectiveDateInfo.setPreferredSize(new Dimension(30, 30));
+        rulesEffectiveDateInfo.setFocusPainted(false);
+        rulesEffectiveDateInfo.putClientProperty("JButton.buttonType", "roundRect");
+        rulesEffectiveDateInfo.addActionListener(event -> showRulesEffectiveDateInfo());
         cancel.setIcon(new OutlineIcon(OutlineIcon.Kind.CANCEL));
         cancel.addActionListener(event -> presenter.cancelRequested());
         stylePrimaryAction(cancel);
@@ -153,7 +164,11 @@ public final class ResultsPanel extends JPanel {
         importActions.add(add);
         importActions.add(includeSubfolders);
         toolbar.add(importActions, BorderLayout.WEST);
-        JPanel primaryAction = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        JPanel primaryAction = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        JPanel effectiveDateOption = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
+        effectiveDateOption.add(considerRulesEffectiveDate);
+        effectiveDateOption.add(rulesEffectiveDateInfo);
+        primaryAction.add(effectiveDateOption);
         primaryAction.add(validate);
         primaryAction.add(cancel);
         toolbar.add(primaryAction, BorderLayout.EAST);
@@ -189,6 +204,7 @@ public final class ResultsPanel extends JPanel {
 
         add.setEnabled(!validating);
         includeSubfolders.setEnabled(!validating);
+        considerRulesEffectiveDate.setEnabled(canChangeRulesEffectiveDate(validating, completed));
         clear.setEnabled(!validating && !documents.isEmpty());
         removeValid.setEnabled(!validating && valid > 0);
         validate.setVisible(!validating);
@@ -197,6 +213,37 @@ public final class ResultsPanel extends JPanel {
         remove.setEnabled(!validating && documentsTable.getSelectedRow() >= 0);
         updateSelectionActions();
         documentsTable.setTransferHandler(validating ? null : dropHandler);
+    }
+
+    static JCheckBox rulesEffectiveDateCheckBox() {
+        JCheckBox option = new JCheckBox("Considerar vigência das regras de validação", true);
+        option.setToolTipText("Para XMLs anteriores, considera a data de vigência aplicável ao "
+                + "regime. A data original do documento não é alterada.");
+        return option;
+    }
+
+    static boolean canChangeRulesEffectiveDate(boolean validating, long completedDocuments) {
+        return !validating && completedDocuments == 0;
+    }
+
+    static String rulesEffectiveDateExplanation() {
+        return """
+                Quando esta opção está marcada, o aplicativo considera como referência a data de início das regras para cada regime: 03/08/2026 no regime normal e 04/01/2027 no Simples Nacional e MEI.
+
+                Assim, uma amostra antiga pode ser verificada como se tivesse sido emitida durante a vigência aplicável. A data gravada no XML não é alterada.
+
+                Ao desmarcar a opção, cada documento é avaliado estritamente pela sua data de emissão.
+                """.strip();
+    }
+
+    private void showRulesEffectiveDateInfo() {
+        modalOpened.run();
+        try {
+            SwingDialogSupport.showMessage(this, rulesEffectiveDateExplanation(),
+                    "Vigência das regras de validação", JOptionPane.INFORMATION_MESSAGE);
+        } finally {
+            modalClosed.run();
+        }
     }
 
     private static void stylePrimaryAction(JButton button) {

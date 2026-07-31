@@ -4,6 +4,19 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-056 — Simulação explícita usa a vigência própria de cada regime (31/07/2026)
+
+A validação preserva a data extraída do XML, mas pode receber uma data operacional somente para
+consultar regras e tabelas. A opção de interface vem marcada para viabilizar a conferência de
+amostras anteriores à virada: documentos CRT=3 anteriores são confrontados com 03/08/2026;
+documentos CRT=1, 2 e 4 anteriores são confrontados com 04/01/2027. Desmarcada, a opção usa a
+data real de emissão. Data ausente continua ausente: a simulação não inventa metadado.
+
+O tratamento separado do Simples evita antecipar sua obrigatoriedade com a data do regime normal.
+Como esse resultado pode surpreender em XMLs de 2026, a interface exibe um alerta informativo
+antes de validar lote que tenha documento desses regimes emitido antes de 2027. O aviso é uma
+salvaguarda temporária de transição e não interrompe a validação.
+
 ## D-055 — MSI usa major upgrade com identidade estável (31/07/2026)
 
 O instalador Windows recebe um `--win-upgrade-uuid` fixo entre releases. A versão do artefato é

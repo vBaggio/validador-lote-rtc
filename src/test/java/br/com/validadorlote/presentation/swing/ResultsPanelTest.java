@@ -3,6 +3,7 @@ package br.com.validadorlote.presentation.swing;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JTable;
+import javax.swing.JCheckBox;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import java.awt.Color;
@@ -10,6 +11,41 @@ import java.awt.Color;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ResultsPanelTest {
+
+    @Test
+    void ruleValidityOptionIsExplicitAndSelectedByDefault() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            JCheckBox option = ResultsPanel.rulesEffectiveDateCheckBox();
+
+            assertThat(option.getText()).isEqualTo(
+                    "Considerar vigência das regras de validação");
+            assertThat(option.isSelected()).isTrue();
+            assertThat(option.getToolTipText()).contains("vigência aplicável")
+                    .contains("não é alterada");
+        });
+    }
+
+    @Test
+    void ruleValidityExplanationCoversBothModesWithoutClaimingToChangeTheXml() {
+        assertThat(ResultsPanel.rulesEffectiveDateExplanation())
+                .contains("03/08/2026")
+                .contains("04/01/2027")
+                .contains("data gravada no XML não é alterada")
+                .contains("Simples Nacional")
+                .contains("Ao desmarcar");
+    }
+
+    @Test
+    void ruleValidityOptionCannotChangeDuringOrAfterValidationOfTheLot() {
+        assertThat(ResultsPanel.canChangeRulesEffectiveDate(false, 0)).isTrue();
+        assertThat(ResultsPanel.canChangeRulesEffectiveDate(true, 0)).isFalse();
+        assertThat(ResultsPanel.canChangeRulesEffectiveDate(false, 1)).isFalse();
+
+        JCheckBox selected = ResultsPanel.rulesEffectiveDateCheckBox();
+        selected.setEnabled(ResultsPanel.canChangeRulesEffectiveDate(true, 0));
+        assertThat(selected.isEnabled()).isFalse();
+        assertThat(selected.isSelected()).isTrue();
+    }
 
     @Test
     void zebraTableAlternatesSubtlyAndKeepsTheSelectionColor() throws Exception {

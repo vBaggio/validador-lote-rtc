@@ -120,10 +120,15 @@ sudo dnf install ./build/jpackage/*.rpm
 
 1. Arraste uma pasta ou XMLs para a área central, ou use o botão para adicionar arquivos.
 2. Revise os documentos exibidos e remova do lote o que não deseja analisar.
-3. Clique em **Validar pendentes** e acompanhe o progresso. É possível interromper sem perder os
+3. Antes de validar, escolha se deseja **considerar a vigência das regras de validação**. A opção
+   vem marcada para permitir testar XMLs de amostra emitidos antes da virada: o aplicativo usa
+   03/08/2026 para o regime normal e 04/01/2027 para Simples Nacional/MEI, sem alterar a data
+   gravada no XML. Desmarque-a para usar estritamente a data de emissão. Quando houver XML do
+   Simples emitido antes de 2027, o aplicativo explica esse efeito antes de iniciar.
+4. Clique em **Validar pendentes** e acompanhe o progresso. É possível interromper sem perder os
    resultados já concluídos.
-4. Selecione um documento para consultar seus problemas na grade inferior.
-5. Depois da revisão, use **Remover válidos** para manter na tela apenas o que requer atenção.
+5. Selecione um documento para consultar seus problemas na grade inferior.
+6. Depois da revisão, use **Remover válidos** para manter na tela apenas o que requer atenção.
 
 Os estados e cores ajudam a navegar pelo lote, mas não substituem a leitura da mensagem e do
 detalhe de cada ocorrência.

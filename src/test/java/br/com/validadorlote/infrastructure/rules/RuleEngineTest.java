@@ -318,6 +318,29 @@ class RuleEngineTest {
         assertThat(resultado.verifiedItemCount()).isZero();
     }
 
+    @Test
+    void simulatedOperationDateEvaluatesAPreDeadlineDocumentWithPostDeadlineRules() {
+        var documento = doc("3", LocalDate.of(2026, 7, 26), "55", false, false);
+
+        var resultado = engine.evaluate(documento, List.of(item().semInvolucro().build()), DATA);
+
+        assertThat(resultado.findings()).singleElement()
+                .satisfies(finding -> assertThat(finding.rejectionCode()).isEqualTo("1115"));
+        assertThat(documento.issueDate()).isEqualTo(LocalDate.of(2026, 7, 26));
+    }
+
+    @Test
+    void simulatedSimplesDateCanApplyItsOwnDeadline() {
+        var documento = doc("1", LocalDate.of(2026, 7, 26), "55", false, false);
+
+        var resultado = engine.evaluate(documento, List.of(item().semInvolucro().build()),
+                LocalDate.of(2027, 1, 4));
+
+        assertThat(resultado.findings()).singleElement()
+                .satisfies(finding -> assertThat(finding.rejectionCode()).isEqualTo("1115"));
+        assertThat(resultado.verifiedItemCount()).isEqualTo(1);
+    }
+
     // ---- Por item, e sem tropeçar em nItem ilegível ----
 
     @Test

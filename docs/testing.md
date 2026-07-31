@@ -11,6 +11,7 @@ gate de cobertura — cobertura por criticidade, conferida no review de cada blo
 | `XsdErrorTranslator` | códigos conhecidos → pt-BR; desconhecido → fallback |
 | `CsvExporter` | golden: BOM, `;`, escaping, acentos, CRLF |
 | `ValidateBatchUseCase` | lote misto, cancelamento, pasta/XML individual, progresso e documentos recusados |
+| vigência simulada | CRT=3 usa 03/08/2026 e CRT=1/2/4 usa 04/01/2027 sem alterar o XML; o alerta do Simples é exibido somente para documentos anteriores a 2027 |
 | `MainPresenter` | importação sem validação, estados incrementais, cancelamento e manutenção do lote com view fake |
 | atualização de artefatos | retentativa somente para falha transitória, staging sem alterar `current`, sucesso parcial visível, persistência por identidade de canal e preservação da base anterior |
 | `SafeHttpsClient` | prazo de conexão, cabeçalhos e corpo; cancelamento no timeout; limite de tamanho aplicado durante streaming |

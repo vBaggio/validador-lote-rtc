@@ -36,6 +36,7 @@ public final class MainFrame extends JFrame implements MainView {
     private final ExternalSourcesDialog externalSourcesDialog;
     private final ExternalSourcesStatusBar externalSourcesStatusBar;
     private final String applicationVersion;
+    private final MainPresenter presenter;
     private int modalDialogDepth;
 
     public MainFrame(MainPresenter presenter, String applicationVersion, String schemasVersion) {
@@ -45,6 +46,7 @@ public final class MainFrame extends JFrame implements MainView {
     public MainFrame(MainPresenter presenter, String applicationVersion, String schemasVersion,
             String tableVersion) {
         super("Validador de XML em Lote - Reforma Tributária");
+        this.presenter = presenter;
         this.applicationVersion = applicationVersion;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setIconImage(AppIcon.image());
@@ -107,6 +109,25 @@ public final class MainFrame extends JFrame implements MainView {
     @Override
     public void showError(String message) {
         SwingDialogSupport.showMessage(this, message, "Erro", JOptionPane.ERROR_MESSAGE);
+    }
+
+    @Override
+    public void warnRulesEffectiveDateForOlderSimples() {
+        String message = """
+                Este lote contém documento(s) do Simples Nacional emitido(s) antes de 2027.
+
+                Com “Considerar vigência das regras de validação” marcado, esses XMLs serão avaliados como se tivessem sido emitidos a partir de 04/01/2027, quando a obrigatoriedade do grupo IBS/CBS passa a valer para esses regimes.
+
+                Isso pode gerar rejeições em amostras antigas. Ao fechar este aviso, a validação seguirá normalmente.
+                """.strip();
+        modalDialogOpened();
+        try {
+            SwingDialogSupport.showMessage(this, message,
+                    "Atenção à vigência do Simples Nacional",
+                    JOptionPane.WARNING_MESSAGE);
+        } finally {
+            modalDialogClosed(presenter);
+        }
     }
 
     @Override

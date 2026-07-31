@@ -104,6 +104,11 @@ class MainPresenterTest {
         }
 
         @Override
+        public void warnRulesEffectiveDateForOlderSimples() {
+            calls.add("warn-older-simples");
+        }
+
+        @Override
         public void showExternalSources(ExternalSourcesSnapshot snapshot) {
             calls.add("sources " + snapshot.sources().size() + " " + snapshot.phase());
         }
@@ -215,6 +220,51 @@ class MainPresenterTest {
     }
 
     @Test
+    void validationUsesTheEffectiveDateChoiceCapturedAtStart(@TempDir Path dir) throws IOException {
+        copyFixture(dir, "nfe-crt3-sem-ibscbs.xml", "amostra-julho.xml");
+        AtomicBoolean receivedChoice = new AtomicBoolean(true);
+        presenter = new MainPresenter(runtime("r1"), DIRECT_UI_THREAD, Runnable::run, null,
+                (runtime, source, considerRulesEffectiveDate, token) -> {
+                    receivedChoice.set(considerRulesEffectiveDate);
+                    return runtime.useCase().validateDocument(
+                            source, true, considerRulesEffectiveDate, token);
+                });
+        presenter.attach(fakeView);
+        presenter.inputChosen(dir);
+
+        presenter.validateRequested(false);
+
+        assertThat(receivedChoice).isFalse();
+        assertThat(lastWorkspace.getFirst().findings())
+                .noneMatch(finding -> "1115".equals(finding.rejectionCode()));
+    }
+
+    @Test
+    void olderSimplesRequiresWarningBeforeEffectiveDateSimulation(@TempDir Path dir)
+            throws IOException {
+        copyFixture(dir, "rejeicao/c1115-simples-sem-grupo.xml", "simples-2026.xml");
+        presenter.inputChosen(dir);
+
+        presenter.validateRequested(true);
+
+        assertThat(calls).contains("warn-older-simples");
+        assertThat(lastWorkspace.getFirst().findings())
+                .anyMatch(finding -> "1115".equals(finding.rejectionCode()));
+    }
+
+    @Test
+    void actualEmissionDateModeDoesNotWarnForOlderSimples(@TempDir Path dir) throws IOException {
+        copyFixture(dir, "rejeicao/c1115-simples-sem-grupo.xml", "simples-2026.xml");
+        presenter.inputChosen(dir);
+
+        presenter.validateRequested(false);
+
+        assertThat(calls).doesNotContain("warn-older-simples");
+        assertThat(lastWorkspace.getFirst().findings())
+                .noneMatch(finding -> "1115".equals(finding.rejectionCode()));
+    }
+
+    @Test
     void completedDocumentKeepsTheRuntimeBasesCapturedBeforeANewerRuntimeExists(
             @TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida-sem-assinatura.xml", "a.xml");
@@ -322,7 +372,7 @@ class MainPresenterTest {
         };
         try {
             presenter = new MainPresenter(runtime("r1"), DIRECT_UI_THREAD, background, null,
-                    (runtime, source, token) -> {
+                    (runtime, source, considerRulesEffectiveDate, token) -> {
                         validating.countDown();
                         await(continueValidation);
                         return new DocumentValidationResult(null, List.of());
@@ -349,7 +399,7 @@ class MainPresenterTest {
             @TempDir Path dir) throws IOException {
         copyFixture(dir, "nfe-valida.xml", "a.xml");
         presenter = new MainPresenter(runtime("r1"), DIRECT_UI_THREAD, Runnable::run, null,
-                (runtime, source, token) -> {
+                (runtime, source, considerRulesEffectiveDate, token) -> {
                     throw new IllegalStateException("falha forçada");
                 });
         presenter.attach(fakeView);
