@@ -57,7 +57,7 @@ public final class App {
     private static final String SCHEMA_KEY_ID = "schemas-2026-01";
     private static final String SCHEMA_PUBLIC_KEY =
             "MCowBQYDK2VwAyEA20h//V2xUUkgSm+K7WjWLjWaXmmm6i6AB71DPBooSpQ=";
-    private static final String DEVELOPMENT_APP_VERSION = "0.1.2";
+    private static final String DEVELOPMENT_APP_VERSION = "0.2.0";
     private static final String PACKAGING_SMOKE_ARGUMENT = "--packaging-smoke";
 
     private App() {}

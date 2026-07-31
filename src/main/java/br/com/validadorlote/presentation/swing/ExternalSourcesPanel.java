@@ -20,7 +20,6 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -64,8 +63,10 @@ final class ExternalSourcesPanel extends JPanel {
 
         JLabel title = new JLabel("Bases de validação");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
+        title.setAlignmentX(LEFT_ALIGNMENT);
         JLabel subtitle = new JLabel("Atualizações são verificadas sem enviar XMLs ou dados do lote.");
         subtitle.setForeground(MUTED);
+        subtitle.setAlignmentX(LEFT_ALIGNMENT);
         JPanel heading = new JPanel();
         heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
         heading.add(title);
@@ -73,6 +74,7 @@ final class ExternalSourcesPanel extends JPanel {
         heading.add(subtitle);
         summary.setVisible(false);
         summary.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        summary.setAlignmentX(LEFT_ALIGNMENT);
         heading.add(summary);
         add(heading, BorderLayout.NORTH);
 
@@ -235,15 +237,17 @@ final class ExternalSourcesPanel extends JPanel {
         boolean expanded = source.name().equals(expandedSourceName);
         JPanel card = new JPanel(new BorderLayout(14, expanded ? 12 : 0));
         card.setAlignmentX(LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, expanded ? 190 : 58));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, expanded ? 150 : 58));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(78, 78, 78)),
                 BorderFactory.createEmptyBorder(10, 16, 10, 16)));
 
         JLabel name = new JLabel(source.name());
         name.setFont(name.getFont().deriveFont(Font.BOLD, 15f));
+        name.setAlignmentX(LEFT_ALIGNMENT);
         Feedback presentation = feedbackFor(source, aggregatePhase);
         JPanel status = status(source, aggregatePhase, presentation);
+        status.setAlignmentX(LEFT_ALIGNMENT);
         JPanel titleText = new JPanel();
         titleText.setOpaque(false);
         titleText.setLayout(new BoxLayout(titleText, BoxLayout.Y_AXIS));
@@ -254,10 +258,12 @@ final class ExternalSourcesPanel extends JPanel {
         JPanel header = new JPanel(new BorderLayout(16, 0));
         header.setOpaque(false);
         header.add(titleText, BorderLayout.CENTER);
-        JButton toggle = new JButton(expanded ? "Ocultar" : "Detalhes");
+        JButton toggle = new JButton();
         toggle.setIcon(new OutlineIcon(expanded ? OutlineIcon.Kind.COLLAPSE : OutlineIcon.Kind.EXPAND,
-                16, MUTED));
-        toggle.setHorizontalTextPosition(JButton.LEFT);
+                20, MUTED));
+        toggle.setToolTipText(expanded ? "Ocultar" : "Detalhes");
+        toggle.setFocusPainted(false);
+        toggle.putClientProperty("JButton.buttonType", "toolBarButton");
         toggle.addActionListener(event -> toggleDetails(source.name()));
         toggle.getAccessibleContext().setAccessibleName((expanded ? "Ocultar" : "Ver")
                 + " detalhes de " + source.name());
@@ -271,14 +277,13 @@ final class ExternalSourcesPanel extends JPanel {
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         JLabel purpose = new JLabel(purpose(source.name()));
         purpose.setForeground(MUTED);
+        purpose.setAlignmentX(LEFT_ALIGNMENT);
         content.add(purpose);
         content.add(Box.createVerticalStrut(8));
-        content.add(activeBase(source));
-        content.add(Box.createVerticalStrut(10));
-        JPanel details = new JPanel(new GridLayout(1, source.embedded() ? 2 : 3, 24, 0));
+        JPanel details = new JPanel(new FlowLayout(FlowLayout.LEFT, 24, 0));
         details.setOpaque(false);
-        details.setPreferredSize(new Dimension(0, 40));
-        details.setMinimumSize(new Dimension(0, 40));
+        details.setAlignmentX(LEFT_ALIGNMENT);
+        details.add(activeBase(source));
         if (!source.embedded()) {
             details.add(detail("Origem da base", friendlyOrigin(source.origin()), source.origin()));
         }
@@ -301,21 +306,21 @@ final class ExternalSourcesPanel extends JPanel {
         JPanel active = new JPanel();
         active.setOpaque(false);
         active.setLayout(new BoxLayout(active, BoxLayout.Y_AXIS));
-        active.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
+        active.setAlignmentX(LEFT_ALIGNMENT);
 
         JLabel caption = new JLabel("Base ativa");
         caption.setForeground(MUTED);
-        caption.setAlignmentX(RIGHT_ALIGNMENT);
+        caption.setAlignmentX(LEFT_ALIGNMENT);
         JLabel version = new JLabel(source.activeVersion());
         version.setFont(version.getFont().deriveFont(Font.BOLD));
-        version.setAlignmentX(RIGHT_ALIGNMENT);
+        version.setAlignmentX(LEFT_ALIGNMENT);
         active.add(caption);
         active.add(Box.createVerticalStrut(2));
         active.add(version);
         if (source.embedded()) {
             JLabel embedded = new JLabel("Incluída no aplicativo");
             embedded.setForeground(MUTED);
-            embedded.setAlignmentX(RIGHT_ALIGNMENT);
+            embedded.setAlignmentX(LEFT_ALIGNMENT);
             active.add(embedded);
         }
         return active;
