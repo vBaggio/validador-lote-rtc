@@ -11,7 +11,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.TransferHandler;
 import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.Component;
@@ -20,7 +19,6 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.datatransfer.DataFlavor;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
@@ -95,42 +93,16 @@ public final class DropZonePanel extends JPanel {
 
         add(dropArea, new GridBagConstraints());
 
-        TransferHandler handler = new TransferHandler() {
-            @Override
-            public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
-            }
-
-            @Override
-            public boolean importData(TransferSupport support) {
-                if (!canImport(support)) {
-                    return false;
-                }
-                try {
-                    Object transferData = support.getTransferable()
-                            .getTransferData(DataFlavor.javaFileListFlavor);
-                    if (!(transferData instanceof List<?> files)) {
-                        return false;
-                    }
-                    boolean imported = false;
-                    for (Object candidate : files) {
-                        if (candidate instanceof File file && isSupported(file)) {
-                            onInputChosen.accept(file.toPath(), includeSubfolders.isSelected());
-                            imported = true;
-                        }
-                    }
-                    return imported;
-                } catch (Exception ignored) {
-                    return false;
-                }
-            }
-        };
+        XmlFileDropHandler handler =
+                new XmlFileDropHandler(onInputChosen, includeSubfolders::isSelected);
         setTransferHandler(handler);
         dropArea.setTransferHandler(handler);
         icon.setTransferHandler(handler);
         title.setTransferHandler(handler);
         subtitle.setTransferHandler(handler);
         alternative.setTransferHandler(handler);
+        choose.setTransferHandler(handler);
+        includeSubfolders.setTransferHandler(handler);
         hint.setTransferHandler(handler);
     }
 
@@ -150,7 +122,7 @@ public final class DropZonePanel extends JPanel {
                     selected = new File[] {chooser.getSelectedFile()};
                 }
                 for (File file : selected) {
-                    if (isSupported(file)) {
+                    if (XmlFileDropHandler.isSupported(file)) {
                         onInputChosen.accept(file.toPath(), includeSubfolders.isSelected());
                     }
                 }
@@ -160,8 +132,4 @@ public final class DropZonePanel extends JPanel {
         }
     }
 
-    private static boolean isSupported(File file) {
-        return file.isDirectory() || (file.isFile()
-                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".xml"));
-    }
 }

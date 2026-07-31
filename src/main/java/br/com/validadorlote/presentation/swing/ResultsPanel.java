@@ -34,7 +34,6 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.IOException;
@@ -334,7 +333,7 @@ public final class ResultsPanel extends JPanel {
                     selected = new File[] {chooser.getSelectedFile()};
                 }
                 for (File file : selected) {
-                    if (supported(file)) {
+                    if (XmlFileDropHandler.isSupported(file)) {
                         presenter.inputChosen(file.toPath(), includeSubfolders.isSelected());
                     }
                 }
@@ -464,34 +463,7 @@ public final class ResultsPanel extends JPanel {
     }
 
     private TransferHandler fileDropHandler(MainPresenter presenter) {
-        return new TransferHandler() {
-            @Override public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
-            }
-
-            @Override public boolean importData(TransferSupport support) {
-                if (!canImport(support)) return false;
-                try {
-                    Object data = support.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-                    if (!(data instanceof List<?> files)) return false;
-                    boolean imported = false;
-                    for (Object candidate : files) {
-                        if (candidate instanceof File file && supported(file)) {
-                            presenter.inputChosen(file.toPath(), includeSubfolders.isSelected());
-                            imported = true;
-                        }
-                    }
-                    return imported;
-                } catch (Exception ignored) {
-                    return false;
-                }
-            }
-        };
-    }
-
-    private static boolean supported(File file) {
-        return file.isDirectory() || (file.isFile()
-                && file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".xml"));
+        return new XmlFileDropHandler(presenter::inputChosen, includeSubfolders::isSelected);
     }
 
     private static JPanel titledPanel(String title, Component content) {

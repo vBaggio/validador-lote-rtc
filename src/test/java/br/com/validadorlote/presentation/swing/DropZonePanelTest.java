@@ -5,8 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.swing.JToggleButton;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.AbstractButton;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.nio.file.Files;
@@ -47,6 +52,20 @@ class DropZonePanelTest {
         assertThat(imported).containsExactly(first, second);
     }
 
+    @Test
+    void everyVisibleControlInTheDropAreaAcceptsFiles() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            DropZonePanel panel = new DropZonePanel((path, includeSubfolders) -> { },
+                    () -> { }, () -> { }, new JToggleButton.ToggleButtonModel());
+
+            assertThat(descendants(panel)
+                    .filter(component -> component instanceof JLabel
+                            || component instanceof AbstractButton)
+                    .map(component -> (JComponent) component))
+                    .allSatisfy(component -> assertThat(component.getTransferHandler()).isNotNull());
+        });
+    }
+
     private static Transferable fileList(List<Path> paths) {
         List<java.io.File> files = paths.stream().map(Path::toFile).toList();
         return new Transferable() {
@@ -62,5 +81,13 @@ class DropZonePanelTest {
                 return files;
             }
         };
+    }
+
+    private static java.util.stream.Stream<Component> descendants(Container parent) {
+        return java.util.Arrays.stream(parent.getComponents()).flatMap(component ->
+                component instanceof Container child
+                        ? java.util.stream.Stream.concat(java.util.stream.Stream.of(component),
+                                descendants(child))
+                        : java.util.stream.Stream.of(component));
     }
 }
