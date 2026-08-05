@@ -279,8 +279,8 @@ public final class XmlMetadataParser {
         if (isFirst(stack, "dhEmi", "ide")) return "dhEmi";
         if (isFirst(stack, "finNFe", "ide")) return "finNFe";
         if (isFirst(stack, "tpNFDebito", "ide")) return "tpNFDebito";
-        if (isFirst(stack, "tpAmb", "ide")) return "tpAmb";
-        if (isFirst(stack, "tpNFCredito", "ide")) return "tpNFCredito";
+        if (isPath(stack, "tpAmb", "ide", "infNFe")) return "tpAmb";
+        if (isPath(stack, "tpNFCredito", "ide", "infNFe")) return "tpNFCredito";
         if (isFirst(stack, "refNFe", "NFref")) return "refNFe";
         if (isFirst(stack, "refNFeSig", "NFref")) return "refNFeSig";
         // Único pRedutor de infNFe/ide: o gTribCompraGov do item (TTribCompraGov) não tem campo

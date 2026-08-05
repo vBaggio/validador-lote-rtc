@@ -237,6 +237,7 @@ public final class TaxGroupExtractor {
                 }
                 switch (nome) {
                     case "det" -> {
+                        if (!isDirectChild(path, "det", "infNFe")) break;
                         nItem = parseItem(r.getAttributeValue(null, "nItem"));
                         emIbsCbs = temGrupo = temGrupoInterno = false;
                         redUf = redMun = redCbs = false;
@@ -258,9 +259,11 @@ public final class TaxGroupExtractor {
                         emImposto = false;
                         emDet = true;
                     }
-                    case "prod" -> { if (isDirectChild(path, "prod", "det")) emProd = true; }
+                    case "prod" -> {
+                        if (emDet && isDirectChild(path, "prod", "det")) emProd = true;
+                    }
                     case "imposto" -> {
-                        if (isDirectChild(path, "imposto", "det")) emImposto = true;
+                        if (emDet && isDirectChild(path, "imposto", "det")) emImposto = true;
                     }
                     case "IBSCBS" -> {
                         if (emImposto && isDirectChild(path, "IBSCBS", "imposto")) {
@@ -298,8 +301,18 @@ public final class TaxGroupExtractor {
                             emCredPresOper = true;
                         }
                     }
-                    case "gIBSCredPres" -> { if (emCredPresOper) emIbsCredit = true; }
-                    case "gCBSCredPres" -> { if (emIbsCbs) emCbsCredit = true; }
+                    case "gIBSCredPres" -> {
+                        if (emCredPresOper
+                                && isDirectChild(path, "gIBSCredPres", "gCredPresOper")) {
+                            emIbsCredit = true;
+                        }
+                    }
+                    case "gCBSCredPres" -> {
+                        if (emCredPresOper
+                                && isDirectChild(path, "gCBSCredPres", "gCredPresOper")) {
+                            emCbsCredit = true;
+                        }
+                    }
                     case "gEstornoCred" -> {
                         if (emIbsCbs && isDirectChild(path, "gEstornoCred", "IBSCBS")) {
                             estornoCred = true;
@@ -311,9 +324,13 @@ public final class TaxGroupExtractor {
                             credPresIbsZfm = true;
                         }
                     }
-                    case "tpCredPresIBSZFM" -> { if (emProd) tpCredPresIbsZfm = true; }
+                    case "tpCredPresIBSZFM" -> {
+                        if (emProd && isDirectChild(path, "tpCredPresIBSZFM", "prod")) {
+                            tpCredPresIbsZfm = true;
+                        }
+                    }
                     case "indBemMovelUsado" -> {
-                        if (emProd) {
+                        if (emProd && isDirectChild(path, "indBemMovelUsado", "prod")) {
                             hasIndBemMovelUsado = true;
                             indBemMovelUsado = texto(r, path);
                         }
@@ -375,9 +392,14 @@ public final class TaxGroupExtractor {
                         if (esfera == Esfera.MUN) vIbsMunicipal = decimal(texto(r, path));
                     }
                     case "vIBS" -> {
+                        boolean directAdjustmentValue = isDirectChild(
+                                path, "vIBS", "gAjusteCompet");
                         BigDecimal value = decimal(texto(r, path));
-                        if (emAjusteCompet) ajusteIbs = value;
-                        else if (emGIbsCbs) vIbs = value;
+                        if (emAjusteCompet && directAdjustmentValue) {
+                            ajusteIbs = value;
+                        } else if (emGIbsCbs) {
+                            vIbs = value;
+                        }
                     }
                     case "vBC" -> {
                         if (emGIbsCbs) declaredAmounts.put("vBC", decimal(texto(r, path)));
@@ -395,20 +417,27 @@ public final class TaxGroupExtractor {
                         else if (esfera == Esfera.CBS) declaredAmounts.put("vDevCBS", value);
                     }
                     case "vCBS" -> {
+                        boolean directAdjustmentValue = isDirectChild(
+                                path, "vCBS", "gAjusteCompet");
                         BigDecimal value = decimal(texto(r, path));
-                        if (emAjusteCompet) ajusteCbs = value;
-                        else if (esfera == Esfera.CBS) vCbs = value;
+                        if (emAjusteCompet && directAdjustmentValue) {
+                            ajusteCbs = value;
+                        } else if (esfera == Esfera.CBS) {
+                            vCbs = value;
+                        }
                     }
                     // gEstornoCred (TEstornoCred, DFeTiposBasicos_v1.00.xsd:1510-1519) nomeia os
                     // campos "vIBSEstCred"/"vCBSEstCred" — não "vIBS"/"vCBS" — mesmo por item.
                     case "vIBSEstCred" -> {
-                        if (emEstornoCred) {
+                        if (emEstornoCred
+                                && isDirectChild(path, "vIBSEstCred", "gEstornoCred")) {
                             estornoIbs = decimal(texto(r, path));
                             if (estornoIbs != null) declaredAmounts.put("vIBSEstCred", estornoIbs);
                         }
                     }
                     case "vCBSEstCred" -> {
-                        if (emEstornoCred) {
+                        if (emEstornoCred
+                                && isDirectChild(path, "vCBSEstCred", "gEstornoCred")) {
                             estornoCbs = decimal(texto(r, path));
                             if (estornoCbs != null) declaredAmounts.put("vCBSEstCred", estornoCbs);
                         }
@@ -436,15 +465,38 @@ public final class TaxGroupExtractor {
                 }
                 String nome = r.getLocalName();
                 if (Esfera.of(nome) != null) esfera = null;
-                if ("IBSCBS".equals(nome)) emIbsCbs = false;
-                if ("gIBSCBS".equals(nome)) emGIbsCbs = false;
-                if ("gCredPresOper".equals(nome)) emCredPresOper = false;
-                if ("gIBSCredPres".equals(nome)) emIbsCredit = false;
-                if ("gCBSCredPres".equals(nome)) emCbsCredit = false;
-                if ("gEstornoCred".equals(nome)) emEstornoCred = false;
-                if ("gAjusteCompet".equals(nome)) emAjusteCompet = false;
-                if ("prod".equals(nome)) emProd = false;
-                if ("imposto".equals(nome)) emImposto = false;
+                if ("IBSCBS".equals(nome) && isDirectChild(path, "IBSCBS", "imposto")) {
+                    emIbsCbs = false;
+                }
+                if ("gIBSCBS".equals(nome) && isDirectChild(path, "gIBSCBS", "IBSCBS")) {
+                    emGIbsCbs = false;
+                }
+                if ("gCredPresOper".equals(nome)
+                        && isDirectChild(path, "gCredPresOper", "IBSCBS")) {
+                    emCredPresOper = false;
+                }
+                if ("gIBSCredPres".equals(nome)
+                        && isDirectChild(path, "gIBSCredPres", "gCredPresOper")) {
+                    emIbsCredit = false;
+                }
+                if ("gCBSCredPres".equals(nome)
+                        && isDirectChild(path, "gCBSCredPres", "gCredPresOper")) {
+                    emCbsCredit = false;
+                }
+                if ("gEstornoCred".equals(nome)
+                        && isDirectChild(path, "gEstornoCred", "IBSCBS")) {
+                    emEstornoCred = false;
+                }
+                if ("gAjusteCompet".equals(nome)
+                        && isDirectChild(path, "gAjusteCompet", "IBSCBS")) {
+                    emAjusteCompet = false;
+                }
+                if ("prod".equals(nome) && isDirectChild(path, "prod", "det")) {
+                    emProd = false;
+                }
+                if ("imposto".equals(nome) && isDirectChild(path, "imposto", "det")) {
+                    emImposto = false;
+                }
                 if ("DFeReferenciado".equals(nome)) {
                     if (dfeReferenciado == null) {
                         // O grupo abriu, mas chaveAcesso não veio (ausente, vazia ou conteúdo
@@ -455,7 +507,7 @@ public final class TaxGroupExtractor {
                     }
                     emDFeReferenciado = false;
                 }
-                if ("det".equals(nome)) {
+                if ("det".equals(nome) && isDirectChild(path, "det", "infNFe")) {
                     // O item entra mesmo com nItem ilegível: descartá-lo o faria sumir do
                     // relatório inteiro — nem conforme, nem rejeitado, nem não avaliado.
                     itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,

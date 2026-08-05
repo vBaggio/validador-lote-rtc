@@ -275,6 +275,21 @@ class XmlMetadataParserTest {
     }
 
     @Test
+    void ambienteAndTipoCreditoIgnoreIdeOutsideInfNfe(@TempDir Path dir) throws IOException {
+        String xml = """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <fake><ide><tpAmb>2</tpAmb><tpNFCredito>99</tpNFCredito></ide></fake>
+                  <ide><tpAmb>1</tpAmb><tpNFCredito>02</tpNFCredito></ide>
+                </infNFe></NFe>
+                """;
+
+        var doc = parser.parse(write(dir, "fake-ide.xml", xml)).document();
+
+        assertThat(doc.tpAmb()).isEqualTo("1");
+        assertThat(doc.tpNFCredito()).isEqualTo("02");
+    }
+
+    @Test
     void absentFinalidadeAndDebitoAreNull(@TempDir Path dir) throws IOException {
         var doc = parser.parse(write(dir, "sem-fin.xml", nfeComIde(""))).document();
 

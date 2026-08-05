@@ -293,6 +293,60 @@ class TaxGroupExtractorTest {
     }
 
     @Test
+    void detOutsideInfNfeDoesNotCreateItemOrLeakIntoRealDet(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("det-em-total.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <total><det nItem="99"><prod><indBemMovelUsado>1</indBemMovelUsado></prod>
+                    <imposto><IBSCBS><CST>620</CST><cClassTrib>620001</cClassTrib>
+                      <gIBSCBSMono/>
+                    </IBSCBS></imposto>
+                  </det></total>
+                  <det nItem="1"><prod/><imposto><IBSCBS><CST>400</CST>
+                    <cClassTrib>400001</cClassTrib>
+                  </IBSCBS></imposto></det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement().satisfies(item -> {
+            assertThat(item.itemNumber()).isEqualTo(1);
+            assertThat(item.hasGIbsCbsMono()).isFalse();
+            assertThat(item.hasIndBemMovelUsado()).isFalse();
+        });
+    }
+
+    @Test
+    void fieldsRequireDirectParentAndNestedHomonymDoesNotCloseRealGroup(@TempDir Path dir)
+            throws IOException {
+        Path xml = dir.resolve("pais-diretos.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod><wrapper><indBemMovelUsado>1</indBemMovelUsado></wrapper></prod>
+                    <imposto><IBSCBS><CST>811</CST><cClassTrib>811001</cClassTrib>
+                      <gAjusteCompet><gAjusteCompet/><vIBS>1.00</vIBS>
+                        <wrapper><vCBS>9.00</vCBS></wrapper>
+                      </gAjusteCompet>
+                      <gEstornoCred><gEstornoCred/><vIBSEstCred>2.00</vIBSEstCred>
+                        <wrapper><vCBSEstCred>8.00</vCBSEstCred></wrapper>
+                      </gEstornoCred>
+                    </IBSCBS></imposto>
+                  </det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement().satisfies(item -> {
+            assertThat(item.hasIndBemMovelUsado()).isFalse();
+            assertThat(item.indBemMovelUsado()).isNull();
+            assertThat(item.hasAjusteCompet()).isTrue();
+            assertThat(item.ajusteCompetIbs()).isEqualByComparingTo("1.00");
+            assertThat(item.ajusteCompetCbs()).isNull();
+            assertThat(item.hasEstornoCred()).isTrue();
+            assertThat(item.estornoCredIbs()).isEqualByComparingTo("2.00");
+            assertThat(item.estornoCredCbs()).isNull();
+        });
+    }
+
+    @Test
     void nItemInvalidoNaoDerrubaALeitura(@TempDir Path dir) throws IOException {
         Path xml = dir.resolve("nitem-invalido.xml");
         Files.writeString(xml, """
