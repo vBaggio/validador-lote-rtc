@@ -5,6 +5,36 @@
 > `docs/decisions.md` pelo número D-0XX, não duplicados. Nada foi perdido: o texto completo
 > original está no histórico do git deste arquivo (`git log -p -- .superpowers/sdd/progress.md`).
 
+## Bloco 11 (indicadores oficiais e grupos condicionais, branch `bloco/11-indicadores-grupos`)
+
+Task 1 (b11): complete (commit `233c762`, revisão independente PASS/PASS) — contrato da SVRS
+ampliado com 13 indicadores obrigatórios, fingerprint e recurso oficial de 04/08/2026 (18 CSTs,
+164 classificações). Snapshot legado sem o contrato novo recua inteiro para a base embarcada;
+engine, manifesto e interface não divergem.
+
+Task 2 (b11): complete (commits `5f76170`, `e6969c3`, `5d5447a`, re-revisão PASS/PASS) — extração
+segura de grupos superiores, `tpAmb`, `tpNFCredito`, bem móvel usado e valores de ajuste/estorno.
+ACHADOS: `ide`, `det` e escalares homônimos fora da cadeia fiscal contaminavam o item; corrigidos
+com caminho oficial completo e identidade do `det` mais próximo. `DFeReferenciado` legítimo em
+`det` foi preservado.
+
+Task 3 (b11): complete (commits `7781709`, `0675ba8`, re-revisão PASS/PASS) — RVs 1151, 1116,
+1131, 1132, 1169, 1170, 1171, 1134, 1135, 1158 e 1159. ACHADOS: 1171 não depende de CST/tabela,
+1159 não aprova tipo de crédito ilegível, e bindings sem tabela não podem ser cortados por data
+operacional nula; corrigidos e protegidos por simulação de vigência. LIMITE D-065: 1131/1132
+permanecem sem veredito local em NFC-e porque `gTransfCred` não existe no XSD 010e embarcado.
+
+Task 4 (b11): complete (commits `c2087b3`, `7983eb0`, re-revisão PASS/PASS) — RVs 1065, 1114,
+1172, 1173, 1174 e 1175. ACHADOS: exceções 07 e bem móvel usado precisam preceder tabela; metadado
+de débito incerto permanece não avaliado. Caminho de perda em estoque da 1173 é independente e não
+duplica achado. LIMITE D-065: apesar de a NT listar 1169 e 1172 também para NFC-e, o XSD 010e
+embarcado não admite `gAjusteCompet`/`gEstornoCred`; o motor deliberadamente limita esses vereditos
+locais à NF-e para não emitir julgamento contraditório. É falso negativo declarado, não lacuna oculta.
+
+Task 5 (b11): complete (handoff documental deste commit) — auditoria das 17 RVs, limite explícito
+dos subgrupos monofásicos e do `gMono` total, `clean test` e árvore conferidos. Nenhum push; próximo
+passo é revisão humana/PR da branch.
+
 ## Bloco 6 (canal de artefatos externos, branch `bloco/6-canal-schemas`)
 
 Task 30 (b6): complete (commit 974817d, revisão independente PASS após 2 fix loops) — catálogo

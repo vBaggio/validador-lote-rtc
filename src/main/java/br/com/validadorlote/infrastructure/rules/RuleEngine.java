@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Roda as regras de rejeição sobre um documento, item a item.
@@ -60,7 +62,8 @@ public final class RuleEngine {
     }
 
     /** Uma regra e os dados de que ela depende para chegar a veredito. */
-    record Binding(RejectionRule rule, EnumSet<Precondition> requires) {}
+    record Binding(RejectionRule rule, EnumSet<Precondition> requires,
+            Predicate<RuleContext> beforePreconditions) {}
 
     /**
      * O que a camada de rejeição apurou num documento.
@@ -162,9 +165,42 @@ public final class RuleEngine {
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new GroupRequiredByCstRule(),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new CstGroupPresenceRule("1151", "UB13-39",
+                                "Rejeição: Grupo IBS/CBS Monofásico informado indevidamente",
+                                entry -> entry.exigeMonofasia(), ItemTaxGroup::hasGIbsCbsMono,
+                                CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55", "65")),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new MonophaseGroupRequiredRule(),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new CstGroupPresenceRule("1131", "UB13-44",
+                                "Rejeição: Grupo de transferência de crédito informado indevidamente",
+                                entry -> entry.exigeTransferenciaCredito(),
+                                ItemTaxGroup::hasTransfCred,
+                                CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55")),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new CstGroupPresenceRule("1132", "UB13-45",
+                                "Rejeição: Grupo de transferência de crédito não informado",
+                                entry -> entry.exigeTransferenciaCredito(),
+                                ItemTaxGroup::hasTransfCred,
+                                CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ClassTribCstRule(),
                         Precondition.CST_PRESENT, Precondition.CLASS_TRIB_IN_TABLE),
                 binding(new ClassTribModelRule(),
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ClassTribGroupPresenceRule("1065", "UB68-10",
+                                "Rejeição: Classificação Tributária do IBS e da CBS informada "
+                                        + "obriga informação da tributação regular",
+                                entry -> entry.exigeTributacaoRegular(),
+                                ItemTaxGroup::hasTribRegular,
+                                ClassTribGroupPresenceRule.Direction.REQUIRED, Set.of("55", "65")),
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ClassTribGroupPresenceRule("1114", "UB68-11",
+                                "Rejeição: Classificação Tributária do IBS e da CBS informada não "
+                                        + "permite informação da tributação regular",
+                                entry -> entry.exigeTributacaoRegular(),
+                                ItemTaxGroup::hasTribRegular,
+                                ClassTribGroupPresenceRule.Direction.FORBIDDEN, Set.of("55", "65")),
                         Precondition.CLASS_TRIB_IN_TABLE),
                 binding(new ReductionGroupRule(Esfera.UF),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
@@ -208,6 +244,49 @@ public final class RuleEngine {
                 binding(new ComprasGovComposicaoRequiredRule(),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ComprasGovComposicaoForbiddenRule())));
+        bindings.add(binding(new CstGroupPresenceRule("1169", "UB112-10",
+                        "Rejeição: Grupo de Ajuste de Competência informado indevidamente",
+                        entry -> entry.exigeAjusteCompetencia(), ItemTaxGroup::hasAjusteCompet,
+                        CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new CstGroupPresenceRule("1170", "UB112-20",
+                        "Rejeição: Grupo de Ajuste de Competência não informado",
+                        entry -> entry.exigeAjusteCompetencia(), ItemTaxGroup::hasAjusteCompet,
+                        CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new AdjustmentPositiveValueRule()));
+        bindings.add(bindingBeforePreconditions(new CreditReversalForbiddenRule(),
+                ctx -> ctx.item().hasEstornoCred()
+                        && CreditReversalRuleSupport.stockLoss(ctx.document())
+                                == CreditReversalRuleSupport.StockLoss.YES,
+                Precondition.CLASS_TRIB_IN_TABLE));
+        bindings.add(binding(new CreditReversalRequiredByClassRule(),
+                Precondition.CLASS_TRIB_IN_TABLE));
+        bindings.add(binding(new CreditReversalRequiredByStockLossRule()));
+        bindings.add(binding(new CreditReversalPositiveValueRule()));
+        bindings.add(bindingBeforePreconditions(new PresumedCreditOperationForbiddenRule(),
+                ctx -> ctx.item().hasCredPresOper() && ctx.item().hasIndBemMovelUsado(),
+                Precondition.CLASS_TRIB_IN_TABLE));
+        bindings.add(binding(new CstGroupPresenceRule("1134", "UB131-20",
+                        "Rejeição: CST do IBS/CBS informado não permite informação do grupo para "
+                                + "apropriação de crédito presumido de IBS sobre o saldo devedor "
+                                + "na ZFM",
+                        entry -> entry.exigeCreditoPresumidoIbsZfm(),
+                        ItemTaxGroup::hasCredPresIbsZfm,
+                        CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new CstGroupPresenceRule("1135", "UB131-30",
+                        "Rejeição: CST do IBS/CBS informado exige a informação do grupo para "
+                                + "apropriação de crédito presumido de IBS sobre o saldo devedor "
+                                + "na ZFM",
+                        entry -> entry.exigeCreditoPresumidoIbsZfm(),
+                        ItemTaxGroup::hasCredPresIbsZfm,
+                        CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new ZfmCreditNoteTypeRule(
+                ZfmCreditNoteTypeRule.Direction.GROUP_FORBIDDEN)));
+        bindings.add(binding(new ZfmCreditNoteTypeRule(
+                ZfmCreditNoteTypeRule.Direction.GROUP_REQUIRED)));
         return List.copyOf(bindings);
     }
 
@@ -216,7 +295,14 @@ public final class RuleEngine {
         // coleção vazia lança — uma regra futura sem precondição viraria ExceptionInInitializerError.
         EnumSet<Precondition> required = EnumSet.noneOf(Precondition.class);
         required.addAll(List.of(requires));
-        return new Binding(rule, required);
+        return new Binding(rule, required, ctx -> false);
+    }
+
+    private static Binding bindingBeforePreconditions(RejectionRule rule,
+            Predicate<RuleContext> beforePreconditions, Precondition... requires) {
+        EnumSet<Precondition> required = EnumSet.noneOf(Precondition.class);
+        required.addAll(List.of(requires));
+        return new Binding(rule, required, beforePreconditions);
     }
 
     private final FiscalTables tables;
@@ -299,10 +385,10 @@ public final class RuleEngine {
 
         RuleOutcome root = GROUP_REQUIRED.evaluate(ctx);
         report(out, ctx, GROUP_REQUIRED, root, NotEvaluatedCause.RULE_SPECIFIC);
-        if (operationDate == null || !item.hasIbsCbsGroup()) {
-            // Os dois cortes de raiz da cascata. Sem a data do fato gerador nenhuma consulta à
-            // tabela é possível; sem o invólucro IBSCBS não existe subgrupo a julgar, e as dez
-            // regras restantes só saberiam repetir a causa que a 1115 acabou de reportar.
+        if (!item.hasIbsCbsGroup()) {
+            // Único corte global da cascata: sem o invólucro IBSCBS não existe subgrupo a julgar.
+            // Data ausente bloqueia só bindings que consultam tabela; 1171, 1158/1159 e outras
+            // regras independentes ainda têm todos os dados necessários para chegar a veredito.
             return isVerdict(root);
         }
 
@@ -310,6 +396,17 @@ public final class RuleEngine {
         EnumSet<Precondition> reported = EnumSet.noneOf(Precondition.class);
         verified |= isVerdict(root);
         for (Binding binding : BINDINGS) {
+            if (binding.beforePreconditions().test(ctx)) {
+                RuleOutcome outcome = binding.rule().evaluate(ctx);
+                verified |= isVerdict(outcome);
+                report(out, ctx, binding.rule(), outcome, NotEvaluatedCause.RULE_SPECIFIC);
+                continue;
+            }
+            if (operationDate == null && dependsOnDatedTable(binding)) {
+                // GROUP_REQUIRED já registrou a causa-raiz única da data ausente. Estas regras
+                // não podem consultar a tabela; bindings sem essa dependência seguem abaixo.
+                continue;
+            }
             Precondition cause = rootCause(binding, missing);
             if (cause == null) {
                 RuleOutcome outcome = binding.rule().evaluate(ctx);
@@ -321,6 +418,11 @@ public final class RuleEngine {
             }
         }
         return verified;
+    }
+
+    private boolean dependsOnDatedTable(Binding binding) {
+        return binding.requires().contains(Precondition.CST_IN_TABLE)
+                || binding.requires().contains(Precondition.CLASS_TRIB_IN_TABLE);
     }
 
     /**
@@ -337,11 +439,12 @@ public final class RuleEngine {
             // e CST ausente é o caso mais óbvio de CST fora da tabela — uma regra futura que
             // dependa só da tabela seria roteada errado se aqui o conjunto mentisse.
             missing.add(Precondition.CST_IN_TABLE);
-        } else if (tables.cst(cst, operationDate).isEmpty()) {
+        } else if (operationDate == null || tables.cst(cst, operationDate).isEmpty()) {
             missing.add(Precondition.CST_IN_TABLE);
         }
         String classTrib = item.cClassTrib();
-        if (classTrib == null || tables.classTrib(classTrib, operationDate).isEmpty()) {
+        if (classTrib == null || operationDate == null
+                || tables.classTrib(classTrib, operationDate).isEmpty()) {
             missing.add(Precondition.CLASS_TRIB_IN_TABLE);
         }
         return missing;

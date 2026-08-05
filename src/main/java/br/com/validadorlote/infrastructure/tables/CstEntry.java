@@ -11,9 +11,16 @@ import java.time.LocalDate;
  *         ausente); {@code ind_gDif=0} <b>veda</b> o grupo (rejeições 1029/1083/1090 se presente).
  *         "Permite" sugeriria facultatividade que o indicador não tem — é sempre exigido ou vedado,
  *         nunca opcional (D-041).
+ * @param exigeMonofasia {@code IndMonofasica} da tabela SVRS
+ * @param exigeReducaoBaseCalculo {@code IndReducaoBc} da tabela SVRS
+ * @param exigeTransferenciaCredito {@code IndTransferenciaCred} da tabela SVRS
+ * @param exigeCreditoPresumidoIbsZfm {@code IndCredPresIbsZfm} da tabela SVRS
+ * @param exigeAjusteCompetencia {@code IndAjusteCompet} da tabela SVRS
  */
 public record CstEntry(String cst, String nome, boolean exigeGrupo, boolean exigeReducao,
-        boolean exigeDiferimento, LocalDate iniVig, LocalDate fimVig) {
+        boolean exigeDiferimento, boolean exigeMonofasia, boolean exigeReducaoBaseCalculo,
+        boolean exigeTransferenciaCredito, boolean exigeCreditoPresumidoIbsZfm,
+        boolean exigeAjusteCompetencia, LocalDate iniVig, LocalDate fimVig) {
 
     boolean vigenteEm(LocalDate data) {
         return (iniVig == null || !data.isBefore(iniVig))

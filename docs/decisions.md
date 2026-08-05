@@ -4,6 +4,25 @@ Log ADR-lite. Cada entrada: **Decisão**, contexto curto e consequência. Mais r
 Template no fim. Decisões D-001..D-014 nasceram no brainstorm de 26/07/2026 (spec
 [`superpowers/specs/2026-07-26-validador-lote-rtc-design.md`](./superpowers/specs/2026-07-26-validador-lote-rtc-design.md)).
 
+## D-065 — Regra fiscal para na interseção comprovada entre NT, tabela e XSD (04/08/2026)
+
+O Bloco 11 implementa presença e ausência de grupos somente quando a NT v1.50, o indicador oficial
+SVRS e o XSD `010e_v1.02` embarcado descrevem uma interpretação compatível. As regras superiores de
+monofasia 1151/1116 entram, mas os subgrupos profundos ficam bloqueados porque os nomes e a estrutura
+da NT já divergem do XSD; regras de transferência, ajuste e estorno citadas para NFC-e ficam na
+camada XSD e não recebem veredito fiscal local contraditório. Consequência: há falsos negativos
+declarados nesse limite, nunca um grupo impossível de satisfazer nem uma acusação baseada em
+artefatos incompatíveis.
+
+## D-064 — Indicadores SVRS são contrato obrigatório e snapshot legado recua inteiro (04/08/2026)
+
+Todos os indicadores oficiais de CST e `cClassTrib` relevantes a grupos passam a integrar o JSON
+destilado, os records e o fingerprint semântico. Campo ausente ou de tipo alterado invalida a base;
+não existe default `false`. Snapshot instalado por versão anterior sem o contrato novo é ignorado
+por inteiro, e engine, proveniência e interface usam juntos a base embarcada atual. Isso preserva a
+instalação offline e impede que uma tabela incompleta produza julgamento fiscal ou apareça como a
+referência ativa.
+
 ## D-063 — macOS DMG best-effort permanece sem correção enquanto major = 0 (31/07/2026)
 
 `jpackage` recusa gerar o bundler DMG quando `--app-version` começa em `0` ("The first number in

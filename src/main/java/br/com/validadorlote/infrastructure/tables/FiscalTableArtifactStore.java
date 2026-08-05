@@ -97,38 +97,44 @@ public final class FiscalTableArtifactStore {
 
     /** Tabela local apenas quando referência, manifesto, hash e formato permanecem íntegros. */
     public FiscalTables activeOrNull() {
+        ActiveFiscalTables active = activeFiscalTablesOrNull();
+        return active == null ? null : active.tables();
+    }
+
+    /** Evita reinstalar a mesma tabela destilada em cada consulta periódica. */
+    public boolean isActiveVersion(String version) {
+        ActiveFiscalTables active = activeFiscalTablesOrNull();
+        if (active == null) return false;
+        return active.manifest().version().equals(version);
+    }
+
+    /** Manifesto da tabela local íntegra, para auditoria de apresentação sem expor o payload. */
+    public ArtifactManifest activeManifestOrNull() {
+        ActiveFiscalTables active = activeFiscalTablesOrNull();
+        if (active == null) return null;
+        return active.manifest();
+    }
+
+    /**
+     * Retorna payload e manifesto validados a partir da mesma referência {@code current}.
+     * Snapshot de versão anterior que ainda tenha hash íntegro, mas contrato incompatível,
+     * é invisível por inteiro para engine, proveniência e interface (D-064).
+     */
+    public ActiveFiscalTables activeFiscalTablesOrNull() {
         try {
-            Path base = activePathOrNull();
-            if (base == null) return null;
-            try (var input = Files.newInputStream(base.resolve(TABLE_FILE))) {
-                return FiscalTables.load(input);
+            Path active = activePathOrNull();
+            if (active == null) return null;
+            ArtifactManifest manifest = readManifest(active);
+            try (var input = Files.newInputStream(active.resolve(TABLE_FILE))) {
+                return new ActiveFiscalTables(FiscalTables.load(input), manifest);
             }
         } catch (RuntimeException | IOException ignored) {
             return null;
         }
     }
 
-    /** Evita reinstalar a mesma tabela destilada em cada consulta periódica. */
-    public boolean isActiveVersion(String version) {
-        Path active = activePathOrNull();
-        if (active == null) return false;
-        try {
-            return readManifest(active).version().equals(version);
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    /** Manifesto da tabela local íntegra, para auditoria de apresentação sem expor o payload. */
-    public ArtifactManifest activeManifestOrNull() {
-        Path active = activePathOrNull();
-        if (active == null) return null;
-        try {
-            return readManifest(active);
-        } catch (IOException e) {
-            return null;
-        }
-    }
+    /** Unidade atômica da base fiscal local carregável. */
+    public record ActiveFiscalTables(FiscalTables tables, ArtifactManifest manifest) { }
 
     private Path activePathOrNull() {
         try {

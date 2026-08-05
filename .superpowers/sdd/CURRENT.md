@@ -8,7 +8,22 @@ havia dias, quando já estavam mergeados em `main` — confirmado por `git log -
 em 31/07/2026 a partir do `git log`, não do texto anterior; os parágrafos de blocos fechados foram
 podados para uma linha cada, conforme §8 de `workflow.md`.
 
-## Sessão de 31/07/2026 (mais recente)
+## Sessão de 04/08/2026 (mais recente)
+
+- **B11 — Indicadores oficiais e grupos condicionais concluído localmente.** Branch
+  `bloco/11-indicadores-grupos`; Tasks 1–4 passaram em revisão independente após os fix loops
+  documentados no ledger. Foram entregues as 17 RVs de presença, ausência e valor dos grupos
+  superiores, com tabela SVRS completa, extração StAX com escopo fiscal estrito e limites
+  monofásicos explícitos (D-064/D-065). Por D-065, 1131/1132, 1169 e 1172 ficam deliberadamente
+  sem veredito local em NFC-e até schema compatível, embora a NT liste esse modelo. A auditoria de fechamento está no relatório scratch
+  `b11-task-5-report.md`; `./gradlew clean test --console=plain` passou localmente. Nenhum push ou
+  PR foi feito. Próximo passo: revisão humana e PR da branch; não iniciar subgrupos monofásicos
+  profundos antes de schema curado compatível.
+- **Árvore na parada:** apenas o pré-plano não rastreado do usuário
+  `docs/pesquisa/2026-07-31-pre-plano-calculadora.md`; não foi alterado. HEAD é o commit de handoff
+  documental do B11 desta sessão; confirme-o com `git log` antes de retomar.
+
+## Sessão de 31/07/2026
 
 - **Revisão fiscal — totalizações IBS/CBS e crédito presumido.** PR #18 mergeado (`0b3622c`).
   Revisão independente encontrou e corrigiu dois bugs reais de leitura StAX (nome de tag divergente

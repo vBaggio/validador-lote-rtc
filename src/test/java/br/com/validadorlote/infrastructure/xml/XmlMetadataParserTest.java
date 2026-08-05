@@ -240,7 +240,7 @@ class XmlMetadataParserTest {
                 .hasMessageContaining("raiz");
     }
 
-    // ---- finNFe, tpNFDebito e NFref: insumos das exceções da UB12-10 e da UB13-30 ----
+    // ---- ambiente, finalidade, tipos da nota e NFref: metadados das RVs ----
 
     /** NF-e com o `<ide>` parametrizável, para exercitar finalidade e notas referenciadas. */
     private String nfeComIde(String miolo) {
@@ -260,11 +260,43 @@ class XmlMetadataParserTest {
     }
 
     @Test
+    void extractsAmbienteAndTipoDeNotaDeCreditoOnlyFromIde(@TempDir Path dir) throws IOException {
+        String xml = nfeComIde(
+                "<x:tpAmb>2</x:tpAmb><x:tpNFCredito>99</x:tpNFCredito>"
+                + "<tpAmb>1</tpAmb><tpNFCredito>02</tpNFCredito>"
+                + "<NFref><tpAmb>2</tpAmb><tpNFCredito>99</tpNFCredito></NFref>")
+                .replace("xmlns=\"http://www.portalfiscal.inf.br/nfe\"",
+                        "xmlns=\"http://www.portalfiscal.inf.br/nfe\" xmlns:x=\"urn:not-nfe\"");
+        var doc = parser.parse(write(dir, "amb-credito.xml", xml))
+                .document();
+
+        assertThat(doc.tpAmb()).isEqualTo("1");
+        assertThat(doc.tpNFCredito()).isEqualTo("02");
+    }
+
+    @Test
+    void ambienteAndTipoCreditoIgnoreIdeOutsideInfNfe(@TempDir Path dir) throws IOException {
+        String xml = """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <fake><ide><tpAmb>2</tpAmb><tpNFCredito>99</tpNFCredito></ide></fake>
+                  <ide><tpAmb>1</tpAmb><tpNFCredito>02</tpNFCredito></ide>
+                </infNFe></NFe>
+                """;
+
+        var doc = parser.parse(write(dir, "fake-ide.xml", xml)).document();
+
+        assertThat(doc.tpAmb()).isEqualTo("1");
+        assertThat(doc.tpNFCredito()).isEqualTo("02");
+    }
+
+    @Test
     void absentFinalidadeAndDebitoAreNull(@TempDir Path dir) throws IOException {
         var doc = parser.parse(write(dir, "sem-fin.xml", nfeComIde(""))).document();
 
         assertThat(doc.finNFe()).isNull();
         assertThat(doc.tpNFDebito()).isNull();
+        assertThat(doc.tpAmb()).isNull();
+        assertThat(doc.tpNFCredito()).isNull();
         assertThat(doc.references()).isEmpty();
     }
 

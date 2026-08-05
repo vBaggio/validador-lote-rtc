@@ -86,8 +86,8 @@ class ExternalSourcesUseCaseTest {
         assertThat(tables.origin()).contains("dfe-portal.svrs.rs.gov.br");
         assertThat(tables.candidateOrigin()).isNull();
         assertThat(tables.abbreviatedHash()).isNull();
-        assertThat(tables.updatedAt()).isEqualTo(Instant.parse("2026-07-27T00:00:00Z"));
-        assertThat(tables.checkedAt()).isEqualTo(Instant.parse("2026-07-29T00:00:00Z"));
+        assertThat(tables.updatedAt()).isEqualTo(Instant.parse("2026-08-04T00:00:00Z"));
+        assertThat(tables.checkedAt()).isEqualTo(Instant.parse("2026-08-04T00:00:00Z"));
         assertThat(tables.phase()).isEqualTo(ExternalSourcePhase.NOT_CHECKED);
     }
 

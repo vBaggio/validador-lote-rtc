@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe>
+    <det nItem="1">
+      <prod><indBemMovelUsado>1</indBemMovelUsado></prod>
+      <imposto><IBSCBS><CST>620</CST><cClassTrib>620001</cClassTrib><gIBSCBSMono/></IBSCBS></imposto>
+    </det>
+    <det nItem="2">
+      <prod><indBemMovelUsado>1<x/>0</indBemMovelUsado></prod>
+      <imposto><IBSCBS><CST>800</CST><cClassTrib>800001</cClassTrib><gTransfCred/></IBSCBS></imposto>
+    </det>
+    <det nItem="3">
+      <prod/>
+      <imposto><IBSCBS><CST>811</CST><cClassTrib>811001</cClassTrib><gAjusteCompet>
+        <competApur>2026-07</competApur><vIBS>0.00</vIBS><vCBS>1.25</vCBS>
+      </gAjusteCompet></IBSCBS></imposto>
+    </det>
+    <det nItem="4">
+      <prod/>
+      <imposto><IBSCBS><CST>200</CST><cClassTrib>200003</cClassTrib><gIBSCBS><gTribRegular/></gIBSCBS></IBSCBS></imposto>
+    </det>
+    <det nItem="5">
+      <prod/>
+      <imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gEstornoCred>
+        <vIBSEstCred>2.00</vIBSEstCred><vCBSEstCred>0.00</vCBSEstCred>
+      </gEstornoCred></IBSCBS></imposto>
+    </det>
+    <det nItem="6">
+      <prod/>
+      <imposto><IBSCBS><CST>400</CST><cClassTrib>400001</cClassTrib></IBSCBS></imposto>
+    </det>
+    <det nItem="7">
+      <prod/>
+      <imposto><IBSCBS><CST>811</CST><cClassTrib>811001</cClassTrib><gAjusteCompet>
+        <competApur>2026-07</competApur><vIBS>ilegivel</vIBS>
+      </gAjusteCompet></IBSCBS></imposto>
+    </det>
+    <det nItem="8">
+      <prod/>
+      <imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib><gEstornoCred>
+        <vIBSEstCred>ilegivel</vIBSEstCred>
+      </gEstornoCred></IBSCBS></imposto>
+    </det>
+  </infNFe>
+</NFe>

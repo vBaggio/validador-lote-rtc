@@ -2,6 +2,7 @@ package br.com.validadorlote.infrastructure.tables;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import br.com.validadorlote.infrastructure.xml.ArtifactManifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,8 +91,96 @@ class FiscalTableArtifactStoreTest {
                 .isEqualTo(FiscalTables.load().cstCount());
     }
 
+    @Test
+    void prepareDoesNotPublishALegacyCandidateWithoutTheGroupIndicators() throws Exception {
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+
+        assertThatThrownBy(() -> store.prepare(legacyPayload(), "legacy-v021",
+                "https://fonte.exemplo/legacy", Instant.EPOCH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("exigeMonofasia");
+
+        assertThat(store.activeOrNull()).isNull();
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(temp.resolve("artifacts/FISCAL_TABLES/current")).doesNotExist();
+    }
+
+    @Test
+    void activateDoesNotPublishAPreparedCandidateThatBecameContractInvalid() throws Exception {
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+        store.prepare(embedded(), "candidate-v2", "https://fonte.exemplo/current",
+                Instant.EPOCH);
+        Path base = temp.resolve("artifacts/FISCAL_TABLES/versions/candidate-v2");
+        Path payload = base.resolve("cst-cclasstrib.json");
+        byte[] legacy = legacyPayload();
+        Files.write(payload, legacy);
+        Properties manifest = new Properties();
+        try (var input = Files.newInputStream(base.resolve("manifest.properties"))) {
+            manifest.load(input);
+        }
+        manifest.setProperty("sha256", FiscalTableArtifactStore.sha256(legacy));
+        try (var output = Files.newOutputStream(base.resolve("manifest.properties"))) {
+            manifest.store(output, "manifesto de teste");
+        }
+
+        assertThatThrownBy(() -> store.activate("candidate-v2"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(store.activeOrNull()).isNull();
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(temp.resolve("artifacts/FISCAL_TABLES/current")).doesNotExist();
+    }
+
+    @Test
+    void integralLegacySnapshotIsNeitherLoadedNorReportedAsActive() throws Exception {
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+        writeActiveArtifact("legacy-v021", legacyPayload());
+
+        assertThat(store.activeOrNull()).isNull();
+        assertThat(store.activeManifestOrNull()).isNull();
+        assertThat(store.isActiveVersion("legacy-v021")).isFalse();
+        assertThat(br.com.validadorlote.App.fiscalTables(store).semanticFingerprint())
+                .isEqualTo(FiscalTables.load().semanticFingerprint());
+    }
+
     private byte[] embedded() throws IOException {
         return Files.readAllBytes(Path.of("src/main/resources/tables/cst-cclasstrib.json"));
+    }
+
+    private byte[] legacyPayload() throws Exception {
+        JsonNode root = JSON.readTree(embedded());
+        for (JsonNode cst : root) {
+            ObjectNode cstObject = (ObjectNode) cst;
+            cstObject.remove(java.util.List.of("exigeMonofasia", "exigeReducaoBaseCalculo",
+                    "exigeTransferenciaCredito", "exigeCreditoPresumidoIbsZfm",
+                    "exigeAjusteCompetencia"));
+            for (JsonNode classification : cst.get("classificacoes")) {
+                ((ObjectNode) classification).remove(java.util.List.of(
+                        "exigeTributacaoRegular", "permiteCreditoPresumido",
+                        "exigeEstornoCredito", "exigeMonoValor", "exigeMonoRetencao",
+                        "exigeMonoRetido", "exigeMonoDiferimento", "exigePbioDiferenca"));
+            }
+        }
+        return JSON.writeValueAsBytes(root);
+    }
+
+    private void writeActiveArtifact(String version, byte[] payload) throws Exception {
+        Path root = temp.resolve("artifacts/FISCAL_TABLES");
+        Path base = root.resolve("versions").resolve(version);
+        Files.createDirectories(base);
+        Files.write(base.resolve("cst-cclasstrib.json"), payload);
+        Properties manifest = new Properties();
+        manifest.setProperty("artifact", "FISCAL_TABLES");
+        manifest.setProperty("version", version);
+        manifest.setProperty("sourceUrl", "https://fonte.exemplo/legacy");
+        manifest.setProperty("publishedAt", Instant.EPOCH.toString());
+        manifest.setProperty("sha256", FiscalTableArtifactStore.sha256(payload));
+        manifest.setProperty("lastCheckedAt", Instant.EPOCH.toString());
+        manifest.setProperty("updatedAt", Instant.EPOCH.toString());
+        manifest.setProperty("result", "ACTIVE");
+        try (var output = Files.newOutputStream(base.resolve("manifest.properties"))) {
+            manifest.store(output, "manifesto legado íntegro");
+        }
+        Files.writeString(root.resolve("current"), version + "\n");
     }
 
     private byte[] replacedCodes() throws Exception {

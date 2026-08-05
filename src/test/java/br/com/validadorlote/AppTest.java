@@ -35,6 +35,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -140,6 +141,23 @@ class AppTest {
         assertThat(r2.bases().generation()).isGreaterThan(r1.bases().generation());
         assertThat(r2.bases().schemaVersion()).isEqualTo("010e_v1.02");
         assertThat(r2.bases().tableVersion()).startsWith("IT ");
+    }
+
+    @Test
+    void legacyFiscalSnapshotFallsBackAtomicallyInRuntimeIdentity(@TempDir Path temp)
+            throws Exception {
+        FiscalTableArtifactStore tables = new FiscalTableArtifactStore(temp);
+        writeLegacyTableArtifact(temp, "legacy-v021");
+
+        ValidationRuntime runtime = App.validationRuntime(new XsdErrorTranslator(),
+                new SchemaArtifactStore(temp), tables, new ValidationRuntimeFactory());
+
+        assertThat(tables.activeFiscalTablesOrNull()).isNull();
+        assertThat(runtime.bases().tableVersion()).startsWith("IT ");
+        assertThat(runtime.bases().tableVersion()).doesNotContain("legacy-v021");
+        assertThat(runtime.bases().tableProvenance())
+                .contains("Informe Técnico 2025.002")
+                .doesNotContain("fonte.exemplo/legacy");
     }
 
     @Test
@@ -283,5 +301,42 @@ class AppTest {
                 "/fixtures/update/curated-schemas/published-stable.json"))) {
             return input.readAllBytes();
         }
+    }
+
+    private static void writeLegacyTableArtifact(Path temp, String version) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.readTree(Files.readAllBytes(
+                Path.of("src/main/resources/tables/cst-cclasstrib.json")));
+        for (var cst : root) {
+            var cstObject = (com.fasterxml.jackson.databind.node.ObjectNode) cst;
+            cstObject.remove(List.of("exigeMonofasia", "exigeReducaoBaseCalculo",
+                    "exigeTransferenciaCredito", "exigeCreditoPresumidoIbsZfm",
+                    "exigeAjusteCompetencia"));
+            for (var classification : cst.get("classificacoes")) {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) classification).remove(List.of(
+                        "exigeTributacaoRegular", "permiteCreditoPresumido",
+                        "exigeEstornoCredito", "exigeMonoValor", "exigeMonoRetencao",
+                        "exigeMonoRetido", "exigeMonoDiferimento", "exigePbioDiferenca"));
+            }
+        }
+        byte[] payload = json.writeValueAsBytes(root);
+        Path artifactRoot = temp.resolve("artifacts/FISCAL_TABLES");
+        Path base = artifactRoot.resolve("versions").resolve(version);
+        Files.createDirectories(base);
+        Files.write(base.resolve("cst-cclasstrib.json"), payload);
+        Properties manifest = new Properties();
+        manifest.setProperty("artifact", "FISCAL_TABLES");
+        manifest.setProperty("version", version);
+        manifest.setProperty("sourceUrl", "https://fonte.exemplo/legacy");
+        manifest.setProperty("publishedAt", Instant.EPOCH.toString());
+        manifest.setProperty("sha256", java.util.HexFormat.of().formatHex(
+                java.security.MessageDigest.getInstance("SHA-256").digest(payload)));
+        manifest.setProperty("lastCheckedAt", Instant.EPOCH.toString());
+        manifest.setProperty("updatedAt", Instant.EPOCH.toString());
+        manifest.setProperty("result", "ACTIVE");
+        try (var output = Files.newOutputStream(base.resolve("manifest.properties"))) {
+            manifest.store(output, "manifesto legado íntegro");
+        }
+        Files.writeString(artifactRoot.resolve("current"), version + "\n");
     }
 }
