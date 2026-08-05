@@ -129,7 +129,10 @@ public final class App {
             SchemaArtifactStore schemaStore, FiscalTableArtifactStore tableStore,
             ValidationRuntimeFactory runtimeFactory) {
         SchemaRuntime schemas = schemaRuntime(translator, schemaStore);
-        ArtifactManifest tableManifest = tableStore.activeManifestOrNull();
+        FiscalTableArtifactStore.ActiveFiscalTables activeTables =
+                tableStore.activeFiscalTablesOrNull();
+        FiscalTables tables = activeTables == null ? FiscalTables.load() : activeTables.tables();
+        ArtifactManifest tableManifest = activeTables == null ? null : activeTables.manifest();
         TablesManifest embeddedTables = new TablesManifest();
         String tableVersion = tableManifest == null ? "IT " + embeddedTables.referenceVersion()
                 : tableManifest.version();
@@ -137,7 +140,7 @@ public final class App {
                 : tableManifest.sourceUrl();
         ValidateBatchUseCase useCase = new ValidateBatchUseCase(new FolderScanner(),
                 new XmlMetadataParser(), new TaxGroupExtractor(), schemas.engine(),
-                new RuleEngine(fiscalTables(tableStore)), new RootCauseGrouper(), translator,
+                new RuleEngine(tables), new RootCauseGrouper(), translator,
                 new CsvExporter(), schemas.provenance());
         return runtimeFactory.create(useCase, schemas.activeManifest().map(ArtifactManifest::version)
                 .orElse(SchemasVersion.metadata().profile()), schemas.provenance(), tableVersion,

@@ -6,7 +6,15 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.stream.Stream;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,6 +28,11 @@ class FiscalTablesTest {
               "exigeGrupo": true,
               "exigeReducao": false,
               "exigeDiferimento": false,
+              "exigeMonofasia": false,
+              "exigeReducaoBaseCalculo": false,
+              "exigeTransferenciaCredito": false,
+              "exigeCreditoPresumidoIbsZfm": false,
+              "exigeAjusteCompetencia": false,
               "iniVig": "2025-05-05T00:00:00",
               "fimVig": null,
               "classificacoes": [{
@@ -27,6 +40,14 @@ class FiscalTablesTest {
                 "nome": "Situações tributadas integralmente",
                 "nfe": true,
                 "nfce": true,
+                "exigeTributacaoRegular": false,
+                "permiteCreditoPresumido": false,
+                "exigeEstornoCredito": false,
+                "exigeMonoValor": false,
+                "exigeMonoRetencao": false,
+                "exigeMonoRetido": false,
+                "exigeMonoDiferimento": false,
+                "exigePbioDiferenca": false,
                 "percRedIbs": 0.0,
                 "percRedCbs": 0.0,
                 "iniVig": "2025-05-05T00:00:00",
@@ -49,6 +70,12 @@ class FiscalTablesTest {
 
         assertThat(cst.exigeGrupo()).isTrue();
         assertThat(cst.exigeReducao()).isTrue();
+    }
+
+    @Test
+    void embeddedSnapshotHasTheReviewedOfficialCoverage() {
+        assertThat(tables.cstCount()).isEqualTo(18);
+        assertThat(tables.classTribCount()).isEqualTo(164);
     }
 
     @Test
@@ -133,7 +160,7 @@ class FiscalTablesTest {
     void provenanceNamesSourceAndDate() {
         assertThat(tables.provenance())
                 .contains("https://dfe-portal.svrs.rs.gov.br/DFE/TabelaClassificacaoTributaria")
-                .contains("extraídas em 2026-07-27");
+                .contains("extraídas em 2026-08-04");
     }
 
     @Test
@@ -182,6 +209,53 @@ class FiscalTablesTest {
                 .hasMessageContaining("000001");
     }
 
+    @ParameterizedTest(name = "contrato destilado obrigatório: {0}")
+    @MethodSource("newNormalizedBooleanFields")
+    void everyNewIndicatorIsRequiredByTheDistilledContract(String field,
+            boolean classificationField) throws Exception {
+        var root = (ArrayNode) new ObjectMapper().readTree(MINIMAL_TABLE);
+        ObjectNode target = classificationField
+                ? (ObjectNode) root.get(0).get("classificacoes").get(0)
+                : (ObjectNode) root.get(0);
+        target.remove(field);
+
+        assertThatThrownBy(() -> FiscalTables.load(json(root.toString())))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining(field);
+    }
+
+    @ParameterizedTest(name = "fingerprint inclui: {0}")
+    @MethodSource("newNormalizedBooleanFields")
+    void flippingAnyNewIndicatorChangesTheSemanticFingerprint(String field,
+            boolean classificationField) throws Exception {
+        byte[] embedded = Files.readAllBytes(
+                Path.of("src/main/resources/tables/cst-cclasstrib.json"));
+        var root = (ArrayNode) new ObjectMapper().readTree(embedded);
+        ObjectNode target = classificationField
+                ? (ObjectNode) root.get(0).get("classificacoes").get(0)
+                : (ObjectNode) root.get(0);
+        target.put(field, !target.get(field).booleanValue());
+
+        assertThat(FiscalTables.load(json(root.toString())).semanticFingerprint())
+                .isNotEqualTo(FiscalTables.load(json(new String(embedded,
+                        StandardCharsets.UTF_8))).semanticFingerprint());
+    }
+
+    @Test
+    void semanticFingerprintIgnoresJsonOrderWhitespaceAndDecimalScale() throws Exception {
+        byte[] embedded = Files.readAllBytes(
+                Path.of("src/main/resources/tables/cst-cclasstrib.json"));
+        var root = (ArrayNode) new ObjectMapper().readTree(embedded);
+        var reversed = new ObjectMapper().createArrayNode();
+        for (int index = root.size() - 1; index >= 0; index--) reversed.add(root.get(index));
+        ObjectNode classification = (ObjectNode) reversed.get(0).get("classificacoes").get(0);
+        var percentage = classification.get("percRedIbs").decimalValue();
+        classification.put("percRedIbs", percentage.setScale(percentage.scale() + 1));
+
+        assertThat(FiscalTables.load(json(reversed.toString())).semanticFingerprint())
+                .isEqualTo(FiscalTables.load(json(new String(embedded,
+                        StandardCharsets.UTF_8))).semanticFingerprint());
+    }
+
     @Test
     void duplicateCstFailsInsteadOfOverwritingTheFirstEntry() {
         String single = MINIMAL_TABLE.strip();
@@ -206,5 +280,17 @@ class FiscalTablesTest {
 
     private static InputStream json(String body) {
         return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    static Stream<org.junit.jupiter.params.provider.Arguments> newNormalizedBooleanFields() {
+        return Stream.concat(
+                Stream.of("exigeMonofasia", "exigeReducaoBaseCalculo",
+                        "exigeTransferenciaCredito", "exigeCreditoPresumidoIbsZfm",
+                        "exigeAjusteCompetencia")
+                        .map(field -> org.junit.jupiter.params.provider.Arguments.of(field, false)),
+                Stream.of("exigeTributacaoRegular", "permiteCreditoPresumido",
+                        "exigeEstornoCredito", "exigeMonoValor", "exigeMonoRetencao",
+                        "exigeMonoRetido", "exigeMonoDiferimento", "exigePbioDiferenca")
+                        .map(field -> org.junit.jupiter.params.provider.Arguments.of(field, true)));
     }
 }

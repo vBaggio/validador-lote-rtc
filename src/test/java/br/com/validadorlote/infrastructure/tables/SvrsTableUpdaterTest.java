@@ -66,6 +66,23 @@ class SvrsTableUpdaterTest {
     }
 
     @Test
+    void changeOnlyToAGroupIndicatorBecomesAnUpdateCandidate() throws Exception {
+        String html = "<script>const dadosOriginais = " + rawWithChangedIndicator() + ";</script>";
+        SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
+                Duration.ofSeconds(1), 6 * 1024 * 1024,
+                (uri, timeout) -> new HttpsTransport.Response(200, uri, Map.of(),
+                        html.getBytes(StandardCharsets.UTF_8)));
+        FiscalTableArtifactStore store = new FiscalTableArtifactStore(temp);
+
+        ArtifactCheckResult result = new SvrsTableUpdater(https, new SvrsTableExtractor(),
+                new SvrsTableNormalizer(), store).check();
+
+        assertThat(result.status()).isEqualTo(ArtifactCheckResult.Status.UPDATE_AVAILABLE);
+        assertThat(result.candidate()).isNotNull();
+        assertThat(store.activeOrNull()).isNull();
+    }
+
+    @Test
     void applyActivatesExactlyTheCandidateReturnedByCheck() throws Exception {
         String html = "<script>const dadosOriginais = " + rawWithChangedName() + ";</script>";
         SafeHttpsClient https = new SafeHttpsClient(Set.of("dfe-portal.svrs.rs.gov.br"),
@@ -114,6 +131,13 @@ class SvrsTableUpdaterTest {
             cst.put("IndExigeTrib", sourceCst.get("exigeGrupo").booleanValue());
             cst.put("IndReducaoAliq", sourceCst.get("exigeReducao").booleanValue());
             cst.put("IndDiferimento", sourceCst.get("exigeDiferimento").booleanValue());
+            cst.put("IndMonofasica", sourceCst.get("exigeMonofasia").booleanValue());
+            cst.put("IndReducaoBc", sourceCst.get("exigeReducaoBaseCalculo").booleanValue());
+            cst.put("IndTransferenciaCred",
+                    sourceCst.get("exigeTransferenciaCredito").booleanValue());
+            cst.put("IndCredPresIbsZfm",
+                    sourceCst.get("exigeCreditoPresumidoIbsZfm").booleanValue());
+            cst.put("IndAjusteCompet", sourceCst.get("exigeAjusteCompetencia").booleanValue());
             cst.set("DthIniVig", sourceCst.get("iniVig"));
             cst.set("DthFimVig", sourceCst.get("fimVig"));
             ArrayNode classifications = cst.putArray("ClassificacoesTributarias");
@@ -124,6 +148,22 @@ class SvrsTableUpdaterTest {
                 classification.put("NomeReduzido", sourceClassification.get("nome").asText());
                 classification.put("IndNfe", sourceClassification.get("nfe").booleanValue());
                 classification.put("IndNfce", sourceClassification.get("nfce").booleanValue());
+                classification.put("IndTribRegular",
+                        sourceClassification.get("exigeTributacaoRegular").booleanValue());
+                classification.put("IndPermiteCredPres",
+                        sourceClassification.get("permiteCreditoPresumido").booleanValue());
+                classification.put("IndEstornoCred",
+                        sourceClassification.get("exigeEstornoCredito").booleanValue());
+                classification.put("IndMonoVal",
+                        sourceClassification.get("exigeMonoValor").booleanValue());
+                classification.put("IndMonoRetem",
+                        sourceClassification.get("exigeMonoRetencao").booleanValue());
+                classification.put("IndMonoRet",
+                        sourceClassification.get("exigeMonoRetido").booleanValue());
+                classification.put("IndMonoDif",
+                        sourceClassification.get("exigeMonoDiferimento").booleanValue());
+                classification.put("IndPbioDiferenca",
+                        sourceClassification.get("exigePbioDiferenca").booleanValue());
                 classification.set("PercRedIbs", sourceClassification.get("percRedIbs"));
                 classification.set("PercRedCbs", sourceClassification.get("percRedCbs"));
                 classification.set("DthIniVig", sourceClassification.get("iniVig"));
@@ -136,6 +176,13 @@ class SvrsTableUpdaterTest {
     private String rawWithChangedName() throws Exception {
         ArrayNode raw = (ArrayNode) JSON.readTree(rawFromEmbedded());
         ((ObjectNode) raw.get(0)).put("NomeCst", "Nome revisado para teste");
+        return JSON.writeValueAsString(raw);
+    }
+
+    private String rawWithChangedIndicator() throws Exception {
+        ArrayNode raw = (ArrayNode) JSON.readTree(rawFromEmbedded());
+        ObjectNode first = (ObjectNode) raw.get(0);
+        first.put("IndMonofasica", !first.get("IndMonofasica").booleanValue());
         return JSON.writeValueAsString(raw);
     }
 }
