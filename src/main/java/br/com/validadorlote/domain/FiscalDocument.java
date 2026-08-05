@@ -12,6 +12,8 @@ import java.util.Map;
  * @param finNFe finalidade da emissão (1 normal, 2 complementar, 3 ajuste, 4 devolução/retorno,
  *               5 nota de crédito, 6 nota de débito).
  * @param tpNFDebito tipo de nota de débito, opcional no leiaute.
+ * @param tpAmb ambiente de autorização ({@code 1} produção, {@code 2} homologação).
+ * @param tpNFCredito tipo de nota de crédito, opcional no leiaute.
  * @param hasCompraGov presença do grupo de compras governamentais. É de <b>documento</b>, não de
  *                     item: o XSD o declara em {@code infNFe/ide/gCompraGov}
  *                     ({@code leiauteNFe_v4.00.xsd:499}) e a NT o lista com pai B01 ({@code ide}).
@@ -34,7 +36,8 @@ import java.util.Map;
 public record FiscalDocument(Path source, String accessKey, String emitterCnpj, String emitterName,
         String emitterState, String emitterMunicipalityCode, String documentNumber, LocalDate issueDate,
         String model, String series, String rootElement,
-        String crt, String finNFe, String tpNFDebito, boolean hasCompraGov,
+        String crt, String finNFe, String tpNFDebito, String tpAmb, String tpNFCredito,
+        boolean hasCompraGov,
         BigDecimal pRedutorCompraGov, boolean hasIbsCbsTot,
         BigDecimal totalIbsUf, BigDecimal totalIbsMunicipal, BigDecimal totalIbs, BigDecimal totalCbs,
         List<ReferencedNote> references, Map<String, BigDecimal> ibsCbsTotals) {
@@ -43,6 +46,20 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
         // Cópia imutável e nunca nula: as regras iteram sobre isto sem guard de null.
         references = references == null ? List.of() : List.copyOf(references);
         ibsCbsTotals = ibsCbsTotals == null ? Map.of() : Map.copyOf(ibsCbsTotals);
+    }
+
+    /** Compatibilidade com o contrato completo anterior aos metadados de ambiente/crédito. */
+    public FiscalDocument(Path source, String accessKey, String emitterCnpj, String emitterName,
+            String emitterState, String emitterMunicipalityCode, String documentNumber,
+            LocalDate issueDate, String model, String series, String rootElement, String crt,
+            String finNFe, String tpNFDebito, boolean hasCompraGov, BigDecimal pRedutorCompraGov,
+            boolean hasIbsCbsTot, BigDecimal totalIbsUf, BigDecimal totalIbsMunicipal,
+            BigDecimal totalIbs, BigDecimal totalCbs, List<ReferencedNote> references,
+            Map<String, BigDecimal> ibsCbsTotals) {
+        this(source, accessKey, emitterCnpj, emitterName, emitterState, emitterMunicipalityCode,
+                documentNumber, issueDate, model, series, rootElement, crt, finNFe, tpNFDebito,
+                null, null, hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, totalIbsUf,
+                totalIbsMunicipal, totalIbs, totalCbs, references, ibsCbsTotals);
     }
 
     /** Compatibilidade para chamadores que já extraem os quatro totais históricos. */
@@ -54,8 +71,8 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             BigDecimal totalIbs, BigDecimal totalCbs, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, emitterName, emitterState, emitterMunicipalityCode,
                 documentNumber, issueDate, model, series, rootElement, crt, finNFe, tpNFDebito,
-                hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, totalIbsUf, totalIbsMunicipal,
-                totalIbs, totalCbs, references, Map.of());
+                null, null, hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, totalIbsUf,
+                totalIbsMunicipal, totalIbs, totalCbs, references, Map.of());
     }
 
     /** Compatibilidade para chamadores que ainda não precisam da localização do emitente. */
@@ -64,7 +81,7 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             String crt, String finNFe, String tpNFDebito, boolean hasCompraGov,
             BigDecimal pRedutorCompraGov, boolean hasIbsCbsTot, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, emitterName, null, null, documentNumber, issueDate,
-                model, series, rootElement, crt, finNFe, tpNFDebito, hasCompraGov,
+                model, series, rootElement, crt, finNFe, tpNFDebito, null, null, hasCompraGov,
                 pRedutorCompraGov, hasIbsCbsTot, null, null, null, null, references, Map.of());
     }
 
@@ -76,8 +93,8 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             boolean hasIbsCbsTot, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, emitterName, emitterState, emitterMunicipalityCode,
                 documentNumber, issueDate, model, series, rootElement, crt, finNFe, tpNFDebito,
-                hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, null, null, null, null, references,
-                Map.of());
+                null, null, hasCompraGov, pRedutorCompraGov, hasIbsCbsTot, null, null, null, null,
+                references, Map.of());
     }
 
     /** Construtor de compatibilidade para regras que não precisam dos campos de apresentação. */
@@ -86,7 +103,7 @@ public record FiscalDocument(Path source, String accessKey, String emitterCnpj, 
             String tpNFDebito, boolean hasCompraGov, BigDecimal pRedutorCompraGov,
             boolean hasIbsCbsTot, List<ReferencedNote> references) {
         this(source, accessKey, emitterCnpj, null, null, null, documentNumber, issueDate, model,
-                null, rootElement, crt, finNFe, tpNFDebito, hasCompraGov, pRedutorCompraGov,
-                hasIbsCbsTot, null, null, null, null, references, Map.of());
+                null, rootElement, crt, finNFe, tpNFDebito, null, null, hasCompraGov,
+                pRedutorCompraGov, hasIbsCbsTot, null, null, null, null, references, Map.of());
     }
 }

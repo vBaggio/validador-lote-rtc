@@ -32,6 +32,7 @@ import java.util.Set;
  */
 public final class XmlMetadataParser {
 
+    private static final String NFE_NAMESPACE = "http://www.portalfiscal.inf.br/nfe";
     private static final Set<String> KNOWN_ROOTS = Set.of("NFe", "nfeProc", "enviNFe");
     private static final int DATE_PREFIX_LENGTH = 10;
 
@@ -77,7 +78,7 @@ public final class XmlMetadataParser {
         String root = null, accessKey = null, cnpj = null, emitterName = null, emitterState = null,
                 emitterMunicipalityCode = null, nNF = null,
                 mod = null, serie = null, dhEmi = null,
-                crt = null, finNFe = null, tpNFDebito = null;
+                crt = null, finNFe = null, tpNFDebito = null, tpAmb = null, tpNFCredito = null;
         // gCompraGov é grupo, não campo de texto: interessa a presença, e ela é do documento
         // (infNFe/ide), não do item — daí não caber no TaxGroupExtractor. pRedutor, ao contrário,
         // é campo de texto direto do grupo (DFeTiposBasicos_v1.00.xsd:1144-1163, tipo
@@ -99,6 +100,7 @@ public final class XmlMetadataParser {
         List<int[]> ranges = new ArrayList<>();
         List<int[]> openDets = new ArrayList<>(); // pilha; aceita null (det sem faixa)
         Deque<String> stack = new ArrayDeque<>();
+        Deque<String> namespaces = new ArrayDeque<>();
 
         // Captura de texto: só o conteúdo direto do elemento-alvo conta. Um filho no meio
         // (conteúdo misto) invalida a captura — campo tratado como ausente, não como erro.
@@ -153,8 +155,12 @@ public final class XmlMetadataParser {
                                 : new int[]{r.getLocation().getLineNumber(), 0, item});
                     }
                     stack.push(name);
+                    namespaces.push(r.getNamespaceURI() == null ? "" : r.getNamespaceURI());
                     if (capturing == null) {
-                        capturing = targetField(stack);
+                        // Um homônimo em namespace de terceiro não é metadado da NF-e. Exigir
+                        // toda a cadeia oficial também impede filho oficial sob pai estrangeiro.
+                        capturing = namespaces.stream().allMatch(NFE_NAMESPACE::equals)
+                                ? targetField(stack) : null;
                         if (capturing != null) {
                             captureDepth = stack.size();
                             mixedContent = false;
@@ -182,6 +188,8 @@ public final class XmlMetadataParser {
                             case "CRT" -> { if (crt == null) crt = value; }
                             case "finNFe" -> { if (finNFe == null) finNFe = value; }
                             case "tpNFDebito" -> { if (tpNFDebito == null) tpNFDebito = value; }
+                            case "tpAmb" -> { if (tpAmb == null) tpAmb = value; }
+                            case "tpNFCredito" -> { if (tpNFCredito == null) tpNFCredito = value; }
                             case "pRedutor" -> { if (pRedutor == null) pRedutor = value; }
                             case "total/vIBSUF" -> { if (totalIbsUf == null) totalIbsUf = value; }
                             case "total/vIBSMun" -> {
@@ -225,6 +233,7 @@ public final class XmlMetadataParser {
                         }
                     }
                     if (!stack.isEmpty()) stack.pop();
+                    if (!namespaces.isEmpty()) namespaces.pop();
                 }
                 default -> { /* comentários, PIs e declaração: irrelevantes para metadados */ }
             }
@@ -240,7 +249,8 @@ public final class XmlMetadataParser {
         return new ParsedMetadata(
                 new FiscalDocument(source, accessKey, cnpj, emitterName, emitterState,
                         emitterMunicipalityCode, nNF, parseIssueDate(dhEmi), mod, serie, root,
-                        crt, finNFe, tpNFDebito, hasCompraGov, decimal(pRedutor), hasIbsCbsTot,
+                        crt, finNFe, tpNFDebito, tpAmb, tpNFCredito, hasCompraGov,
+                        decimal(pRedutor), hasIbsCbsTot,
                         decimal(totalIbsUf), decimal(totalIbsMunicipal), decimal(totalIbs),
                         decimal(totalCbs), references, ibsCbsTotals),
                 ItemLineIndex.of(ranges));
@@ -269,6 +279,8 @@ public final class XmlMetadataParser {
         if (isFirst(stack, "dhEmi", "ide")) return "dhEmi";
         if (isFirst(stack, "finNFe", "ide")) return "finNFe";
         if (isFirst(stack, "tpNFDebito", "ide")) return "tpNFDebito";
+        if (isFirst(stack, "tpAmb", "ide")) return "tpAmb";
+        if (isFirst(stack, "tpNFCredito", "ide")) return "tpNFCredito";
         if (isFirst(stack, "refNFe", "NFref")) return "refNFe";
         if (isFirst(stack, "refNFeSig", "NFref")) return "refNFeSig";
         // Único pRedutor de infNFe/ide: o gTribCompraGov do item (TTribCompraGov) não tem campo

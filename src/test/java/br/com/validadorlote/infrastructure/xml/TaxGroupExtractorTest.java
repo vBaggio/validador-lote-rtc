@@ -189,8 +189,107 @@ class TaxGroupExtractorTest {
 
         var g = extractor.extract(xml).getFirst();
 
+        assertThat(g.hasEstornoCred()).isTrue();
+        assertThat(g.estornoCredIbs()).isEqualByComparingTo("1.00");
+        assertThat(g.estornoCredCbs()).isEqualByComparingTo("2.00");
         assertThat(g.declaredAmounts()).containsEntry("vIBSEstCred", new BigDecimal("1.00"));
         assertThat(g.declaredAmounts()).containsEntry("vCBSEstCred", new BigDecimal("2.00"));
+    }
+
+    @Test
+    void readsConditionalGroupsAndValuesPerItemWithoutStateLeak() {
+        var items = extractor.extract(fixture("nfe-grupos-condicionais-itens.xml"));
+
+        assertThat(items).hasSize(8);
+        assertThat(items.get(0)).satisfies(item -> {
+            assertThat(item.hasGIbsCbsMono()).isTrue();
+            assertThat(item.hasIndBemMovelUsado()).isTrue();
+            assertThat(item.indBemMovelUsado()).isEqualTo("1");
+        });
+        assertThat(items.get(1)).satisfies(item -> {
+            assertThat(item.hasTransfCred()).isTrue();
+            assertThat(item.hasIndBemMovelUsado()).isTrue();
+            assertThat(item.indBemMovelUsado()).isNull();
+            assertThat(item.hasGIbsCbsMono()).isFalse();
+        });
+        assertThat(items.get(2)).satisfies(item -> {
+            assertThat(item.hasAjusteCompet()).isTrue();
+            assertThat(item.ajusteCompetIbs()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(item.ajusteCompetCbs()).isEqualByComparingTo("1.25");
+            assertThat(item.hasTransfCred()).isFalse();
+        });
+        assertThat(items.get(3)).satisfies(item -> {
+            assertThat(item.hasTribRegular()).isTrue();
+            assertThat(item.hasAjusteCompet()).isFalse();
+            assertThat(item.ajusteCompetIbs()).isNull();
+            assertThat(item.ajusteCompetCbs()).isNull();
+        });
+        assertThat(items.get(4)).satisfies(item -> {
+            assertThat(item.hasEstornoCred()).isTrue();
+            assertThat(item.estornoCredIbs()).isEqualByComparingTo("2.00");
+            assertThat(item.estornoCredCbs()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(item.hasTribRegular()).isFalse();
+        });
+        assertThat(items.get(5)).satisfies(item -> {
+            assertThat(item.hasGIbsCbsMono()).isFalse();
+            assertThat(item.hasTransfCred()).isFalse();
+            assertThat(item.hasAjusteCompet()).isFalse();
+            assertThat(item.hasEstornoCred()).isFalse();
+            assertThat(item.hasTribRegular()).isFalse();
+            assertThat(item.hasIndBemMovelUsado()).isFalse();
+            assertThat(item.indBemMovelUsado()).isNull();
+            assertThat(item.ajusteCompetIbs()).isNull();
+            assertThat(item.ajusteCompetCbs()).isNull();
+            assertThat(item.estornoCredIbs()).isNull();
+            assertThat(item.estornoCredCbs()).isNull();
+        });
+        assertThat(items.get(6)).satisfies(item -> {
+            assertThat(item.hasAjusteCompet()).isTrue();
+            assertThat(item.ajusteCompetIbs()).isNull();
+            assertThat(item.ajusteCompetCbs()).isNull();
+        });
+        assertThat(items.get(7)).satisfies(item -> {
+            assertThat(item.hasEstornoCred()).isTrue();
+            assertThat(item.estornoCredIbs()).isNull();
+            assertThat(item.estornoCredCbs()).isNull();
+            assertThat(item.declaredAmounts())
+                    .doesNotContainKeys("vIBSEstCred", "vCBSEstCred");
+        });
+    }
+
+    @Test
+    void homonymsOutsideOfficialParentsOrNamespaceDoNotCount(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("homonimos.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe" xmlns:x="urn:not-nfe"><infNFe>
+                  <det nItem="1"><prod>
+                    <gIBSCBSMono/><gTransfCred/><gAjusteCompet/><gEstornoCred/><gTribRegular/>
+                  </prod><imposto><IBSCBS><CST>000</CST><cClassTrib>000001</cClassTrib>
+                    <x:gIBSCBSMono/><x:gTransfCred/><x:gAjusteCompet/><x:gEstornoCred/>
+                    <x:wrapper><gIBSCBSMono/></x:wrapper>
+                    <gIBSCBS><x:gTribRegular/><gIBSCBSMono/><gTransfCred/>
+                      <gAjusteCompet/><gEstornoCred/><wrapper><gTribRegular/></wrapper>
+                    </gIBSCBS>
+                  </IBSCBS><indBemMovelUsado>1</indBemMovelUsado></imposto></det>
+                  <total><gAjusteCompet><vIBS>9.00</vIBS><vCBS>8.00</vCBS></gAjusteCompet>
+                    <gEstornoCred><vIBSEstCred>7.00</vIBSEstCred><vCBSEstCred>6.00</vCBSEstCred></gEstornoCred>
+                  </total>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement().satisfies(item -> {
+            assertThat(item.hasGIbsCbsMono()).isFalse();
+            assertThat(item.hasTransfCred()).isFalse();
+            assertThat(item.hasAjusteCompet()).isFalse();
+            assertThat(item.hasEstornoCred()).isFalse();
+            assertThat(item.hasTribRegular()).isFalse();
+            assertThat(item.hasIndBemMovelUsado()).isFalse();
+            assertThat(item.indBemMovelUsado()).isNull();
+            assertThat(item.ajusteCompetIbs()).isNull();
+            assertThat(item.ajusteCompetCbs()).isNull();
+            assertThat(item.estornoCredIbs()).isNull();
+            assertThat(item.estornoCredCbs()).isNull();
+        });
     }
 
     @Test
