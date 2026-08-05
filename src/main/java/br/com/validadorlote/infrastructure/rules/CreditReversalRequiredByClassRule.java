@@ -46,9 +46,15 @@ public final class CreditReversalRequiredByClassRule implements RejectionRule {
             return new RuleOutcome.NaoAvaliado(
                     "cClassTrib não consta na base embarcada para a data do documento.");
         }
-        return entry.get().exigeEstornoCredito()
-                ? new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), OFFICIAL_MESSAGE)
-                : new RuleOutcome.NaoAplicavel(
-                        "A cClassTrib não exige o grupo gEstornoCred neste item.");
+        if (entry.get().exigeEstornoCredito()) {
+            return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), OFFICIAL_MESSAGE);
+        }
+        if (CreditReversalRuleSupport.stockLoss(ctx.document())
+                == CreditReversalRuleSupport.StockLoss.UNKNOWN) {
+            return new RuleOutcome.NaoAvaliado("Finalidade ou tipo da nota de débito ausente ou "
+                    + "ilegível: não dá para excluir o gatilho tpNFDebito=07 da UB116-20.");
+        }
+        return new RuleOutcome.NaoAplicavel(
+                "A cClassTrib não exige o grupo gEstornoCred neste item.");
     }
 }

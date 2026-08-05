@@ -22,6 +22,11 @@ public final class CreditReversalForbiddenRule implements RejectionRule {
         if (!ctx.item().hasEstornoCred()) {
             return new RuleOutcome.NaoAplicavel("Grupo gEstornoCred não informado no item.");
         }
+        var stockLoss = CreditReversalRuleSupport.stockLoss(ctx.document());
+        if (stockLoss == CreditReversalRuleSupport.StockLoss.YES) {
+            return new RuleOutcome.NaoAplicavel(
+                    "Perda em estoque (tpNFDebito=07) excepciona a UB116-10.");
+        }
         var classEntry = classEntry(ctx);
         if (classEntry == null) {
             return new RuleOutcome.NaoAvaliado(
@@ -31,13 +36,11 @@ public final class CreditReversalForbiddenRule implements RejectionRule {
             return new RuleOutcome.NaoAplicavel(
                     "A cClassTrib permite o grupo gEstornoCred neste item.");
         }
-        return switch (CreditReversalRuleSupport.stockLoss(ctx.document())) {
-            case YES -> new RuleOutcome.NaoAplicavel(
-                    "Perda em estoque (tpNFDebito=07) excepciona a UB116-10.");
-            case UNKNOWN -> new RuleOutcome.NaoAvaliado("Finalidade ou tipo da nota de débito "
+        if (stockLoss == CreditReversalRuleSupport.StockLoss.UNKNOWN) {
+            return new RuleOutcome.NaoAvaliado("Finalidade ou tipo da nota de débito "
                     + "ausente ou ilegível: não dá para excluir a exceção tpNFDebito=07.");
-            case NO -> new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), OFFICIAL_MESSAGE);
-        };
+        }
+        return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), OFFICIAL_MESSAGE);
     }
 
     private br.com.validadorlote.infrastructure.tables.ClassTribEntry classEntry(RuleContext ctx) {

@@ -28,6 +28,15 @@ public final class PresumedCreditOperationForbiddenRule implements RejectionRule
             return new RuleOutcome.NaoAplicavel(
                     "Grupo gCredPresOper não informado no item; o indicador permite, não exige.");
         }
+        if (ctx.item().hasIndBemMovelUsado()
+                && "1".equals(ctx.item().indBemMovelUsado())) {
+            return new RuleOutcome.NaoAplicavel(
+                    "Fornecimento de bem móvel usado (indBemMovelUsado=1) excepciona a UB120-20.");
+        }
+        if (ctx.item().hasIndBemMovelUsado()
+                && (ctx.item().cClassTrib() == null || ctx.operationDate() == null)) {
+            return unreadableUsedGood();
+        }
         if (ctx.item().cClassTrib() == null || ctx.operationDate() == null) {
             return new RuleOutcome.NaoAvaliado(
                     "cClassTrib indisponível para consultar o indicador de crédito presumido.");
@@ -40,15 +49,14 @@ public final class PresumedCreditOperationForbiddenRule implements RejectionRule
         if (entry.get().permiteCreditoPresumido()) {
             return new RuleOutcome.Conforme();
         }
-        if (!ctx.item().hasIndBemMovelUsado()) {
-            return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), OFFICIAL_MESSAGE);
+        if (ctx.item().hasIndBemMovelUsado()) {
+            return unreadableUsedGood();
         }
-        String usedGood = ctx.item().indBemMovelUsado();
-        if (usedGood == null || !"1".equals(usedGood)) {
-            return new RuleOutcome.NaoAvaliado("indBemMovelUsado foi informado, mas seu valor é "
-                    + "ilegível: não dá para excluir a exceção da UB120-20.");
-        }
-        return new RuleOutcome.NaoAplicavel(
-                "Fornecimento de bem móvel usado (indBemMovelUsado=1) excepciona a UB120-20.");
+        return new RuleOutcome.Rejeitado(rejectionCode(), ruleId(), OFFICIAL_MESSAGE);
+    }
+
+    private RuleOutcome unreadableUsedGood() {
+        return new RuleOutcome.NaoAvaliado("indBemMovelUsado foi informado, mas seu valor é "
+                + "ilegível: não dá para excluir a exceção da UB120-20.");
     }
 }

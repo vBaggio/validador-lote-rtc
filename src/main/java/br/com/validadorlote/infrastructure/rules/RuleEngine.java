@@ -14,6 +14,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Roda as regras de rejeição sobre um documento, item a item.
@@ -61,7 +62,8 @@ public final class RuleEngine {
     }
 
     /** Uma regra e os dados de que ela depende para chegar a veredito. */
-    record Binding(RejectionRule rule, EnumSet<Precondition> requires) {}
+    record Binding(RejectionRule rule, EnumSet<Precondition> requires,
+            Predicate<RuleContext> beforePreconditions) {}
 
     /**
      * O que a camada de rejeição apurou num documento.
@@ -253,13 +255,17 @@ public final class RuleEngine {
                         CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
                 Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
         bindings.add(binding(new AdjustmentPositiveValueRule()));
-        bindings.add(binding(new CreditReversalForbiddenRule(),
+        bindings.add(bindingBeforePreconditions(new CreditReversalForbiddenRule(),
+                ctx -> ctx.item().hasEstornoCred()
+                        && CreditReversalRuleSupport.stockLoss(ctx.document())
+                                == CreditReversalRuleSupport.StockLoss.YES,
                 Precondition.CLASS_TRIB_IN_TABLE));
         bindings.add(binding(new CreditReversalRequiredByClassRule(),
                 Precondition.CLASS_TRIB_IN_TABLE));
         bindings.add(binding(new CreditReversalRequiredByStockLossRule()));
         bindings.add(binding(new CreditReversalPositiveValueRule()));
-        bindings.add(binding(new PresumedCreditOperationForbiddenRule(),
+        bindings.add(bindingBeforePreconditions(new PresumedCreditOperationForbiddenRule(),
+                ctx -> ctx.item().hasCredPresOper() && ctx.item().hasIndBemMovelUsado(),
                 Precondition.CLASS_TRIB_IN_TABLE));
         bindings.add(binding(new CstGroupPresenceRule("1134", "UB131-20",
                         "Rejeição: CST do IBS/CBS informado não permite informação do grupo para "
@@ -289,7 +295,14 @@ public final class RuleEngine {
         // coleção vazia lança — uma regra futura sem precondição viraria ExceptionInInitializerError.
         EnumSet<Precondition> required = EnumSet.noneOf(Precondition.class);
         required.addAll(List.of(requires));
-        return new Binding(rule, required);
+        return new Binding(rule, required, ctx -> false);
+    }
+
+    private static Binding bindingBeforePreconditions(RejectionRule rule,
+            Predicate<RuleContext> beforePreconditions, Precondition... requires) {
+        EnumSet<Precondition> required = EnumSet.noneOf(Precondition.class);
+        required.addAll(List.of(requires));
+        return new Binding(rule, required, beforePreconditions);
     }
 
     private final FiscalTables tables;
@@ -383,6 +396,12 @@ public final class RuleEngine {
         EnumSet<Precondition> reported = EnumSet.noneOf(Precondition.class);
         verified |= isVerdict(root);
         for (Binding binding : BINDINGS) {
+            if (binding.beforePreconditions().test(ctx)) {
+                RuleOutcome outcome = binding.rule().evaluate(ctx);
+                verified |= isVerdict(outcome);
+                report(out, ctx, binding.rule(), outcome, NotEvaluatedCause.RULE_SPECIFIC);
+                continue;
+            }
             if (operationDate == null && dependsOnDatedTable(binding)) {
                 // GROUP_REQUIRED já registrou a causa-raiz única da data ausente. Estas regras
                 // não podem consultar a tabela; bindings sem essa dependência seguem abaixo.

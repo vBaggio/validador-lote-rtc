@@ -24,11 +24,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ClassTribConditionalRulesTest {
 
     private static final LocalDate DATA = LocalDate.of(2026, 8, 4);
+    private static FiscalTables tables;
     private static RuleEngine engine;
 
     @BeforeAll
     static void load() {
-        engine = new RuleEngine(FiscalTables.load());
+        tables = FiscalTables.load();
+        engine = new RuleEngine(tables);
     }
 
     private static Stream<Arguments> regularTaxationMatrix() {
@@ -93,6 +95,20 @@ class ClassTribConditionalRulesTest {
     }
 
     @Test
+    void stockLossExceptionPrecedesUnavailableClassificationAndDateFor1172() {
+        assertThat(evaluate(document("55", "6", "07"), item("000", null)
+                .creditReversal(true, BigDecimal.ZERO, BigDecimal.ZERO)))
+                .noneMatch(f -> "UB116-10".equals(f.ruleId()));
+        assertThat(new CreditReversalForbiddenRule().evaluate(new RuleContext(
+                document("55", null, "6", "07"),
+                item("000", null).creditReversal(true, BigDecimal.ZERO, BigDecimal.ZERO).build(),
+                tables, null))).isInstanceOf(RuleOutcome.NaoAplicavel.class);
+        assertThat(evaluate(document("55", null, "6", "07"), item("000", "000001")
+                .creditReversal(true, BigDecimal.ZERO, BigDecimal.ZERO)))
+                .noneMatch(f -> "UB116-10".equals(f.ruleId()));
+    }
+
+    @Test
     void unreadableDebitTypeDoesNotLoseAPossibleStockLossException() {
         assertRuleNotEvaluated(evaluate(document("55", "6", null),
                 item("000", "000001").creditReversal(true, BigDecimal.ZERO, BigDecimal.ZERO)),
@@ -100,6 +116,14 @@ class ClassTribConditionalRulesTest {
         assertRuleNotEvaluated(evaluate(document("55", "6", "XX"),
                 item("200", "200054").creditReversal(true, BigDecimal.ZERO, BigDecimal.ZERO)),
                 "UB116-30");
+    }
+
+    @Test
+    void uncertainStockLossWithForbiddenClassLeaves1173NotEvaluated() {
+        assertRuleNotEvaluated(evaluate(document("55", "6", null),
+                item("000", "000001")), "UB116-20");
+        assertRuleNotEvaluated(evaluate(document("55", "6", "XX"),
+                item("000", "000001")), "UB116-20");
     }
 
     @Test
@@ -157,6 +181,33 @@ class ClassTribConditionalRulesTest {
         assertThat(evaluate(document("55", "1", null), item("000", "000001")
                 .presumedCredit(true).usedMovableGood(true, "1")))
                 .noneMatch(f -> "1175".equals(f.rejectionCode()));
+    }
+
+    @Test
+    void usedMovableGoodExceptionPrecedesUnavailableClassificationAndDate() {
+        assertThat(evaluate(document("55", "1", null), item("000", null)
+                .presumedCredit(true).usedMovableGood(true, "1")))
+                .noneMatch(f -> "UB120-20".equals(f.ruleId()));
+        assertThat(new PresumedCreditOperationForbiddenRule().evaluate(new RuleContext(
+                document("55", null, "1", null), item("000", null).presumedCredit(true)
+                        .usedMovableGood(true, "1").build(), tables, null)))
+                .isInstanceOf(RuleOutcome.NaoAplicavel.class);
+        assertThat(evaluate(document("55", null, "1", null), item("000", "000001")
+                .presumedCredit(true).usedMovableGood(true, "1")))
+                .noneMatch(f -> "UB120-20".equals(f.ruleId()));
+    }
+
+    @Test
+    void unreadableUsedMovableGoodPrecedesUnavailableClassificationAndDate() {
+        assertRuleNotEvaluated(evaluate(document("55", "1", null), item("000", null)
+                .presumedCredit(true).usedMovableGood(true, null)), "UB120-20");
+        assertRuleNotEvaluated(evaluate(document("55", null, "1", null), item("000", "000001")
+                .presumedCredit(true).usedMovableGood(true, "XX")), "UB120-20");
+        assertThat(new PresumedCreditOperationForbiddenRule().evaluate(new RuleContext(
+                document("55", null, "1", null), item("000", null).presumedCredit(true)
+                        .usedMovableGood(true, null).build(), tables, null)))
+                .isInstanceOfSatisfying(RuleOutcome.NaoAvaliado.class,
+                        outcome -> assertThat(outcome.motivo()).contains("indBemMovelUsado"));
     }
 
     @Test
