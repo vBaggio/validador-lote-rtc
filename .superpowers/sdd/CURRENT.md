@@ -14,7 +14,8 @@ podados para uma linha cada, conforme §8 de `workflow.md`.
   `bloco/11-indicadores-grupos`; Tasks 1–4 passaram em revisão independente após os fix loops
   documentados no ledger. Foram entregues as 17 RVs de presença, ausência e valor dos grupos
   superiores, com tabela SVRS completa, extração StAX com escopo fiscal estrito e limites
-  monofásicos explícitos (D-064/D-065). A auditoria de fechamento está no relatório scratch
+  monofásicos explícitos (D-064/D-065). Por D-065, 1131/1132, 1169 e 1172 ficam deliberadamente
+  sem veredito local em NFC-e até schema compatível, embora a NT liste esse modelo. A auditoria de fechamento está no relatório scratch
   `b11-task-5-report.md`; `./gradlew clean test --console=plain` passou localmente. Nenhum push ou
   PR foi feito. Próximo passo: revisão humana e PR da branch; não iniciar subgrupos monofásicos
   profundos antes de schema curado compatível.

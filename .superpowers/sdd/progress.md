@@ -21,12 +21,15 @@ com caminho oficial completo e identidade do `det` mais próximo. `DFeReferencia
 Task 3 (b11): complete (commits `7781709`, `0675ba8`, re-revisão PASS/PASS) — RVs 1151, 1116,
 1131, 1132, 1169, 1170, 1171, 1134, 1135, 1158 e 1159. ACHADOS: 1171 não depende de CST/tabela,
 1159 não aprova tipo de crédito ilegível, e bindings sem tabela não podem ser cortados por data
-operacional nula; corrigidos e protegidos por simulação de vigência.
+operacional nula; corrigidos e protegidos por simulação de vigência. LIMITE D-065: 1131/1132
+permanecem sem veredito local em NFC-e porque `gTransfCred` não existe no XSD 010e embarcado.
 
 Task 4 (b11): complete (commits `c2087b3`, `7983eb0`, re-revisão PASS/PASS) — RVs 1065, 1114,
 1172, 1173, 1174 e 1175. ACHADOS: exceções 07 e bem móvel usado precisam preceder tabela; metadado
 de débito incerto permanece não avaliado. Caminho de perda em estoque da 1173 é independente e não
-duplica achado.
+duplica achado. LIMITE D-065: apesar de a NT listar 1169 e 1172 também para NFC-e, o XSD 010e
+embarcado não admite `gAjusteCompet`/`gEstornoCred`; o motor deliberadamente limita esses vereditos
+locais à NF-e para não emitir julgamento contraditório. É falso negativo declarado, não lacuna oculta.
 
 Task 5 (b11): complete (handoff documental deste commit) — auditoria das 17 RVs, limite explícito
 dos subgrupos monofásicos e do `gMono` total, `clean test` e árvore conferidos. Nenhum push; próximo
