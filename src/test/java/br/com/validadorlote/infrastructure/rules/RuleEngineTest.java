@@ -136,7 +136,7 @@ class RuleEngineTest {
     private FiscalDocument doc(String crt, LocalDate data, String modelo, boolean compraGov,
             boolean hasIbsCbsTot) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                data, modelo, "NFe", crt, null, null, compraGov, null, hasIbsCbsTot, List.of());
+                data, modelo, "NFe", crt, "1", null, compraGov, null, hasIbsCbsTot, List.of());
     }
 
     /**
@@ -216,7 +216,7 @@ class RuleEngineTest {
     @Test
     void identicalGovernmentPurchaseCalculationLimitsAreReportedOnlyOncePerItem() {
         var document = new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", "100",
-                DATA, "55", "NFe", "3", null, null, true, new BigDecimal("5"), true, List.of());
+                DATA, "55", "NFe", "3", "1", null, true, new BigDecimal("5"), true, List.of());
         var findings = achados(document, item().cst("000").classTrib("000001")
                 .reducaoNasTresEsferas("0").tribCompraGov());
 

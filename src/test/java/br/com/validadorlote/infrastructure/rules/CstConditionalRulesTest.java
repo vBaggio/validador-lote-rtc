@@ -102,6 +102,15 @@ class CstConditionalRulesTest {
     }
 
     @Test
+    void monophaseRequiredUsesTheOperationalDateInsteadOfTheIssueDate() {
+        var document = document("55", BEFORE_MONO_REQUIRED, "1", null, null);
+
+        assertThat(evaluate(document, item("620"), MONO_REQUIRED))
+                .filteredOn(f -> "1116".equals(f.rejectionCode()))
+                .singleElement();
+    }
+
+    @Test
     void monophaseRequiredHonorsStockLossException() {
         assertThat(evaluate(document("55", MONO_REQUIRED, "1", null, "07"), item("620")))
                 .noneMatch(f -> "1116".equals(f.rejectionCode()));
@@ -175,6 +184,18 @@ class CstConditionalRulesTest {
     }
 
     @Test
+    void adjustmentValueDoesNotDependOnCstOrItsTableValidity() {
+        assertThat(evaluate(document("55", MONO_REQUIRED, "1", null, null),
+                item(null).adjustment(BigDecimal.ZERO, BigDecimal.ZERO)))
+                .filteredOn(f -> "1171".equals(f.rejectionCode()))
+                .singleElement();
+        assertThat(evaluate(document("55", MONO_REQUIRED, "1", null, null),
+                item("999").adjustment(BigDecimal.ZERO, BigDecimal.ZERO)))
+                .filteredOn(f -> "1171".equals(f.rejectionCode()))
+                .singleElement();
+    }
+
+    @Test
     void adjustmentValueIsNotEvaluatedWhenNoValueIsPositiveAndOneIsUnreadable() {
         assertRuleNotEvaluated(evaluate(document("55", MONO_REQUIRED, "1", null, null),
                 item("811").adjustment(BigDecimal.ZERO, null)), "UB112-30");
@@ -207,11 +228,21 @@ class CstConditionalRulesTest {
     }
 
     @Test
-    void absentOrUnreadableCreditNoteTypeIsNotTreatedAsDifferentFrom02() {
-        assertRuleNotEvaluated(evaluate(document("55", MONO_REQUIRED, "1", null, null),
+    void absentOrUnreadableCreditNoteTypeIsNotTreatedAsEqualToOrDifferentFrom02() {
+        assertRuleNotEvaluated(evaluate(creditDocument(null),
                 item("810").with(Group.ZFM_CREDIT, true)), "UB131-40");
-        assertRuleNotEvaluated(evaluate(document("55", MONO_REQUIRED, "1", "XX", null),
+        assertRuleNotEvaluated(evaluate(creditDocument("XX"),
                 item("810").with(Group.ZFM_CREDIT, true)), "UB131-40");
+        assertRuleNotEvaluated(evaluate(creditDocument(null),
+                item("810")), "UB131-50");
+        assertRuleNotEvaluated(evaluate(creditDocument("XX"),
+                item("810")), "UB131-50");
+    }
+
+    @Test
+    void missingCreditNoteTypeDoesNotCreateALimitForAKnownNormalPurpose() {
+        assertThat(evaluate(document("55", MONO_REQUIRED, "1", null, null), item("810")))
+                .noneMatch(f -> List.of("UB131-40", "UB131-50").contains(f.ruleId()));
     }
 
     @Test
@@ -224,21 +255,48 @@ class CstConditionalRulesTest {
     }
 
     @Test
-    void cstOutsideTableOrOutsideItsValidityProducesNoConditionalRejection() {
+    void cstOutsideTableOrValiditySuppressesOnlyTheCstDependentRules() {
         assertThat(evaluate(document("55", MONO_REQUIRED, "1", null, null),
                 item("999").with(Group.MONO, true)))
                 .noneMatch(f -> Group.allCstCodes().contains(f.rejectionCode()));
         assertThat(evaluate(document("55", MONO_REQUIRED, "1", null, null),
                 item("999").adjustment(BigDecimal.ZERO, BigDecimal.ZERO)))
-                .noneMatch(f -> "1171".equals(f.rejectionCode()));
+                .filteredOn(f -> "1171".equals(f.rejectionCode()))
+                .singleElement();
         assertThat(evaluate(document("55", LocalDate.of(2025, 9, 29), "1", null, null),
                 item("811").adjustment(BigDecimal.ZERO, BigDecimal.ZERO)))
-                .noneMatch(f -> Group.allCstCodes().contains(f.rejectionCode())
-                        || "1171".equals(f.rejectionCode()));
+                .satisfies(findings -> {
+                    assertThat(findings)
+                            .noneMatch(f -> Group.allCstCodes().contains(f.rejectionCode()));
+                    assertThat(findings).filteredOn(f -> "1171".equals(f.rejectionCode()))
+                            .singleElement();
+                });
+    }
+
+    @Test
+    void rulesWithoutTablePreconditionStillRunWhenOperationalDateIsMissing() {
+        assertThat(evaluate(document("55", null, "1", null, null),
+                item(null).adjustment(BigDecimal.ZERO, BigDecimal.ZERO)))
+                .filteredOn(f -> "1171".equals(f.rejectionCode()))
+                .singleElement();
+        assertThat(evaluate(creditDocument(null, "01"),
+                item("810").with(Group.ZFM_CREDIT, true)))
+                .filteredOn(f -> "1158".equals(f.rejectionCode()))
+                .singleElement();
+        assertThat(evaluate(creditDocument(null, "02"), item("810")))
+                .filteredOn(f -> "1159".equals(f.rejectionCode()))
+                .singleElement();
+
+        assertThat(evaluate(document("55", null, "1", null, null), item("620")))
+                .noneMatch(f -> "1116".equals(f.rejectionCode()));
     }
 
     private List<Finding> evaluate(FiscalDocument document, Item item) {
         return engine.evaluate(document, List.of(item.build())).findings();
+    }
+
+    private List<Finding> evaluate(FiscalDocument document, Item item, LocalDate operationDate) {
+        return engine.evaluate(document, List.of(item.build()), operationDate).findings();
     }
 
     private static void assertTargetCode(List<Finding> findings, List<String> targetCodes,
@@ -272,8 +330,19 @@ class CstConditionalRulesTest {
     private static FiscalDocument document(String model, LocalDate date, String tpAmb,
             String tpNFCredito, String tpNFDebito) {
         return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", null,
-                null, null, "100", date, model, null, "NFe", "3", null, tpNFDebito,
+                null, null, "100", date, model, null, "NFe", "3", "1", tpNFDebito,
                 tpAmb, tpNFCredito, false, null, true, null, null, null, null,
+                List.of(), Map.of());
+    }
+
+    private static FiscalDocument creditDocument(String tpNFCredito) {
+        return creditDocument(MONO_REQUIRED, tpNFCredito);
+    }
+
+    private static FiscalDocument creditDocument(LocalDate date, String tpNFCredito) {
+        return new FiscalDocument(Path.of("a.xml"), "chave", "14200166000187", null,
+                null, null, "100", date, "55", null, "NFe", "3", "5", null,
+                "1", tpNFCredito, false, null, true, null, null, null, null,
                 List.of(), Map.of());
     }
 

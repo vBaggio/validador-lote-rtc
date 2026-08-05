@@ -48,10 +48,14 @@ public final class ZfmCreditNoteTypeRule implements RejectionRule {
             return new RuleOutcome.NaoAplicavel("Grupo gCredPresIBSZFM já informado no item.");
         }
         String type = ctx.document().tpNFCredito();
-        if (direction == Direction.GROUP_FORBIDDEN
-                && (type == null || !VALID_CREDIT_NOTE_TYPES.contains(type))) {
+        if (type == null && ctx.document().finNFe() != null
+                && !"5".equals(ctx.document().finNFe())) {
+            return new RuleOutcome.NaoAplicavel("Documento não é NF-e de crédito (finNFe=5) e "
+                    + "não informa tpNFCredito; a " + ruleId() + " não se aplica.");
+        }
+        if (type == null || !VALID_CREDIT_NOTE_TYPES.contains(type)) {
             return new RuleOutcome.NaoAvaliado("Tipo de Nota de Crédito (ide/tpNFCredito) ausente "
-                    + "ou ilegível: não pode ser tratado como diferente de 02.");
+                    + "ou ilegível: não pode ser tratado como igual nem diferente de 02.");
         }
         boolean zfmCreditNote = "02".equals(type);
         if (direction == Direction.GROUP_FORBIDDEN) {

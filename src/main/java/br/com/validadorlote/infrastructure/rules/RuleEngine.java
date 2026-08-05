@@ -238,8 +238,7 @@ public final class RuleEngine {
                         entry -> entry.exigeAjusteCompetencia(), ItemTaxGroup::hasAjusteCompet,
                         CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
                 Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
-        bindings.add(binding(new AdjustmentPositiveValueRule(),
-                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new AdjustmentPositiveValueRule()));
         bindings.add(binding(new CstGroupPresenceRule("1134", "UB131-20",
                         "Rejeição: CST do IBS/CBS informado não permite informação do grupo para "
                                 + "apropriação de crédito presumido de IBS sobre o saldo devedor "
@@ -351,10 +350,10 @@ public final class RuleEngine {
 
         RuleOutcome root = GROUP_REQUIRED.evaluate(ctx);
         report(out, ctx, GROUP_REQUIRED, root, NotEvaluatedCause.RULE_SPECIFIC);
-        if (operationDate == null || !item.hasIbsCbsGroup()) {
-            // Os dois cortes de raiz da cascata. Sem a data do fato gerador nenhuma consulta à
-            // tabela é possível; sem o invólucro IBSCBS não existe subgrupo a julgar, e as dez
-            // regras restantes só saberiam repetir a causa que a 1115 acabou de reportar.
+        if (!item.hasIbsCbsGroup()) {
+            // Único corte global da cascata: sem o invólucro IBSCBS não existe subgrupo a julgar.
+            // Data ausente bloqueia só bindings que consultam tabela; 1171, 1158/1159 e outras
+            // regras independentes ainda têm todos os dados necessários para chegar a veredito.
             return isVerdict(root);
         }
 
@@ -362,6 +361,11 @@ public final class RuleEngine {
         EnumSet<Precondition> reported = EnumSet.noneOf(Precondition.class);
         verified |= isVerdict(root);
         for (Binding binding : BINDINGS) {
+            if (operationDate == null && dependsOnDatedTable(binding)) {
+                // GROUP_REQUIRED já registrou a causa-raiz única da data ausente. Estas regras
+                // não podem consultar a tabela; bindings sem essa dependência seguem abaixo.
+                continue;
+            }
             Precondition cause = rootCause(binding, missing);
             if (cause == null) {
                 RuleOutcome outcome = binding.rule().evaluate(ctx);
@@ -373,6 +377,11 @@ public final class RuleEngine {
             }
         }
         return verified;
+    }
+
+    private boolean dependsOnDatedTable(Binding binding) {
+        return binding.requires().contains(Precondition.CST_IN_TABLE)
+                || binding.requires().contains(Precondition.CLASS_TRIB_IN_TABLE);
     }
 
     /**
@@ -389,11 +398,12 @@ public final class RuleEngine {
             // e CST ausente é o caso mais óbvio de CST fora da tabela — uma regra futura que
             // dependa só da tabela seria roteada errado se aqui o conjunto mentisse.
             missing.add(Precondition.CST_IN_TABLE);
-        } else if (tables.cst(cst, operationDate).isEmpty()) {
+        } else if (operationDate == null || tables.cst(cst, operationDate).isEmpty()) {
             missing.add(Precondition.CST_IN_TABLE);
         }
         String classTrib = item.cClassTrib();
-        if (classTrib == null || tables.classTrib(classTrib, operationDate).isEmpty()) {
+        if (classTrib == null || operationDate == null
+                || tables.classTrib(classTrib, operationDate).isEmpty()) {
             missing.add(Precondition.CLASS_TRIB_IN_TABLE);
         }
         return missing;

@@ -29,18 +29,6 @@ public final class AdjustmentPositiveValueRule implements RejectionRule {
         if (!ctx.item().hasAjusteCompet()) {
             return new RuleOutcome.NaoAplicavel("Grupo gAjusteCompet não informado no item.");
         }
-        String cst = ctx.item().cst();
-        if (cst == null) {
-            return new RuleOutcome.NaoAvaliado("CST não informado no grupo IBS/CBS do item.");
-        }
-        if (ctx.operationDate() == null) {
-            return new RuleOutcome.NaoAvaliado("Data de emissão não encontrada no documento: sem "
-                    + "ela não dá para consultar a vigência do CST na tabela oficial.");
-        }
-        if (ctx.tables().cst(cst, ctx.operationDate()).isEmpty()) {
-            return new RuleOutcome.NaoAvaliado(
-                    "CST " + cst + " não consta na base embarcada para a data do documento.");
-        }
         BigDecimal ibs = ctx.item().ajusteCompetIbs();
         BigDecimal cbs = ctx.item().ajusteCompetCbs();
         if (positive(ibs) || positive(cbs)) {
