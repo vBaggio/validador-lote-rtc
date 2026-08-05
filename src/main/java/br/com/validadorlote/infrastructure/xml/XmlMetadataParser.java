@@ -277,8 +277,8 @@ public final class XmlMetadataParser {
         if (isFirst(stack, "mod", "ide")) return "mod";
         if (isFirst(stack, "serie", "ide")) return "serie";
         if (isFirst(stack, "dhEmi", "ide")) return "dhEmi";
-        if (isFirst(stack, "finNFe", "ide")) return "finNFe";
-        if (isFirst(stack, "tpNFDebito", "ide")) return "tpNFDebito";
+        if (isPath(stack, "finNFe", "ide", "infNFe")) return "finNFe";
+        if (isPath(stack, "tpNFDebito", "ide", "infNFe")) return "tpNFDebito";
         if (isPath(stack, "tpAmb", "ide", "infNFe")) return "tpAmb";
         if (isPath(stack, "tpNFCredito", "ide", "infNFe")) return "tpNFCredito";
         if (isFirst(stack, "refNFe", "NFref")) return "refNFe";
