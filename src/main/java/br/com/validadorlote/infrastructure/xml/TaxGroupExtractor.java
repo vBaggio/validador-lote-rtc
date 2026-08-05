@@ -228,6 +228,9 @@ public final class TaxGroupExtractor {
                 // Um homônimo de terceiro, ou um elemento oficial sob ramo estrangeiro, não
                 // pertence ao documento fiscal e não pode abrir nenhum dos estados abaixo.
                 if (!isOfficialPath(path)) continue;
+                // O det mais próximo governa a identidade do item. Um det falso aninhado em item
+                // real não pode herdar emDet nem os flags de prod/imposto do ancestral.
+                if (hasUnrecognizedNearestDet(path)) continue;
                 Esfera aberta = Esfera.of(nome);
                 if (aberta != null) {
                     // Só abre esfera dentro de um item: gIBSUF/gIBSMun/gCBS de
@@ -237,7 +240,7 @@ public final class TaxGroupExtractor {
                 }
                 switch (nome) {
                     case "det" -> {
-                        if (!isDirectChild(path, "det", "infNFe")) break;
+                        if (!isPath(path, "det", "infNFe")) break;
                         nItem = parseItem(r.getAttributeValue(null, "nItem"));
                         emIbsCbs = temGrupo = temGrupoInterno = false;
                         redUf = redMun = redCbs = false;
@@ -260,10 +263,10 @@ public final class TaxGroupExtractor {
                         emDet = true;
                     }
                     case "prod" -> {
-                        if (emDet && isDirectChild(path, "prod", "det")) emProd = true;
+                        if (emDet && isPath(path, "prod", "det", "infNFe")) emProd = true;
                     }
                     case "imposto" -> {
-                        if (emDet && isDirectChild(path, "imposto", "det")) emImposto = true;
+                        if (emDet && isPath(path, "imposto", "det", "infNFe")) emImposto = true;
                     }
                     case "IBSCBS" -> {
                         if (emImposto && isDirectChild(path, "IBSCBS", "imposto")) {
@@ -463,6 +466,10 @@ public final class TaxGroupExtractor {
                     path.pop();
                     continue;
                 }
+                if (hasUnrecognizedNearestDet(path)) {
+                    path.pop();
+                    continue;
+                }
                 String nome = r.getLocalName();
                 if (Esfera.of(nome) != null) esfera = null;
                 if ("IBSCBS".equals(nome) && isDirectChild(path, "IBSCBS", "imposto")) {
@@ -491,10 +498,11 @@ public final class TaxGroupExtractor {
                         && isDirectChild(path, "gAjusteCompet", "IBSCBS")) {
                     emAjusteCompet = false;
                 }
-                if ("prod".equals(nome) && isDirectChild(path, "prod", "det")) {
+                if ("prod".equals(nome) && isPath(path, "prod", "det", "infNFe")) {
                     emProd = false;
                 }
-                if ("imposto".equals(nome) && isDirectChild(path, "imposto", "det")) {
+                if ("imposto".equals(nome)
+                        && isPath(path, "imposto", "det", "infNFe")) {
                     emImposto = false;
                 }
                 if ("DFeReferenciado".equals(nome)) {
@@ -507,7 +515,7 @@ public final class TaxGroupExtractor {
                     }
                     emDFeReferenciado = false;
                 }
-                if ("det".equals(nome) && isDirectChild(path, "det", "infNFe")) {
+                if ("det".equals(nome) && isPath(path, "det", "infNFe")) {
                     // O item entra mesmo com nItem ilegível: descartá-lo o faria sumir do
                     // relatório inteiro — nem conforme, nem rejeitado, nem não avaliado.
                     itens.add(new ItemTaxGroup(nItem, temGrupo, temGrupoInterno, cst, classTrib,
@@ -575,9 +583,29 @@ public final class TaxGroupExtractor {
     }
 
     private boolean isDirectChild(Deque<ElementScope> path, String child, String parent) {
+        return isPath(path, child, parent);
+    }
+
+    private boolean isPath(Deque<ElementScope> path, String... names) {
         var iterator = path.iterator();
-        return iterator.hasNext() && child.equals(iterator.next().name())
-                && iterator.hasNext() && parent.equals(iterator.next().name());
+        for (String name : names) {
+            if (!iterator.hasNext() || !name.equals(iterator.next().name())) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Indica que o elemento atual está sob um {@code det} cujo pai não é {@code infNFe}.
+     * Considerar o det mais próximo, não apenas a existência de um ancestral válido, impede que
+     * um det aninhado herde o estado do item fiscal real.
+     */
+    private boolean hasUnrecognizedNearestDet(Deque<ElementScope> path) {
+        var iterator = path.iterator();
+        while (iterator.hasNext()) {
+            if (!"det".equals(iterator.next().name())) continue;
+            return !iterator.hasNext() || !"infNFe".equals(iterator.next().name());
+        }
+        return false;
     }
 
     private Integer parseItem(String v) {

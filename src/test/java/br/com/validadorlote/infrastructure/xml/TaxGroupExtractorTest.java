@@ -316,6 +316,31 @@ class TaxGroupExtractorTest {
     }
 
     @Test
+    void nestedDetDoesNotContaminateTheRecognizedItem(@TempDir Path dir) throws IOException {
+        Path xml = dir.resolve("det-aninhado.xml");
+        Files.writeString(xml, """
+                <NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe>
+                  <det nItem="1"><prod/><imposto><IBSCBS><CST>400</CST>
+                    <cClassTrib>400001</cClassTrib>
+                  </IBSCBS></imposto>
+                    <det nItem="99"><prod><indBemMovelUsado>1</indBemMovelUsado></prod>
+                      <imposto><IBSCBS><CST>620</CST><cClassTrib>620001</cClassTrib>
+                        <gIBSCBSMono/>
+                      </IBSCBS></imposto>
+                    </det>
+                  </det>
+                </infNFe></NFe>
+                """);
+
+        assertThat(extractor.extract(xml)).singleElement().satisfies(item -> {
+            assertThat(item.itemNumber()).isEqualTo(1);
+            assertThat(item.hasGIbsCbsMono()).isFalse();
+            assertThat(item.hasIndBemMovelUsado()).isFalse();
+            assertThat(item.indBemMovelUsado()).isNull();
+        });
+    }
+
+    @Test
     void fieldsRequireDirectParentAndNestedHomonymDoesNotCloseRealGroup(@TempDir Path dir)
             throws IOException {
         Path xml = dir.resolve("pais-diretos.xml");
