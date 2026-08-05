@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Roda as regras de rejeição sobre um documento, item a item.
@@ -162,6 +163,25 @@ public final class RuleEngine {
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new GroupRequiredByCstRule(),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new CstGroupPresenceRule("1151", "UB13-39",
+                                "Rejeição: Grupo IBS/CBS Monofásico informado indevidamente",
+                                entry -> entry.exigeMonofasia(), ItemTaxGroup::hasGIbsCbsMono,
+                                CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55", "65")),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new MonophaseGroupRequiredRule(),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new CstGroupPresenceRule("1131", "UB13-44",
+                                "Rejeição: Grupo de transferência de crédito informado indevidamente",
+                                entry -> entry.exigeTransferenciaCredito(),
+                                ItemTaxGroup::hasTransfCred,
+                                CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55")),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
+                binding(new CstGroupPresenceRule("1132", "UB13-45",
+                                "Rejeição: Grupo de transferência de crédito não informado",
+                                entry -> entry.exigeTransferenciaCredito(),
+                                ItemTaxGroup::hasTransfCred,
+                                CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
+                        Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ClassTribCstRule(),
                         Precondition.CST_PRESENT, Precondition.CLASS_TRIB_IN_TABLE),
                 binding(new ClassTribModelRule(),
@@ -208,6 +228,38 @@ public final class RuleEngine {
                 binding(new ComprasGovComposicaoRequiredRule(),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ComprasGovComposicaoForbiddenRule())));
+        bindings.add(binding(new CstGroupPresenceRule("1169", "UB112-10",
+                        "Rejeição: Grupo de Ajuste de Competência informado indevidamente",
+                        entry -> entry.exigeAjusteCompetencia(), ItemTaxGroup::hasAjusteCompet,
+                        CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new CstGroupPresenceRule("1170", "UB112-20",
+                        "Rejeição: Grupo de Ajuste de Competência não informado",
+                        entry -> entry.exigeAjusteCompetencia(), ItemTaxGroup::hasAjusteCompet,
+                        CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new AdjustmentPositiveValueRule(),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new CstGroupPresenceRule("1134", "UB131-20",
+                        "Rejeição: CST do IBS/CBS informado não permite informação do grupo para "
+                                + "apropriação de crédito presumido de IBS sobre o saldo devedor "
+                                + "na ZFM",
+                        entry -> entry.exigeCreditoPresumidoIbsZfm(),
+                        ItemTaxGroup::hasCredPresIbsZfm,
+                        CstGroupPresenceRule.Direction.FORBIDDEN, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new CstGroupPresenceRule("1135", "UB131-30",
+                        "Rejeição: CST do IBS/CBS informado exige a informação do grupo para "
+                                + "apropriação de crédito presumido de IBS sobre o saldo devedor "
+                                + "na ZFM",
+                        entry -> entry.exigeCreditoPresumidoIbsZfm(),
+                        ItemTaxGroup::hasCredPresIbsZfm,
+                        CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
+                Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
+        bindings.add(binding(new ZfmCreditNoteTypeRule(
+                ZfmCreditNoteTypeRule.Direction.GROUP_FORBIDDEN)));
+        bindings.add(binding(new ZfmCreditNoteTypeRule(
+                ZfmCreditNoteTypeRule.Direction.GROUP_REQUIRED)));
         return List.copyOf(bindings);
     }
 
