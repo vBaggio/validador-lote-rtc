@@ -186,6 +186,20 @@ public final class RuleEngine {
                         Precondition.CST_PRESENT, Precondition.CLASS_TRIB_IN_TABLE),
                 binding(new ClassTribModelRule(),
                         Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ClassTribGroupPresenceRule("1065", "UB68-10",
+                                "Rejeição: Classificação Tributária do IBS e da CBS informada "
+                                        + "obriga informação da tributação regular",
+                                entry -> entry.exigeTributacaoRegular(),
+                                ItemTaxGroup::hasTribRegular,
+                                ClassTribGroupPresenceRule.Direction.REQUIRED, Set.of("55", "65")),
+                        Precondition.CLASS_TRIB_IN_TABLE),
+                binding(new ClassTribGroupPresenceRule("1114", "UB68-11",
+                                "Rejeição: Classificação Tributária do IBS e da CBS informada não "
+                                        + "permite informação da tributação regular",
+                                entry -> entry.exigeTributacaoRegular(),
+                                ItemTaxGroup::hasTribRegular,
+                                ClassTribGroupPresenceRule.Direction.FORBIDDEN, Set.of("55", "65")),
+                        Precondition.CLASS_TRIB_IN_TABLE),
                 binding(new ReductionGroupRule(Esfera.UF),
                         Precondition.CST_PRESENT, Precondition.CST_IN_TABLE),
                 binding(new ReductionGroupRule(Esfera.MUNICIPIO),
@@ -239,6 +253,14 @@ public final class RuleEngine {
                         CstGroupPresenceRule.Direction.REQUIRED, Set.of("55")),
                 Precondition.CST_PRESENT, Precondition.CST_IN_TABLE));
         bindings.add(binding(new AdjustmentPositiveValueRule()));
+        bindings.add(binding(new CreditReversalForbiddenRule(),
+                Precondition.CLASS_TRIB_IN_TABLE));
+        bindings.add(binding(new CreditReversalRequiredByClassRule(),
+                Precondition.CLASS_TRIB_IN_TABLE));
+        bindings.add(binding(new CreditReversalRequiredByStockLossRule()));
+        bindings.add(binding(new CreditReversalPositiveValueRule()));
+        bindings.add(binding(new PresumedCreditOperationForbiddenRule(),
+                Precondition.CLASS_TRIB_IN_TABLE));
         bindings.add(binding(new CstGroupPresenceRule("1134", "UB131-20",
                         "Rejeição: CST do IBS/CBS informado não permite informação do grupo para "
                                 + "apropriação de crédito presumido de IBS sobre o saldo devedor "
